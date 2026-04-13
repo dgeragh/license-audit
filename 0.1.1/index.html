@@ -1,0 +1,1427 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Analyze dependency licenses and get actionable licensing guidance for Python projects">
+      
+      
+      
+        <link rel="canonical" href="https://dgeragh.github.io/license-audit/0.1.1/">
+      
+      
+      
+        <link rel="next" href="CHANGELOG/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>license-audit</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#license-audit" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="license-audit" class="md-header__button md-logo" aria-label="license-audit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            license-audit
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/dgeragh/license-audit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dgeragh/license-audit
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="CHANGELOG/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="user-guide/configuration/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="license-audit" class="md-nav__button md-logo" aria-label="license-audit" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    license-audit
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/dgeragh/license-audit" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    dgeragh/license-audit
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#analyze-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analyze dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-a-license-recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get a license recommendation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ci-policy-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI policy check
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CI policy check">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#github-actions-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Actions example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-a-compliance-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate a compliance report
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-a-third-party-notices-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate a third-party notices file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update-osadl-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update OSADL data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dependency-group-selectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency group selectors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#target-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comparison-with-other-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison with other tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="user-guide/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="user-guide/ci-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#analyze-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analyze dependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-a-license-recommendation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get a license recommendation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ci-policy-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI policy check
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CI policy check">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#github-actions-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Actions example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-a-compliance-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate a compliance report
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generate-a-third-party-notices-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generate a third-party notices file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update-osadl-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update OSADL data
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dependency-group-selectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency group selectors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#target-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comparison-with-other-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparison with other tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="license-audit">license-audit<a class="headerlink" href="#license-audit" title="Permanent link">&para;</a></h1>
+<p><strong>Analyze dependency licenses and get actionable licensing guidance for Python projects.</strong></p>
+<p>license-audit goes beyond simply listing dependency licenses. It tells you what license your project needs, flags incompatible combinations, and generates compliance documents.</p>
+<h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>License Detection</strong> - Automatically detects licenses for all transitive dependencies using PEP 639 metadata, trove classifiers, and configurable overrides</li>
+<li><strong>Compatibility Analysis</strong> - Uses the <a href="https://www.osadl.org/Access-to-raw-data.oss-compliance-raw-data-access.0.html">OSADL compatibility matrix</a> (123 licenses) to check whether your dependency licenses are compatible with each other</li>
+<li><strong>License Recommendations</strong> - Tells you the most permissive license your project can use given its dependencies</li>
+<li><strong>Compliance Reports</strong> - Generate Markdown, JSON, or third-party notices reports documenting your project's license posture</li>
+<li><strong>CI Integration</strong> - <code>license-audit check</code> provides exit codes suitable for CI/CD pipelines</li>
+<li><strong>Modern Tooling</strong> - First-class support for uv, pyproject.toml, and PEP 639</li>
+</ul>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>license-audit
+</code></pre></div>
+<p>Or with <a href="https://docs.astral.sh/uv/">uv</a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span>license-audit<span class="w"> </span>--dev
+</code></pre></div>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
+<h3 id="analyze-dependencies">Analyze dependencies<a class="headerlink" href="#analyze-dependencies" title="Permanent link">&para;</a></h3>
+<p>By default, license-audit analyzes the current Python environment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>license-audit<span class="w"> </span>analyze
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>license-audit<span class="w"> </span>analyze<span class="w"> </span>--format<span class="w"> </span>json<span class="w">    </span><span class="c1"># JSON output</span>
+</code></pre></div>
+<p>Use <code>--target</code> to point at a specific project directory, dependency file, or virtual environment:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>license-audit<span class="w"> </span>--target<span class="w"> </span>.<span class="w">                        </span><span class="c1"># auto-detect from current dir</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>license-audit<span class="w"> </span>--target<span class="w"> </span>/path/to/project<span class="w">         </span><span class="c1"># auto-detect from project dir</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>license-audit<span class="w"> </span>--target<span class="w"> </span>/path/to/uv.lock<span class="w">         </span><span class="c1"># parse a specific lockfile</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>license-audit<span class="w"> </span>--target<span class="w"> </span>/path/to/requirements.txt<span class="w">  </span><span class="c1"># parse a requirements file</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>license-audit<span class="w"> </span>--target<span class="w"> </span>/path/to/.venv<span class="w">           </span><span class="c1"># analyze an existing venv directly</span>
+</code></pre></div>
+<p>When given a dependency file or project directory, license-audit creates a temporary environment with uv, installs the dependencies, and analyzes that environment. When given a venv, it analyzes directly without creating anything.</p>
+<p>Example output:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>license-audit<span class="w"> </span>analyze
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>──────────────────── License Analysis: my-project ────────────────────
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>                        Dependency Licenses
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>┏━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┓
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>┃ Package  ┃ Version ┃ License      ┃ Category   ┃ Source ┃ Parent   ┃
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>┡━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━┩
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>│ click    │ 8.1.7   │ BSD-3-Clause │ permissive │ pep639 │ (direct) │
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>│ pydantic │ 2.9.2   │ MIT          │ permissive │ pep639 │ (direct) │
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>│ rich     │ 13.9.4  │ MIT          │ permissive │ pep639 │ (direct) │
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>│ requests │ 2.32.3  │ Apache-2.0   │ permissive │ pep639 │ (direct) │
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>│ numpy    │ 1.26.4  │ BSD-3-Clause │ permissive │ pep639 │ (direct) │
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>│ celery   │ 5.4.0   │ BSD-3-Clause │ permissive │ pep639 │ (direct) │
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>└──────────┴─────────┴──────────────┴────────────┴────────┴──────────┘
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>Recommended Outbound Licenses (most -&gt; least permissive):
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>  -&gt; MIT
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>     BSD-3-Clause
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>     Apache-2.0
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>     ISC
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>     0BSD
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>  ... and 84 more
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>──────────────────────────── Summary ────────────────────────────
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>  Total dependencies: 6
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>  Unknown licenses:   0
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>  Copyleft licenses:  0
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>  Policy check:       PASSED
+</code></pre></div>
+<h3 id="get-a-license-recommendation">Get a license recommendation<a class="headerlink" href="#get-a-license-recommendation" title="Permanent link">&para;</a></h3>
+<p>Find out the most permissive license your project can use:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>license-audit<span class="w"> </span>recommend
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>──────────────────── License Recommendation: my-project ────────────────────
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>Compatible licenses for your project:
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  -&gt; MIT (permissive) &lt;- recommended
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    BSD-3-Clause (permissive)
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    Apache-2.0 (permissive)
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    ISC (permissive)
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    0BSD (permissive)
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>+------------------------------------------------------------------------+
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>|                              Guidance                                  |
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>| All your dependencies use permissive licenses. You are free to choose  |
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>| any license, including proprietary.                                    |
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>|                                                                        |
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>| Common choices: MIT (simplest), Apache-2.0 (patent grant),             |
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>| BSD-3-Clause (attribution).                                            |
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>+------------------------------------------------------------------------+
+</code></pre></div>
+<p>When your dependencies include copyleft licenses, the recommendation adapts:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>──────────────────── License Recommendation: my-project ────────────────────
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>Most restrictive dependency: pandas-stubs (GPL-3.0-or-later)
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>  Your entire project must use a compatible copyleft license.
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>Compatible licenses for your project:
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>  -&gt; GPL-3.0-or-later (strong-copyleft) &lt;- recommended
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    GPL-3.0-only (strong-copyleft)
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    AGPL-3.0-only (network-copyleft)
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    AGPL-3.0-or-later (network-copyleft)
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>+------------------------------------------------------------------------+
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>|                              Guidance                                  |
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>| You have strong-copyleft dependencies (e.g., GPL). Your entire project |
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>| must be licensed under a GPL-compatible license.                       |
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>|                                                                        |
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>| If this is not acceptable, you must find alternative dependencies with |
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>| permissive licenses.                                                   |
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>+------------------------------------------------------------------------+
+</code></pre></div>
+<h3 id="ci-policy-check">CI policy check<a class="headerlink" href="#ci-policy-check" title="Permanent link">&para;</a></h3>
+<p>Use <code>license-audit check</code> in CI pipelines for automated compliance gating:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>license-audit<span class="w"> </span>check
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>license-audit<span class="w"> </span>check<span class="w"> </span>--no-fail-on-unknown<span class="w">     </span><span class="c1"># allow unknown licenses</span>
+</code></pre></div>
+<p>Override the policy level from the command line (takes precedence over <code>pyproject.toml</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>license-audit<span class="w"> </span>--policy<span class="w"> </span>permissive<span class="w"> </span>check<span class="w">          </span><span class="c1"># only permissive licenses allowed</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>license-audit<span class="w"> </span>--policy<span class="w"> </span>weak-copyleft<span class="w"> </span>check<span class="w">       </span><span class="c1"># allow LGPL, MPL, etc.</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>license-audit<span class="w"> </span>--policy<span class="w"> </span>strong-copyleft<span class="w"> </span>check<span class="w">     </span><span class="c1"># allow GPL, etc.</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>license-audit<span class="w"> </span>--policy<span class="w"> </span>network-copyleft<span class="w"> </span>check<span class="w">    </span><span class="c1"># allow AGPL, etc.</span>
+</code></pre></div>
+<p>Exit codes:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>All dependencies pass the license policy</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Policy violation (incompatible or denied licenses)</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Unknown licenses detected (when <code>fail-on-unknown = true</code>)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="github-actions-example">GitHub Actions example<a class="headerlink" href="#github-actions-example" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">jobs</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">license-check</span><span class="p">:</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">steps</span><span class="p">:</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/checkout@v4</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">astral-sh/setup-uv@v5</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv sync --locked</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv run license-audit check</span>
+</code></pre></div>
+<h3 id="generate-a-compliance-report">Generate a compliance report<a class="headerlink" href="#generate-a-compliance-report" title="Permanent link">&para;</a></h3>
+<p>Produce a Markdown or JSON compliance document:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>license-audit<span class="w"> </span>report<span class="w"> </span>--output<span class="w"> </span>COMPLIANCE.md
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>license-audit<span class="w"> </span>report<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>--output<span class="w"> </span>compliance.json
+</code></pre></div>
+<p>The Markdown report includes a dependency table, classification breakdown, compatibility analysis, recommended licenses, and action items.</p>
+<h3 id="generate-a-third-party-notices-file">Generate a third-party notices file<a class="headerlink" href="#generate-a-third-party-notices-file" title="Permanent link">&para;</a></h3>
+<p>Bundle all dependency license texts into a single attribution file for distribution with your software:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>license-audit<span class="w"> </span>report<span class="w"> </span>--format<span class="w"> </span>notices<span class="w"> </span>--output<span class="w"> </span>THIRD_PARTY_NOTICES.md
+</code></pre></div>
+<p>The notices file includes the full license text for each dependency, pulled from PEP 639 <code>License-File</code> metadata or common license file names (LICENSE, COPYING, NOTICE) in each package's dist-info directory.</p>
+<h3 id="update-osadl-data">Update OSADL data<a class="headerlink" href="#update-osadl-data" title="Permanent link">&para;</a></h3>
+<p>Refresh the bundled OSADL compatibility matrix with the latest upstream data:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>license-audit<span class="w"> </span>refresh
+</code></pre></div>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>Add to your <code>pyproject.toml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">[tool.license-audit]</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">fail-on-unknown</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w">                  </span><span class="c1"># fail check when licenses can&#39;t be detected</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">policy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;permissive&quot;</span><span class="w">                   </span><span class="c1"># &quot;permissive&quot; | &quot;weak-copyleft&quot; | &quot;strong-copyleft&quot; | &quot;network-copyleft&quot;</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">allowed-licenses</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;MIT&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Apache-2.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;BSD-3-Clause&quot;</span><span class="p">]</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">denied-licenses</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;GPL-3.0-only&quot;</span><span class="p">]</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="n">dependency-groups</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;main&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;optional:api&quot;</span><span class="p">]</span><span class="w">  </span><span class="c1"># only check specific groups (default: all)</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="k">[tool.license-audit.overrides]</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="n">some-internal-package</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;MIT&quot;</span><span class="w">           </span><span class="c1"># manual override for undetectable licenses</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="n">dual-licensed-pkg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Apache-2.0 OR MIT&quot;</span><span class="w"> </span><span class="c1"># SPDX expressions supported</span>
+</code></pre></div>
+<h4 id="dependency-group-selectors">Dependency group selectors<a class="headerlink" href="#dependency-group-selectors" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Selector</th>
+<th>Maps to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>main</code></td>
+<td><code>[project.dependencies]</code></td>
+</tr>
+<tr>
+<td><code>optional:&lt;name&gt;</code></td>
+<td><code>[project.optional-dependencies.&lt;name&gt;]</code></td>
+</tr>
+<tr>
+<td><code>group:&lt;name&gt;</code></td>
+<td><code>[dependency-groups.&lt;name&gt;]</code> (PEP 735)</td>
+</tr>
+<tr>
+<td><code>dev</code></td>
+<td><code>[tool.uv.dev-dependencies]</code></td>
+</tr>
+</tbody>
+</table>
+<p>CLI override (repeatable):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>license-audit<span class="w"> </span>--dependency-groups<span class="w"> </span>main<span class="w"> </span>--dependency-groups<span class="w"> </span>group:test<span class="w"> </span>check
+</code></pre></div>
+<h3 id="target-resolution">Target resolution<a class="headerlink" href="#target-resolution" title="Permanent link">&para;</a></h3>
+<p>The <code>--target</code> flag determines what to analyze. The source type is inferred automatically:</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>(none)</em></td>
+<td>Analyze the current Python environment directly</td>
+</tr>
+<tr>
+<td>Project directory</td>
+<td>Auto-detect: tries <code>uv.lock</code> -&gt; <code>requirements.txt</code> -&gt; <code>pyproject.toml</code> -&gt; <code>.venv</code></td>
+</tr>
+<tr>
+<td><code>uv.lock</code></td>
+<td>Parse lockfile, create temp environment, analyze</td>
+</tr>
+<tr>
+<td><code>requirements.txt</code></td>
+<td>Parse requirements, create temp environment, analyze</td>
+</tr>
+<tr>
+<td><code>pyproject.toml</code></td>
+<td>Parse <code>[project.dependencies]</code>, optional-dependencies, dependency-groups, and <code>[tool.uv.dev-dependencies]</code>, create temp environment, analyze</td>
+</tr>
+<tr>
+<td><code>.venv</code> directory</td>
+<td>Analyze the venv directly (no temp environment)</td>
+</tr>
+</tbody>
+</table>
+<p>In all cases, <code>[tool.license-audit]</code> configuration is loaded from the target project's <code>pyproject.toml</code>.</p>
+<h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Parse</strong> - Reads your dependency specifier (<code>uv.lock</code>, <code>requirements.txt</code>, <code>pyproject.toml</code>, or an existing environment)</li>
+<li><strong>Provision</strong> - Creates a temporary environment with uv and installs the dependencies (skipped when analyzing a venv or the current environment directly)</li>
+<li><strong>Detect</strong> - Walks <code>site-packages</code>, reading each package's METADATA to identify licenses (PEP 639 <code>License-Expression</code>, <code>License</code> field, trove classifiers, or user overrides)</li>
+<li><strong>Classify</strong> - Categorizes licenses as permissive, weak-copyleft, strong-copyleft, or network-copyleft using OSADL copyleft data</li>
+<li><strong>Analyze</strong> - Checks pairwise compatibility using the OSADL matrix and identifies conflicts. For OR expressions (e.g., <code>MIT OR GPL-2.0</code>), picks the most permissive alternative</li>
+<li><strong>Recommend</strong> - Determines the most permissive outbound license that satisfies all dependency constraints</li>
+<li><strong>Report</strong> - Presents findings as terminal output, Markdown, or JSON with actionable guidance</li>
+</ol>
+<h2 id="comparison-with-other-tools">Comparison with other tools<a class="headerlink" href="#comparison-with-other-tools" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>license-audit</th>
+<th><a href="https://github.com/nexB/scancode-toolkit">ScanCode</a></th>
+<th><a href="https://github.com/raimon49/pip-licenses">pip-licenses</a></th>
+<th><a href="https://github.com/dhatim/python-liccheck">liccheck</a></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>License detection from package metadata</td>
+<td>Yes</td>
+<td>No (file-level)</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>File-level license scanning</td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Pairwise compatibility analysis (OSADL)</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Outbound license recommendation</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Transitive dependency tree with parents</td>
+<td>Yes</td>
+<td>N/A</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Dual-license resolution (OR expressions)</td>
+<td>Yes (picks most permissive)</td>
+<td>N/A</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>CI policy gating with exit codes</td>
+<td>Yes</td>
+<td>Via scripting</td>
+<td>Via flags</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Compliance report generation</td>
+<td>Markdown, JSON, notices</td>
+<td>JSON, HTML, CSV, SPDX</td>
+<td>CSV, JSON, Markdown</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Allow/deny lists</td>
+<td>Yes</td>
+<td>Via scripting</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Dependency group filtering</td>
+<td>Yes (main, dev, optional, PEP 735)</td>
+<td>N/A</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Language support</td>
+<td>Python</td>
+<td>Any</td>
+<td>Python</td>
+<td>Python</td>
+</tr>
+<tr>
+<td><code>pyproject.toml</code> configuration</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>uv / PEP 639 support</td>
+<td>Yes</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p><strong>In short:</strong> license-audit is designed for Python teams that want actionable compliance guidance, not just "what licenses do I have?" but "what can I ship, and do my dependencies conflict?" If you need file-level scanning across a polyglot codebase, ScanCode is the right tool for that job and complements license-audit well.</p>
+<h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
+<ul>
+<li>
+<p><strong>Package-level detection only</strong> - license-audit reads the license declared in package metadata (PEP 639, <code>License</code> field, trove classifiers). It does not scan <code>THIRD_PARTY_NOTICES</code>, <code>NOTICE</code>, or <code>LICENSE</code> files inside dependencies, and cannot detect bundled/vendored code with a different license than the package declares. For file-level license scanning, see <a href="https://github.com/nexB/scancode-toolkit">ScanCode</a>.</p>
+</li>
+<li>
+<p><strong>OSADL matrix coverage</strong> - The OSADL compatibility matrix covers 123 well-known open-source licenses. Niche, custom, or proprietary licenses will produce "Unknown" compatibility verdicts. Use <code>[tool.license-audit.overrides]</code> to manually assign SPDX identifiers when detection fails.</p>
+</li>
+<li>
+<p><strong>License string normalization</strong> - PyPI packages use wildly inconsistent license strings. license-audit maps 50+ common aliases to SPDX identifiers, but uncommon or malformed strings may not be recognized and will be reported as UNKNOWN. Overrides can fill these gaps.</p>
+</li>
+<li>
+<p><strong>requirements.txt is flat</strong> - When analyzing a <code>requirements.txt</code>, only direct dependencies listed in the file are parsed. Transitive dependencies are resolved by installing into a temporary environment, but the initial spec list comes from the file as written.</p>
+</li>
+<li>
+<p><strong>uv.lock format stability</strong> - <code>uv.lock</code> does not have a formal specification. The parser supports version 1 of the lock format and will fail explicitly on unrecognized versions.</p>
+</li>
+<li>
+<p><strong>Environment markers</strong> - Dependency markers (platform, Python version, extras) are evaluated against the current runtime environment. Dependencies that are conditional on a different platform or Python version will not be included.</p>
+</li>
+<li>
+<p><strong>uv required for temp environments</strong> - When analyzing a dependency file or project directory (rather than a venv or the current environment), license-audit creates a temporary environment using uv. If uv is not installed, these targets will fail. Direct venv and current-environment analysis do not require uv.</p>
+</li>
+<li>
+<p><strong>No legal advice</strong> - license-audit provides informational analysis based on OSADL compatibility data. It is not a substitute for legal review. License compatibility can depend on distribution method, linking type, and jurisdiction - factors this tool does not evaluate.</p>
+</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "search.suggest", "content.code.copy"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
