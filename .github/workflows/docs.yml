@@ -29,4 +29,6 @@ jobs:
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy docs
-        run: uv run mike deploy --push --update-aliases ${{ steps.version.outputs.version }} latest
+        run: |
+          uv run mike deploy --push --update-aliases ${{ steps.version.outputs.version }} latest
+          uv run mike set-default --push latest
