@@ -8,7 +8,7 @@ from rich.markup import escape
 from rich.panel import Panel
 
 from license_audit.cli._common import resolve_config
-from license_audit.core.analyzer import analyze
+from license_audit.core.analyzer import LicenseAuditor
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import (
     CATEGORY_RANK,
@@ -36,7 +36,7 @@ def recommend_cmd(ctx: click.Context) -> None:
     console = Console()
     target, config = resolve_config(ctx)
 
-    report = analyze(target=target, config=config)
+    report = LicenseAuditor().run(target=target, config=config)
 
     console.print()
     console.rule(f"[bold]License Recommendation: {report.project_name}[/bold]")

@@ -36,14 +36,16 @@ _MIT_PKG = PackageLicense(
 class TestReportCli:
     def test_markdown_output(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
-        with patch("license_audit.cli.report.analyze", return_value=report):
+        with patch("license_audit.cli.report.LicenseAuditor") as _m:
+            _m.return_value.run.return_value = report
             result = CliRunner().invoke(cli, ["report"])
         assert result.exit_code == 0
         assert "test-project" in result.output
 
     def test_json_output(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
-        with patch("license_audit.cli.report.analyze", return_value=report):
+        with patch("license_audit.cli.report.LicenseAuditor") as _m:
+            _m.return_value.run.return_value = report
             result = CliRunner().invoke(cli, ["report", "--format", "json"])
         assert result.exit_code == 0
         assert '"project_name"' in result.output
@@ -51,7 +53,8 @@ class TestReportCli:
     def test_output_to_file(self, tmp_path) -> None:
         report = _make_report(packages=[_MIT_PKG])
         out = tmp_path / "report.md"
-        with patch("license_audit.cli.report.analyze", return_value=report):
+        with patch("license_audit.cli.report.LicenseAuditor") as _m:
+            _m.return_value.run.return_value = report
             result = CliRunner().invoke(cli, ["report", "--output", str(out)])
         assert result.exit_code == 0
         assert out.exists()
@@ -59,7 +62,8 @@ class TestReportCli:
 
     def test_notices_output(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
-        with patch("license_audit.cli.report.analyze", return_value=report):
+        with patch("license_audit.cli.report.LicenseAuditor") as _m:
+            _m.return_value.run.return_value = report
             result = CliRunner().invoke(cli, ["report", "--format", "notices"])
         assert result.exit_code == 0
         assert "Third-Party Notices" in result.output
@@ -76,7 +80,8 @@ class TestReportCli:
         )
         report = _make_report(packages=[pkg])
         out = tmp_path / "THIRD_PARTY_NOTICES.md"
-        with patch("license_audit.cli.report.analyze", return_value=report):
+        with patch("license_audit.cli.report.LicenseAuditor") as _m:
+            _m.return_value.run.return_value = report
             result = CliRunner().invoke(
                 cli, ["report", "--format", "notices", "--output", str(out)]
             )
@@ -96,9 +101,10 @@ class TestReportCli:
 class TestReportPolicyFlag:
     def test_policy_passed_to_analyzer(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
-        with patch("license_audit.cli.report.analyze", return_value=report) as mock:
+        with patch("license_audit.cli.report.LicenseAuditor") as mock:
+            mock.return_value.run.return_value = report
             result = CliRunner().invoke(cli, ["--policy", "strong-copyleft", "report"])
         assert result.exit_code == 0
-        config = mock.call_args.kwargs.get("config") or mock.call_args[1].get("config")
+        config = mock.return_value.run.call_args.kwargs.get("config")
         assert config is not None
         assert config.policy == "strong-copyleft"

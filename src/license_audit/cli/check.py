@@ -10,7 +10,7 @@ from rich.markup import escape
 
 from license_audit.cli._common import resolve_config
 from license_audit.config import LicenseAuditConfig
-from license_audit.core.analyzer import analyze
+from license_audit.core.analyzer import LicenseAuditor
 from license_audit.core.models import (
     UNKNOWN_LICENSE,
     AnalysisReport,
@@ -90,7 +90,7 @@ def check_cmd(ctx: click.Context, fail_on_unknown: bool | None) -> None:
     if fail_on_unknown is not None:
         config.fail_on_unknown = fail_on_unknown
 
-    report = analyze(target=target, config=config)
+    report = LicenseAuditor().run(target=target, config=config)
 
     unknown_pkgs = [
         p

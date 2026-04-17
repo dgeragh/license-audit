@@ -5,7 +5,7 @@ from __future__ import annotations
 import click
 
 from license_audit.cli._common import resolve_config
-from license_audit.core.analyzer import analyze
+from license_audit.core.analyzer import LicenseAuditor
 from license_audit.reports.json_report import JsonRenderer
 from license_audit.reports.terminal import TerminalRenderer
 
@@ -23,7 +23,7 @@ def analyze_cmd(ctx: click.Context, output_format: str) -> None:
     """Scan dependencies and show license analysis."""
     target, config = resolve_config(ctx)
 
-    report = analyze(target=target, config=config)
+    report = LicenseAuditor().run(target=target, config=config)
 
     if output_format == "json":
         click.echo(JsonRenderer().render(report))

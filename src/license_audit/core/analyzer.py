@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,14 +12,11 @@ from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import (
     CATEGORY_RANK,
     UNKNOWN_LICENSE,
-    ActionItem,
     AnalysisReport,
-    CompatibilityResult,
-    LicenseCategory,
-    LicensePolicy,
+    DependencyNode,
     PackageLicense,
-    PolicyLevel,
 )
+from license_audit.core.policy import PolicyEngine
 from license_audit.core.recommender import LicenseRecommender
 from license_audit.environment.analyze import (
     analyze_environment,
@@ -29,24 +27,6 @@ from license_audit.licenses.spdx import SpdxNormalizer
 from license_audit.sources.base import PackageSpec, Source
 from license_audit.sources.factory import SourceFactory
 from license_audit.util import canonicalize, get_license_text
-
-_classifier = LicenseClassifier()
-_matrix = CompatibilityMatrix()
-_normalizer = SpdxNormalizer(matrix=_matrix)
-_recommender = LicenseRecommender(
-    matrix=_matrix,
-    classifier=_classifier,
-    normalizer=_normalizer,
-)
-_source_factory = SourceFactory()
-_provisioner = EnvironmentProvisioner()
-
-_POLICY_MAX_RANK: dict[PolicyLevel, int] = {
-    PolicyLevel.PERMISSIVE: CATEGORY_RANK[LicenseCategory.PERMISSIVE],
-    PolicyLevel.WEAK_COPYLEFT: CATEGORY_RANK[LicenseCategory.WEAK_COPYLEFT],
-    PolicyLevel.STRONG_COPYLEFT: CATEGORY_RANK[LicenseCategory.STRONG_COPYLEFT],
-    PolicyLevel.NETWORK_COPYLEFT: CATEGORY_RANK[LicenseCategory.NETWORK_COPYLEFT],
-}
 
 
 @dataclass
@@ -70,8 +50,10 @@ class TargetResolver:
         self._provisioner = provisioner or EnvironmentProvisioner()
 
     def resolve(self, target: Path | None) -> TargetInfo:
-        """Resolve ``target`` into a ``TargetInfo``. Raises ``FileNotFoundError``
-        if ``target`` points nowhere, ``ValueError`` if it's an unrecognized file.
+        """Resolve ``target`` into a ``TargetInfo``.
+
+        Raises ``FileNotFoundError`` if ``target`` points nowhere, or
+        ``ValueError`` if it's an unrecognized file.
         """
         if target is None:
             return TargetInfo(config_dir=Path.cwd())
@@ -107,309 +89,182 @@ class TargetResolver:
         raise FileNotFoundError(msg)
 
 
-_target_resolver = TargetResolver(_source_factory, _provisioner)
+class LicenseAuditor:
+    """Top-level orchestrator that produces an ``AnalysisReport``.
 
-
-def analyze(
-    target: Path | None = None,
-    config: LicenseAuditConfig | None = None,
-) -> AnalysisReport:
-    """Run a full license analysis.
-
-    Args:
-        target: Path to a project dir, dependency file, or venv.
-            None means analyze the current environment.
-        config: Optional pre-loaded config (loads from pyproject.toml if None).
-
-    Returns:
-        A complete AnalysisReport.
+    Each collaborator is injected via the constructor so tests can swap any
+    part of the pipeline. Default-constructed instances work without setup:
+    ``LicenseAuditor().run(target=Path('.'))``.
     """
-    info = _target_resolver.resolve(target)
 
-    if config is None:
-        config = load_config(info.config_dir)
-
-    project_name = get_project_name(info.config_dir)
-    overrides = dict(config.overrides)
-
-    # dependency_groups requires a source file to filter; it can't work
-    # when analyzing a live environment directly.
-    if (
-        config.dependency_groups
-        and info.source_path is None
-        and info.site_packages is None
-    ):
-        import warnings
-
-        warnings.warn(
-            "--dependency-groups has no effect without --target. "
-            "Specify a project directory or dependency file to enable group filtering.",
-            UserWarning,
-            stacklevel=2,
+    def __init__(
+        self,
+        resolver: TargetResolver | None = None,
+        source_factory: SourceFactory | None = None,
+        provisioner: EnvironmentProvisioner | None = None,
+        classifier: LicenseClassifier | None = None,
+        matrix: CompatibilityMatrix | None = None,
+        normalizer: SpdxNormalizer | None = None,
+        recommender: LicenseRecommender | None = None,
+        policy: PolicyEngine | None = None,
+    ) -> None:
+        self._matrix = matrix or CompatibilityMatrix()
+        self._classifier = classifier or LicenseClassifier()
+        self._normalizer = normalizer or SpdxNormalizer(matrix=self._matrix)
+        self._recommender = recommender or LicenseRecommender(
+            matrix=self._matrix,
+            classifier=self._classifier,
+            normalizer=self._normalizer,
+        )
+        self._policy = policy or PolicyEngine(
+            classifier=self._classifier,
+            normalizer=self._normalizer,
+        )
+        self._sources = source_factory or SourceFactory()
+        self._provisioner = provisioner or EnvironmentProvisioner()
+        self._resolver = resolver or TargetResolver(
+            source_factory=self._sources,
+            provisioner=self._provisioner,
         )
 
-    # Build source after config is loaded so dependency_groups is available
-    source: Source | None = None
-    if info.source_path is not None:
-        source = _source_factory.create(info.source_path, config.dependency_groups)
+    def run(
+        self,
+        target: Path | None = None,
+        config: LicenseAuditConfig | None = None,
+    ) -> AnalysisReport:
+        """Run a full license analysis and return the report."""
+        info = self._resolver.resolve(target)
 
-    # Provision environment and analyze
-    specs: list[PackageSpec] | None = None
-    env: ProvisionedEnv
-    if info.site_packages is not None:
-        env = _provisioner.from_venv(info.site_packages)
-    elif source is not None:
-        specs = source.parse()
-        env = _provisioner.temp(specs)
-    else:
-        env = _provisioner.current()
+        if config is None:
+            config = load_config(info.config_dir)
 
-    with env:
+        project_name = get_project_name(info.config_dir)
+        self._warn_if_groups_ignored(info, config)
+
+        source = self._build_source(info, config)
+        specs, env = self._provision(info, source)
+
+        with env:
+            tree = self._build_tree(
+                project_name,
+                env,
+                specs,
+                dict(config.overrides),
+            )
+            packages = tree.flatten()
+            self._classify_packages(packages)
+            self._collect_license_text(packages, env)
+
+            dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
+            dep_licenses = [p.license_expression for p in dep_packages]
+            dep_spdx_ids = self._extract_spdx_ids(dep_licenses)
+
+            recommended = self._recommender.recommend(dep_licenses)
+            incompatible = self._matrix.find_incompatible_pairs(dep_spdx_ids)
+            action_items = self._policy.build_action_items(
+                dep_packages,
+                incompatible,
+                config,
+            )
+            policy_passed = self._policy.check(
+                dep_packages,
+                self._policy.build_policy(config),
+            )
+
+        return AnalysisReport(
+            project_name=project_name,
+            packages=dep_packages,
+            incompatible_pairs=incompatible,
+            recommended_licenses=recommended,
+            action_items=action_items,
+            policy_passed=policy_passed,
+        )
+
+    def _warn_if_groups_ignored(
+        self,
+        info: TargetInfo,
+        config: LicenseAuditConfig,
+    ) -> None:
+        if (
+            config.dependency_groups
+            and info.source_path is None
+            and info.site_packages is None
+        ):
+            warnings.warn(
+                "--dependency-groups has no effect without --target. "
+                "Specify a project directory or dependency file to enable "
+                "group filtering.",
+                UserWarning,
+                stacklevel=3,
+            )
+
+    def _build_source(
+        self,
+        info: TargetInfo,
+        config: LicenseAuditConfig,
+    ) -> Source | None:
+        if info.source_path is None:
+            return None
+        return self._sources.create(info.source_path, config.dependency_groups)
+
+    def _provision(
+        self,
+        info: TargetInfo,
+        source: Source | None,
+    ) -> tuple[list[PackageSpec] | None, ProvisionedEnv]:
+        if info.site_packages is not None:
+            return None, self._provisioner.from_venv(info.site_packages)
+        if source is not None:
+            specs = source.parse()
+            return specs, self._provisioner.temp(specs)
+        return None, self._provisioner.current()
+
+    def _build_tree(
+        self,
+        project_name: str,
+        env: ProvisionedEnv,
+        specs: list[PackageSpec] | None,
+        overrides: dict[str, str],
+    ) -> DependencyNode:
         if specs is not None:
-            # Source-based: root project isn't installed, use known package list
             pkg_extras = {s.name: s.extras for s in specs if s.extras}
-            tree = analyze_installed_packages(
+            return analyze_installed_packages(
                 project_name,
                 env.site_packages,
                 [s.name for s in specs],
                 overrides,
                 pkg_extras,
             )
-        else:
-            # Venv or current env: root project may be installed
-            tree = analyze_environment(project_name, env.site_packages, overrides)
-        packages = tree.flatten()
+        return analyze_environment(project_name, env.site_packages, overrides)
 
-        # Classify each package
+    def _classify_packages(self, packages: list[PackageLicense]) -> None:
         for pkg in packages:
             if pkg.license_expression != UNKNOWN_LICENSE:
-                _classify_package(pkg)
+                self._classify_package(pkg)
 
-        # Collect license texts while the environment is still available
+    def _classify_package(self, pkg: PackageLicense) -> None:
+        simple = self._normalizer.get_simple_licenses(pkg.license_expression)
+        if len(simple) == 1:
+            pkg.category = self._classifier.classify(simple[0])
+        elif len(simple) > 1:
+            categories = [self._classifier.classify(s) for s in simple]
+            pkg.category = min(
+                categories,
+                key=lambda c: CATEGORY_RANK.get(c, 5),
+            )
+
+    def _collect_license_text(
+        self,
+        packages: list[PackageLicense],
+        env: ProvisionedEnv,
+    ) -> None:
         for pkg in packages:
             pkg.license_text = get_license_text(pkg.name, env.site_packages)
 
-        # Skip the root project itself for analysis
-        dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
-
-        # Collect license expressions
-        dep_licenses = [p.license_expression for p in dep_packages]
-        dep_spdx_ids = _extract_spdx_ids(dep_licenses)
-
-        # Check compatibility
-        recommended = _recommender.recommend(dep_licenses)
-
-        # Find incompatible pairs among dependencies
-        incompatible = _matrix.find_incompatible_pairs(dep_spdx_ids)
-
-        # Build action items
-        action_items = _build_action_items(dep_packages, incompatible, config)
-
-        # Apply policy
-        policy = _build_policy(config)
-        policy_passed = _check_policy(dep_packages, policy)
-
-    return AnalysisReport(
-        project_name=project_name,
-        packages=dep_packages,
-        incompatible_pairs=incompatible,
-        recommended_licenses=recommended,
-        action_items=action_items,
-        policy_passed=policy_passed,
-    )
-
-
-def _classify_package(pkg: PackageLicense) -> None:
-    """Classify a package's license category."""
-    simple = _normalizer.get_simple_licenses(pkg.license_expression)
-    if len(simple) == 1:
-        pkg.category = _classifier.classify(simple[0])
-    elif len(simple) > 1:
-        categories = [_classifier.classify(s) for s in simple]
-        # For OR expressions, pick the most permissive (lowest rank)
-        most_permissive = min(categories, key=lambda c: CATEGORY_RANK.get(c, 5))
-        pkg.category = most_permissive
-
-
-def _extract_spdx_ids(expressions: list[str]) -> list[str]:
-    """Extract unique SPDX IDs from a list of expressions, skipping UNKNOWN."""
-    ids: set[str] = set()
-    for expr in expressions:
-        if expr != UNKNOWN_LICENSE:
-            for lic in _normalizer.get_simple_licenses(expr):
-                ids.add(lic)
-    return list(ids)
-
-
-def _is_unknown(pkg: PackageLicense) -> bool:
-    """Check if a package has an unknown or unrecognized license."""
-    return (
-        pkg.license_expression == UNKNOWN_LICENSE
-        or pkg.category == LicenseCategory.UNKNOWN
-    )
-
-
-def _unknown_message(pkg: PackageLicense) -> str:
-    """Build a human-readable message for an unknown license."""
-    if pkg.license_expression == UNKNOWN_LICENSE:
-        detail = f"License for '{pkg.name}' could not be detected."
-    else:
-        detail = (
-            f"License '{pkg.license_expression}' for '{pkg.name}' "
-            f"is not a recognized SPDX expression."
-        )
-    return (
-        f"{detail} Add an override in [tool.license-audit.overrides] or check manually."
-    )
-
-
-def _denied_license_items(
-    packages: list[PackageLicense], denied_licenses: list[str]
-) -> list[ActionItem]:
-    """Build action items for packages using denied licenses."""
-    items: list[ActionItem] = []
-    denied_set = {d.lower() for d in denied_licenses}
-    for pkg in packages:
-        for lic in _normalizer.get_simple_licenses(pkg.license_expression):
-            if lic.lower() in denied_set:
-                items.append(
-                    ActionItem(
-                        severity="error",
-                        package=pkg.name,
-                        message=(
-                            f"Package '{pkg.name}' uses denied license '{lic}'. "
-                            f"Find an alternative or request an exemption."
-                        ),
-                    )
-                )
-    return items
-
-
-def _build_action_items(
-    packages: list[PackageLicense],
-    incompatible: list[CompatibilityResult],
-    config: LicenseAuditConfig,
-) -> list[ActionItem]:
-    """Generate action items from the analysis."""
-    items: list[ActionItem] = []
-
-    # Unknown licenses (literal "UNKNOWN" or unrecognized expressions)
-    for pkg in packages:
-        if _is_unknown(pkg):
-            items.append(
-                ActionItem(
-                    severity="warning",
-                    package=pkg.name,
-                    message=_unknown_message(pkg),
-                )
-            )
-
-    # Incompatible pairs
-    for pair in incompatible:
-        items.append(
-            ActionItem(
-                severity="error",
-                package="",
-                message=(
-                    f"Licenses '{pair.inbound}' and '{pair.outbound}' are mutually incompatible. "
-                    f"Dependencies using these licenses cannot coexist."
-                ),
-            )
-        )
-
-    if config.denied_licenses:
-        items.extend(_denied_license_items(packages, config.denied_licenses))
-
-    # Policy type violations
-    max_rank = _POLICY_MAX_RANK.get(config.policy)
-    for pkg in packages:
-        if _exceeds_policy_rank(pkg, max_rank):
-            items.append(
-                ActionItem(
-                    severity="error",
-                    package=pkg.name,
-                    message=(
-                        f"Package '{pkg.name}' uses {pkg.category.value} license "
-                        f"'{pkg.license_expression}', which violates the "
-                        f"'{config.policy}' policy."
-                    ),
-                )
-            )
-        elif pkg.category in (
-            LicenseCategory.STRONG_COPYLEFT,
-            LicenseCategory.NETWORK_COPYLEFT,
-        ):
-            items.append(
-                ActionItem(
-                    severity="warning",
-                    package=pkg.name,
-                    message=(
-                        f"Package '{pkg.name}' uses {pkg.category.value} license "
-                        f"'{pkg.license_expression}'. This may require your project to use "
-                        f"a compatible copyleft license."
-                    ),
-                )
-            )
-
-    return items
-
-
-def _build_policy(config: LicenseAuditConfig) -> LicensePolicy:
-    """Build a LicensePolicy from config."""
-    return LicensePolicy(
-        policy_type=config.policy,
-        allowed_licenses=config.allowed_licenses,
-        denied_licenses=config.denied_licenses,
-        fail_on_unknown=config.fail_on_unknown,
-    )
-
-
-def _exceeds_policy_rank(pkg: PackageLicense, max_rank: int | None) -> bool:
-    """Return True if a package's license category exceeds the policy threshold."""
-    if max_rank is None or pkg.category == LicenseCategory.UNKNOWN:
-        return False
-    return CATEGORY_RANK.get(pkg.category, 5) > max_rank
-
-
-def _check_policy(
-    packages: list[PackageLicense],
-    policy: LicensePolicy,
-) -> bool:
-    """Check if all packages satisfy the policy."""
-    max_rank = _POLICY_MAX_RANK.get(policy.policy_type)
-
-    denied_set = (
-        {d.lower() for d in policy.denied_licenses} if policy.denied_licenses else set()
-    )
-    allowed_set = (
-        {a.lower() for a in policy.allowed_licenses}
-        if policy.allowed_licenses
-        else set()
-    )
-
-    for pkg in packages:
-        if policy.fail_on_unknown and (
-            pkg.license_expression == UNKNOWN_LICENSE
-            or pkg.category == LicenseCategory.UNKNOWN
-        ):
-            return False
-
-        if _exceeds_policy_rank(pkg, max_rank):
-            return False
-
-        # Check denied list
-        if denied_set:
-            for lic in _normalizer.get_simple_licenses(pkg.license_expression):
-                if lic.lower() in denied_set:
-                    return False
-
-        # Check allowed list (if specified, only these are allowed)
-        if allowed_set:
-            for lic in _normalizer.get_simple_licenses(pkg.license_expression):
-                if (
-                    lic.lower() not in allowed_set
-                    and pkg.license_expression != UNKNOWN_LICENSE
-                ):
-                    return False
-
-    return True
+    def _extract_spdx_ids(self, expressions: list[str]) -> list[str]:
+        ids: set[str] = set()
+        for expr in expressions:
+            if expr != UNKNOWN_LICENSE:
+                for lic in self._normalizer.get_simple_licenses(expr):
+                    ids.add(lic)
+        return list(ids)
