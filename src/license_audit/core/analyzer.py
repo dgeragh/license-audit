@@ -6,10 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from license_audit.config import LicenseAuditConfig, get_project_name, load_config
-from license_audit.core.classifier import classify
-from license_audit.core.compatibility import (
-    find_incompatible_pairs,
-)
+from license_audit.core.classifier import LicenseClassifier
+from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import (
     CATEGORY_RANK,
     UNKNOWN_LICENSE,
@@ -39,6 +37,9 @@ from license_audit.sources.pyproject import PyprojectSource
 from license_audit.sources.requirements import RequirementsSource
 from license_audit.sources.uv_lock import UvLockSource
 from license_audit.util import canonicalize, get_license_text
+
+_classifier = LicenseClassifier()
+_matrix = CompatibilityMatrix()
 
 _POLICY_MAX_RANK: dict[PolicyLevel, int] = {
     PolicyLevel.PERMISSIVE: CATEGORY_RANK[LicenseCategory.PERMISSIVE],
@@ -147,7 +148,7 @@ def analyze(
         recommended = recommend_licenses(dep_licenses)
 
         # Find incompatible pairs among dependencies
-        incompatible = find_incompatible_pairs(dep_spdx_ids)
+        incompatible = _matrix.find_incompatible_pairs(dep_spdx_ids)
 
         # Build action items
         action_items = _build_action_items(dep_packages, incompatible, config)
@@ -251,9 +252,9 @@ def _classify_package(pkg: PackageLicense) -> None:
     """Classify a package's license category."""
     simple = get_simple_licenses(pkg.license_expression)
     if len(simple) == 1:
-        pkg.category = classify(simple[0])
+        pkg.category = _classifier.classify(simple[0])
     elif len(simple) > 1:
-        categories = [classify(s) for s in simple]
+        categories = [_classifier.classify(s) for s in simple]
         # For OR expressions, pick the most permissive (lowest rank)
         most_permissive = min(categories, key=lambda c: CATEGORY_RANK.get(c, 5))
         pkg.category = most_permissive

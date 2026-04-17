@@ -6,12 +6,14 @@ and ranks them by permissiveness.
 
 from __future__ import annotations
 
-from license_audit.core.classifier import classify
-from license_audit.core.compatibility import find_compatible_outbound
+from license_audit.core.classifier import LicenseClassifier
+from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import CATEGORY_RANK, UNKNOWN_LICENSE
 from license_audit.licenses.spdx import get_simple_licenses
 
-# Well known permissive licenses in preference order
+_classifier = LicenseClassifier()
+_matrix = CompatibilityMatrix()
+
 _PREFERRED_PERMISSIVE = [
     "MIT",
     "Apache-2.0",
@@ -45,12 +47,12 @@ def recommend_licenses(
         # No dependencies, everything is available
         return _PREFERRED_PERMISSIVE.copy()
 
-    compatible = find_compatible_outbound(resolved)
+    compatible = _matrix.find_compatible_outbound(resolved)
 
     # Sort by permissiveness, then alphabetically
     return sorted(
         compatible,
-        key=lambda lic: (CATEGORY_RANK.get(classify(lic), 5), lic),
+        key=lambda lic: (CATEGORY_RANK.get(_classifier.classify(lic), 5), lic),
     )
 
 
@@ -84,7 +86,7 @@ def _resolve_inbound(expressions: list[str]) -> list[str]:
             # Pick the most permissive alternative
             best = min(
                 simple,
-                key=lambda lic: CATEGORY_RANK.get(classify(lic), 5),
+                key=lambda lic: CATEGORY_RANK.get(_classifier.classify(lic), 5),
             )
             resolved.add(best)
         else:

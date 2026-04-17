@@ -9,13 +9,15 @@ from rich.panel import Panel
 
 from license_audit.cli._common import resolve_config
 from license_audit.core.analyzer import analyze
-from license_audit.core.classifier import classify
+from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import (
     CATEGORY_RANK,
     AnalysisReport,
     LicenseCategory,
     PackageLicense,
 )
+
+_classifier = LicenseClassifier()
 
 _CATEGORY_DESCRIPTIONS: dict[LicenseCategory, str] = {
     LicenseCategory.PERMISSIVE: "No copyleft obligations. You can use any license, including proprietary.",
@@ -97,7 +99,7 @@ def _render_recommendations(console: Console, report: AnalysisReport) -> None:
     top = report.recommended_licenses[:5]
     console.print("[bold]Compatible licenses for your project:[/bold]")
     for i, lic in enumerate(top):
-        cat = classify(lic)
+        cat = _classifier.classify(lic)
         if i == 0:
             console.print(
                 f"  [bold green]-> {lic}[/bold green] ({cat.value}) [dim]<- recommended[/dim]"

@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from license_audit.core.classifier import classify
+from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import UNKNOWN_LICENSE, AnalysisReport, LicenseCategory
 
 
 class MarkdownRenderer:
     """Render analysis report as a Markdown compliance document."""
+
+    def __init__(self, classifier: LicenseClassifier | None = None) -> None:
+        self._classifier = classifier or LicenseClassifier()
 
     def render(self, report: AnalysisReport) -> str:
         """Render the report as Markdown."""
@@ -139,7 +142,7 @@ class MarkdownRenderer:
             "ordered from most to least permissive:\n",
         ]
         for i, lic in enumerate(top, 1):
-            cat = classify(lic)
+            cat = self._classifier.classify(lic)
             marker = " **(recommended)**" if i == 1 else ""
             lines.append(f"{i}. **{lic}** ({cat.value}){marker}")
 

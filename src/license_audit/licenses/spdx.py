@@ -149,9 +149,9 @@ def _known_spdx_ids() -> frozenset[str]:
     Combines OSADL matrix keys with targets from our alias/classifier maps
     so that e.g. CC0-1.0 is recognized even if absent from the matrix.
     """
-    from license_audit.core.compatibility import known_licenses
+    from license_audit.core.compatibility import CompatibilityMatrix
 
-    ids: set[str] = set(known_licenses())
+    ids: set[str] = set(CompatibilityMatrix().known_licenses())
     ids.update(_COMMON_ALIASES.values())
     ids.update(v for v in _CLASSIFIER_MAP.values())
     ids.update(_DEPRECATED_SPDX.values())

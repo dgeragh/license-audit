@@ -2,59 +2,41 @@
 
 from __future__ import annotations
 
-import json
-from functools import lru_cache
-from typing import Any
-
-from license_audit._data import load_data_file
+from license_audit._data import OSADLDataStore
 from license_audit.core.models import LicenseCategory
 
-_COPYLEFT_MAP: dict[str, LicenseCategory] = {
-    "Yes": LicenseCategory.STRONG_COPYLEFT,
-    "Yes (restricted)": LicenseCategory.WEAK_COPYLEFT,
-    "No": LicenseCategory.PERMISSIVE,
-    "Questionable": LicenseCategory.UNKNOWN,
-}
 
-# Network copyleft licenses (AGPL family)
-_NETWORK_COPYLEFT = frozenset({
-    "AGPL-3.0-only",
-    "AGPL-3.0-or-later",
-    "AGPL-1.0-only",
-    "AGPL-1.0-or-later",
-})
+class LicenseClassifier:
+    """Map SPDX license IDs to a ``LicenseCategory`` using OSADL data."""
 
+    COPYLEFT_MAP: dict[str, LicenseCategory] = {
+        "Yes": LicenseCategory.STRONG_COPYLEFT,
+        "Yes (restricted)": LicenseCategory.WEAK_COPYLEFT,
+        "No": LicenseCategory.PERMISSIVE,
+        "Questionable": LicenseCategory.UNKNOWN,
+    }
 
-def _load_copyleft() -> dict[str, str]:
-    """Load the OSADL copyleft classifications from bundled data."""
-    raw: dict[str, Any] = json.loads(load_data_file("copyleft.json"))
-    copyleft_data = raw.get("copyleft", {})
-    if not isinstance(copyleft_data, dict):
-        return {}
-    return {k: v for k, v in copyleft_data.items() if isinstance(v, str)}
+    NETWORK_COPYLEFT: frozenset[str] = frozenset({
+        "AGPL-3.0-only",
+        "AGPL-3.0-or-later",
+        "AGPL-1.0-only",
+        "AGPL-1.0-or-later",
+    })
 
+    def __init__(self, store: OSADLDataStore | None = None) -> None:
+        self._store = store or OSADLDataStore()
 
-@lru_cache(maxsize=1)
-def get_copyleft_data() -> dict[str, str]:
-    """Get the cached copyleft classification data."""
-    return _load_copyleft()
+    def classify(self, spdx_id: str) -> LicenseCategory:
+        """Classify an SPDX license identifier."""
+        if self.is_network_copyleft(spdx_id):
+            return LicenseCategory.NETWORK_COPYLEFT
 
+        raw_value = self._store.copyleft().get(spdx_id)
+        if raw_value is not None:
+            return self.COPYLEFT_MAP.get(raw_value, LicenseCategory.UNKNOWN)
 
-def classify(spdx_id: str) -> LicenseCategory:
-    """Classify a license by its copyleft nature.
+        return LicenseCategory.UNKNOWN
 
-    Args:
-        spdx_id: An SPDX license identifier (e.g., "MIT", "GPL-3.0-only").
-
-    Returns:
-        The license category.
-    """
-    if spdx_id in _NETWORK_COPYLEFT:
-        return LicenseCategory.NETWORK_COPYLEFT
-
-    copyleft_data = get_copyleft_data()
-    raw_value = copyleft_data.get(spdx_id)
-    if raw_value is not None:
-        return _COPYLEFT_MAP.get(raw_value, LicenseCategory.UNKNOWN)
-
-    return LicenseCategory.UNKNOWN
+    def is_network_copyleft(self, spdx_id: str) -> bool:
+        """Return True if the SPDX id is in the AGPL network-copyleft family."""
+        return spdx_id in self.NETWORK_COPYLEFT
