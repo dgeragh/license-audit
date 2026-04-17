@@ -12,8 +12,43 @@ from pydantic import BaseModel, Field, field_validator
 
 from license_audit.core.models import PolicyLevel
 
-_VALID_GROUP_PREFIXES = ("optional:", "group:")
-_VALID_GROUP_LITERALS = ("main", "dev")
+
+class GroupSpec:
+    """Valid dependency-group selectors for ``[tool.license-audit]``.
+
+    A group entry is either a literal (``main``, ``dev``) or a prefixed
+    name (``optional:<name>``, ``group:<name>``).
+    """
+
+    PREFIXES: tuple[str, ...] = ("optional:", "group:")
+    LITERALS: tuple[str, ...] = ("main", "dev")
+
+    @classmethod
+    def validate(cls, entry: str) -> None:
+        """Raise ``ValueError`` if ``entry`` is not a valid group selector."""
+        if entry in cls.LITERALS:
+            return
+        for prefix in cls.PREFIXES:
+            if entry.startswith(prefix):
+                if not entry[len(prefix) :]:
+                    msg = (
+                        f"Invalid dependency group: '{entry}' "
+                        f"(missing name after prefix)"
+                    )
+                    raise ValueError(msg)
+                return
+        msg = (
+            f"Invalid dependency group: '{entry}'. "
+            f"Must be 'main', 'dev', 'optional:<name>', or 'group:<name>'."
+        )
+        raise ValueError(msg)
+
+    @classmethod
+    def validate_list(cls, entries: list[str]) -> list[str]:
+        """Validate every entry in ``entries``; return the list unchanged."""
+        for entry in entries:
+            cls.validate(entry)
+        return entries
 
 
 class LicenseAuditConfig(BaseModel):
@@ -37,22 +72,7 @@ class LicenseAuditConfig(BaseModel):
         if not isinstance(value, list):
             msg = "dependency_groups must be a list of strings"
             raise TypeError(msg)
-        for entry in value:
-            if entry in _VALID_GROUP_LITERALS:
-                continue
-            if any(entry.startswith(p) for p in _VALID_GROUP_PREFIXES):
-                # Ensure there's a name after the prefix
-                prefix = next(p for p in _VALID_GROUP_PREFIXES if entry.startswith(p))
-                if not entry[len(prefix) :]:
-                    msg = f"Invalid dependency group: '{entry}' (missing name after prefix)"
-                    raise ValueError(msg)
-                continue
-            msg = (
-                f"Invalid dependency group: '{entry}'. "
-                f"Must be 'main', 'dev', 'optional:<name>', or 'group:<name>'."
-            )
-            raise ValueError(msg)
-        return value
+        return GroupSpec.validate_list(value)
 
 
 def load_config(config_dir: Path | None = None) -> LicenseAuditConfig:

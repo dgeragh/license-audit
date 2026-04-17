@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from license_audit.config import LicenseAuditConfig, get_project_name, load_config
+from license_audit.config import (
+    GroupSpec,
+    LicenseAuditConfig,
+    get_project_name,
+    load_config,
+)
 
 
 class TestLoadConfig:
@@ -100,3 +105,34 @@ class TestGetProjectName:
 
     def test_missing_file(self, tmp_path: Path) -> None:
         assert get_project_name(tmp_path) == "unknown"
+
+    def test_missing_project_section(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.other]\nfoo = 1\n")
+        assert get_project_name(tmp_path) == "unknown"
+
+
+class TestGroupSpec:
+    @pytest.mark.parametrize(
+        "entry",
+        ["main", "dev", "optional:docs", "optional:x", "group:test", "group:lint"],
+    )
+    def test_valid_entries(self, entry: str) -> None:
+        GroupSpec.validate(entry)
+
+    @pytest.mark.parametrize("entry", ["optional:", "group:"])
+    def test_empty_after_prefix_rejected(self, entry: str) -> None:
+        with pytest.raises(ValueError, match="missing name after prefix"):
+            GroupSpec.validate(entry)
+
+    @pytest.mark.parametrize("entry", ["unknown", "", "extras:foo", "main:x"])
+    def test_unknown_forms_rejected(self, entry: str) -> None:
+        with pytest.raises(ValueError, match="Invalid dependency group"):
+            GroupSpec.validate(entry)
+
+    def test_validate_list_returns_value(self) -> None:
+        value = ["main", "optional:docs"]
+        assert GroupSpec.validate_list(value) == value
+
+    def test_validate_list_raises_on_first_invalid(self) -> None:
+        with pytest.raises(ValueError):
+            GroupSpec.validate_list(["main", "bogus"])

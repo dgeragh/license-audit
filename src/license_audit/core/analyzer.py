@@ -33,9 +33,7 @@ from license_audit.environment.provision import (
 )
 from license_audit.licenses.spdx import SpdxNormalizer
 from license_audit.sources.base import PackageSpec, Source
-from license_audit.sources.pyproject import PyprojectSource
-from license_audit.sources.requirements import RequirementsSource
-from license_audit.sources.uv_lock import UvLockSource
+from license_audit.sources.factory import SourceFactory
 from license_audit.util import canonicalize, get_license_text
 
 _classifier = LicenseClassifier()
@@ -46,6 +44,7 @@ _recommender = LicenseRecommender(
     classifier=_classifier,
     normalizer=_normalizer,
 )
+_source_factory = SourceFactory()
 
 _POLICY_MAX_RANK: dict[PolicyLevel, int] = {
     PolicyLevel.PERMISSIVE: CATEGORY_RANK[LicenseCategory.PERMISSIVE],
@@ -56,12 +55,59 @@ _POLICY_MAX_RANK: dict[PolicyLevel, int] = {
 
 
 @dataclass
-class _TargetInfo:
+class TargetInfo:
     """Result of resolving a --target argument."""
 
     source_path: Path | None = None
     site_packages: Path | None = None
     config_dir: Path | None = None
+
+
+class TargetResolver:
+    """Classify a ``--target`` path as source file, venv, or project dir."""
+
+    def __init__(self, source_factory: SourceFactory | None = None) -> None:
+        self._sources = source_factory or SourceFactory()
+
+    def resolve(self, target: Path | None) -> TargetInfo:
+        """Resolve ``target`` into a ``TargetInfo``. Raises ``FileNotFoundError``
+        if ``target`` points nowhere, ``ValueError`` if it's an unrecognized file.
+        """
+        if target is None:
+            return TargetInfo(config_dir=Path.cwd())
+
+        resolved = target.resolve()
+
+        if resolved.is_file():
+            self._sources.validate(resolved)
+            return TargetInfo(source_path=resolved, config_dir=resolved.parent)
+
+        if is_venv_dir(resolved):
+            return TargetInfo(site_packages=resolved, config_dir=resolved.parent)
+
+        if resolved.is_dir():
+            return self._detect_in_project_dir(resolved)
+
+        msg = f"Target not found: {resolved}"
+        raise FileNotFoundError(msg)
+
+    def _detect_in_project_dir(self, project_dir: Path) -> TargetInfo:
+        found = self._sources.detect_in_project_dir(project_dir)
+        if found is not None:
+            return TargetInfo(source_path=found, config_dir=project_dir)
+
+        venv = project_dir / ".venv"
+        if venv.is_dir():
+            return TargetInfo(site_packages=venv, config_dir=project_dir)
+
+        msg = (
+            f"No dependency source found in {project_dir}. "
+            "Expected uv.lock, requirements.txt, pyproject.toml, or .venv"
+        )
+        raise FileNotFoundError(msg)
+
+
+_target_resolver = TargetResolver(_source_factory)
 
 
 def analyze(
@@ -78,7 +124,7 @@ def analyze(
     Returns:
         A complete AnalysisReport.
     """
-    info = _resolve_target(target)
+    info = _target_resolver.resolve(target)
 
     if config is None:
         config = load_config(info.config_dir)
@@ -105,7 +151,7 @@ def analyze(
     # Build source after config is loaded so dependency_groups is available
     source: Source | None = None
     if info.source_path is not None:
-        source = _create_source(info.source_path, config.dependency_groups)
+        source = _source_factory.create(info.source_path, config.dependency_groups)
 
     # Provision environment and analyze
     specs: list[PackageSpec] | None = None
@@ -171,87 +217,6 @@ def analyze(
         action_items=action_items,
         policy_passed=policy_passed,
     )
-
-
-def _resolve_target(target: Path | None) -> _TargetInfo:
-    """Resolve a --target argument into source_path, site_packages, and config_dir."""
-    if target is None:
-        return _TargetInfo(config_dir=Path.cwd())
-
-    target = target.resolve()
-
-    # Target is a file - validate and store path
-    if target.is_file():
-        config_dir = target.parent
-        _validate_source_file(target)
-        return _TargetInfo(source_path=target, config_dir=config_dir)
-
-    # Target is a venv directory (has site-packages, no pyproject.toml)
-    if is_venv_dir(target):
-        config_dir = target.parent
-        return _TargetInfo(site_packages=target, config_dir=config_dir)
-
-    # Target is a project directory - auto-detect source
-    if target.is_dir():
-        return _auto_detect_project(target)
-
-    msg = f"Target not found: {target}"
-    raise FileNotFoundError(msg)
-
-
-def _validate_source_file(path: Path) -> None:
-    """Validate that a file is a recognized dependency source."""
-    name = path.name.lower()
-    if name in ("uv.lock", "pyproject.toml"):
-        return
-    if name.startswith("requirements") and name.endswith(".txt"):
-        return
-    msg = f"Unrecognized dependency file: {path.name}"
-    raise ValueError(msg)
-
-
-def _create_source(path: Path, groups: list[str] | None = None) -> Source:
-    """Instantiate the correct Source for a dependency file."""
-    name = path.name.lower()
-    if name == "uv.lock":
-        return UvLockSource(path, groups=groups)
-    if name.startswith("requirements") and name.endswith(".txt"):
-        return RequirementsSource(path, groups=groups)
-    if name == "pyproject.toml":
-        return PyprojectSource(path, groups=groups)
-    msg = f"Unrecognized dependency file: {path.name}"
-    raise ValueError(msg)
-
-
-def _auto_detect_project(project_dir: Path) -> _TargetInfo:
-    """Auto-detect the best source in a project directory."""
-    config_dir = project_dir
-
-    # Try uv.lock first
-    uv_lock = project_dir / "uv.lock"
-    if uv_lock.exists():
-        return _TargetInfo(source_path=uv_lock, config_dir=config_dir)
-
-    # Try requirements.txt
-    requirements = project_dir / "requirements.txt"
-    if requirements.exists():
-        return _TargetInfo(source_path=requirements, config_dir=config_dir)
-
-    # Try pyproject.toml dependencies
-    pyproject = project_dir / "pyproject.toml"
-    if pyproject.exists():
-        return _TargetInfo(source_path=pyproject, config_dir=config_dir)
-
-    # Fall back to the project's .venv if it exists
-    venv = project_dir / ".venv"
-    if venv.is_dir():
-        return _TargetInfo(site_packages=venv, config_dir=config_dir)
-
-    msg = (
-        f"No dependency source found in {project_dir}. "
-        "Expected uv.lock, requirements.txt, pyproject.toml, or .venv"
-    )
-    raise FileNotFoundError(msg)
 
 
 def _classify_package(pkg: PackageLicense) -> None:

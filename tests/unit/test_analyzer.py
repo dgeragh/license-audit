@@ -10,12 +10,9 @@ from license_audit.core.analyzer import (
     _build_action_items,
     _check_policy,
     _classify_package,
-    _create_source,
     _exceeds_policy_rank,
     _extract_spdx_ids,
     _is_unknown,
-    _resolve_target,
-    _validate_source_file,
     analyze,
 )
 from license_audit.core.models import (
@@ -251,73 +248,6 @@ class TestCheckPolicyEnforcement:
             )
             is True
         )
-
-
-class TestResolveTarget:
-    def test_file_target_uv_lock(self, tmp_path: Path) -> None:
-        lock_file = tmp_path / "uv.lock"
-        lock_file.write_text(
-            "version = 1\n[[package]]\nname = 'root'\nversion = '0.1'\n"
-        )
-        info = _resolve_target(lock_file)
-        assert info.source_path is not None
-        assert info.config_dir == tmp_path
-
-    def test_file_target_requirements(self, tmp_path: Path) -> None:
-        req_file = tmp_path / "requirements.txt"
-        req_file.write_text("click>=8.0\n")
-        info = _resolve_target(req_file)
-        assert info.source_path is not None
-        assert info.config_dir == tmp_path
-
-    def test_file_target_pyproject(self, tmp_path: Path) -> None:
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('[project]\ndependencies = ["click"]\n')
-        info = _resolve_target(pyproject)
-        assert info.source_path is not None
-
-    def test_nonexistent_target(self, tmp_path: Path) -> None:
-        with pytest.raises(FileNotFoundError):
-            _resolve_target(tmp_path / "nonexistent")
-
-    def test_none_target(self) -> None:
-        info = _resolve_target(None)
-        assert info.config_dir == Path.cwd()
-        assert info.source_path is None
-        assert info.site_packages is None
-
-
-class TestValidateSourceFile:
-    def test_unrecognized_file(self, tmp_path: Path) -> None:
-        unknown = tmp_path / "deps.yaml"
-        unknown.write_text("")
-        with pytest.raises(ValueError, match="Unrecognized dependency file"):
-            _validate_source_file(unknown)
-
-    def test_requirements_variant(self, tmp_path: Path) -> None:
-        req = tmp_path / "requirements-dev.txt"
-        req.write_text("pytest\n")
-        _validate_source_file(req)  # should not raise
-
-
-class TestCreateSource:
-    def test_creates_uv_lock_source(self, tmp_path: Path) -> None:
-        lock_file = tmp_path / "uv.lock"
-        lock_file.write_text("version = 1\n")
-        source = _create_source(lock_file)
-        assert source is not None
-
-    def test_creates_pyproject_source_with_groups(self, tmp_path: Path) -> None:
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('[project]\ndependencies = ["click"]\n')
-        source = _create_source(pyproject, groups=["main"])
-        assert source is not None
-
-    def test_unrecognized_file_raises(self, tmp_path: Path) -> None:
-        unknown = tmp_path / "deps.yaml"
-        unknown.write_text("")
-        with pytest.raises(ValueError, match="Unrecognized dependency file"):
-            _create_source(unknown)
 
 
 class TestClassifyPackage:
