@@ -7,7 +7,7 @@ license-audit goes beyond simply listing dependency licenses. It tells you what 
 ## Features
 
 - **License Detection** - Automatically detects licenses for all transitive dependencies using PEP 639 metadata, trove classifiers, and configurable overrides
-- **Compatibility Analysis** - Uses the [OSADL compatibility matrix](https://www.osadl.org/Access-to-raw-data.oss-compliance-raw-data-access.0.html) (123 licenses) to check whether your dependency licenses are compatible with each other
+- **Compatibility Analysis** - Uses the [OSADL compatibility matrix](https://www.osadl.org/Access-to-raw-data.oss-compliance-raw-data-access.0.html) (covers ~120 well-known licenses) to check whether your dependency licenses are compatible with each other
 - **License Recommendations** - Tells you the most permissive license your project can use given its dependencies
 - **Compliance Reports** - Generate Markdown, JSON, or third-party notices reports documenting your project's license posture
 - **CI Integration** - `license-audit check` provides exit codes suitable for CI/CD pipelines
@@ -198,7 +198,7 @@ The notices file includes the full license text for each dependency, pulled from
 
 ### Update OSADL data
 
-Refresh the bundled OSADL compatibility matrix with the latest upstream data:
+Download the latest OSADL data into the user cache (used in preference to the bundled copy):
 
 ```bash
 license-audit refresh
@@ -285,7 +285,7 @@ In all cases, `[tool.license-audit]` configuration is loaded from the target pro
 
 - **Package-level detection only** - license-audit reads the license declared in package metadata (PEP 639, `License` field, trove classifiers). It does not scan `THIRD_PARTY_NOTICES`, `NOTICE`, or `LICENSE` files inside dependencies, and cannot detect bundled/vendored code with a different license than the package declares. For file-level license scanning, see [ScanCode](https://github.com/nexB/scancode-toolkit).
 
-- **OSADL matrix coverage** - The OSADL compatibility matrix covers 123 well-known open-source licenses. Niche, custom, or proprietary licenses will produce "Unknown" compatibility verdicts. Use `[tool.license-audit.overrides]` to manually assign SPDX identifiers when detection fails.
+- **OSADL matrix coverage** - The OSADL compatibility matrix covers roughly 120 well-known open-source licenses. Niche, custom, or proprietary licenses will produce "Unknown" compatibility verdicts. Use `[tool.license-audit.overrides]` to manually assign SPDX identifiers when detection fails.
 
 - **License string normalization** - PyPI packages use wildly inconsistent license strings. license-audit maps 50+ common aliases to SPDX identifiers, but uncommon or malformed strings may not be recognized and will be reported as UNKNOWN. Overrides can fill these gaps.
 
