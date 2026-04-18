@@ -175,6 +175,77 @@ jobs:
       - run: uv run license-audit check
 ```
 
+To surface the compliance report as a PR job summary (runs even when `check` fails):
+
+```yaml
+      - name: Compliance summary
+        if: always()
+        run: uv run license-audit report --format markdown >> $GITHUB_STEP_SUMMARY
+```
+
+#### GitLab CI example
+
+```yaml
+license-check:
+  image: python:3.12
+  before_script:
+    - pip install uv
+    - uv sync --locked
+  script:
+    - uv run license-audit check
+    - uv run license-audit report --format markdown --output compliance.md
+  artifacts:
+    when: always
+    paths:
+      - compliance.md
+```
+
+#### pre-commit hook
+
+Catch violations locally before they reach CI. Add to `.pre-commit-config.yaml`:
+
+```yaml
+- repo: local
+  hooks:
+    - id: license-audit
+      name: license-audit
+      entry: uv run license-audit check
+      language: system
+      pass_filenames: false
+      stages: [pre-push]
+```
+
+`pre-push` keeps commits fast and only runs `check` once before pushing.
+
+#### Branching on exit codes
+
+Exit `2` lets CI distinguish undetected licenses from outright policy violations. For example, to fail the build on real violations but only warn on unknowns:
+
+```bash
+uv run license-audit check
+ec=$?
+case $ec in
+  0) ;;
+  1) echo "::error::License policy violation"; exit 1 ;;
+  2) echo "::warning::Unknown licenses - add overrides in pyproject.toml"; exit 0 ;;
+esac
+```
+
+#### Adding a new dependency
+
+Typical workflow when introducing a new package:
+
+1. `uv add <package>` (or edit `pyproject.toml` and `uv sync`).
+2. Run `uv run license-audit check` locally.
+3. Handle the outcome:
+   - **Exit 0:** commit and push.
+   - **Exit 2 (unknown):** the tool couldn't detect an SPDX identifier. Add an override in `pyproject.toml` once you've confirmed the license:
+     ```toml
+     [tool.license-audit.overrides]
+     new-package = "MIT"
+     ```
+   - **Exit 1 (policy violation):** either swap the dependency for a differently-licensed alternative, add the license to `allowed-licenses`, or relax `policy` (e.g. `permissive` → `weak-copyleft`) if that suits your project.
+
 ### Generate a compliance report
 
 Produce a Markdown or JSON compliance document:
