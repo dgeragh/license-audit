@@ -26,6 +26,7 @@ theme:
 
 plugins:
   - search
+  - include-markdown
   - mkdocstrings:
       handlers:
         python:
@@ -45,10 +46,14 @@ extra:
 
 nav:
   - Home: index.md
-  - Changelog: CHANGELOG.md
   - User Guide:
       - Configuration: user-guide/configuration.md
       - CI Integration: user-guide/ci-integration.md
+  - Reference:
+      - How it works: reference/how-it-works.md
+      - Comparison: reference/comparison.md
+      - Limitations: reference/limitations.md
+  - Changelog: CHANGELOG.md
 
 markdown_extensions:
   - admonition
