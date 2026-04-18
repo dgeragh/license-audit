@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 (2026-04-17)
+
+### Added
+
+- Reference documentation pages covering tool comparison, how detection works, and known limitations
+
+### Changed
+
+- Improved terminal rendering for `recommend`, `check`, and `report` commands with clearer formatting and shared layout helpers
+- Streamlined README and user guide, including an expanded CI integration guide
+- Internal refactor of the analyzer, policy engine, classifier, data store, SPDX normalizer, recommender, sources, and environment provisioning into class-based implementations (no change to CLI behavior or output contracts)
+
 ## 0.1.1 (2026-04-13)
 
 ### Added
