@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://dgeragh.github.io/license-audit/0.2.0/</loc>
+         <lastmod>2026-04-18</lastmod>
+    </url>
+    <url>
+         <loc>https://dgeragh.github.io/license-audit/0.2.0/CHANGELOG/</loc>
+         <lastmod>2026-04-18</lastmod>
+    </url>
+    <url>
+         <loc>https://dgeragh.github.io/license-audit/0.2.0/reference/comparison/</loc>
+         <lastmod>2026-04-18</lastmod>
+    </url>
+    <url>
+         <loc>https://dgeragh.github.io/license-audit/0.2.0/reference/how-it-works/</loc>
+         <lastmod>2026-04-18</lastmod>
+    </url>
+    <url>
+         <loc>https://dgeragh.github.io/license-audit/0.2.0/reference/limitations/</loc>
+         <lastmod>2026-04-18</lastmod>
+    </url>
+    <url>
+         <loc>https://dgeragh.github.io/license-audit/0.2.0/user-guide/ci-integration/</loc>
+         <lastmod>2026-04-18</lastmod>
+    </url>
+    <url>
+         <loc>https://dgeragh.github.io/license-audit/0.2.0/user-guide/configuration/</loc>
+         <lastmod>2026-04-18</lastmod>
+    </url>
+</urlset>
