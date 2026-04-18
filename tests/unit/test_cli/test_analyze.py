@@ -36,15 +36,13 @@ _MIT_PKG = PackageLicense(
 class TestAnalyzeCli:
     def test_terminal_output(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
-        with patch("license_audit.cli.analyze.LicenseAuditor") as mock_cls:
-            mock_cls.return_value.run.return_value = report
+        with patch("license_audit.cli.analyze.run_audit", return_value=report):
             result = CliRunner().invoke(cli, ["analyze"])
         assert result.exit_code == 0
 
     def test_json_output(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
-        with patch("license_audit.cli.analyze.LicenseAuditor") as mock_cls:
-            mock_cls.return_value.run.return_value = report
+        with patch("license_audit.cli.analyze.run_audit", return_value=report):
             result = CliRunner().invoke(cli, ["analyze", "--format", "json"])
         assert result.exit_code == 0
         assert '"project_name"' in result.output
@@ -58,20 +56,22 @@ class TestAnalyzeCli:
 class TestAnalyzePolicyFlag:
     def test_policy_passed_to_analyzer(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
-        with patch("license_audit.cli.analyze.LicenseAuditor") as mock_cls:
-            mock_cls.return_value.run.return_value = report
+        with patch(
+            "license_audit.cli.analyze.run_audit",
+            return_value=report,
+        ) as mock:
             result = CliRunner().invoke(cli, ["--policy", "weak-copyleft", "analyze"])
         assert result.exit_code == 0
-        config = mock_cls.return_value.run.call_args.kwargs.get("config")
-        assert config is not None
+        config = mock.call_args.args[1]
         assert config.policy == "weak-copyleft"
 
     def test_no_policy_uses_config_default(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
-        with patch("license_audit.cli.analyze.LicenseAuditor") as mock_cls:
-            mock_cls.return_value.run.return_value = report
+        with patch(
+            "license_audit.cli.analyze.run_audit",
+            return_value=report,
+        ) as mock:
             result = CliRunner().invoke(cli, ["analyze"])
         assert result.exit_code == 0
-        config = mock_cls.return_value.run.call_args.kwargs.get("config")
-        assert config is not None
+        config = mock.call_args.args[1]
         assert config.policy == "permissive"

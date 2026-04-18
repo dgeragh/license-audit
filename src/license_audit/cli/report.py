@@ -6,8 +6,7 @@ from pathlib import Path
 
 import click
 
-from license_audit.cli._common import resolve_config
-from license_audit.core.analyzer import LicenseAuditor
+from license_audit.cli._common import resolve_config, run_audit
 from license_audit.reports.base import StringRenderer
 from license_audit.reports.json_report import JsonRenderer
 from license_audit.reports.markdown import MarkdownRenderer
@@ -36,7 +35,7 @@ def report_cmd(
     """Generate a license compliance report."""
     target, config = resolve_config(ctx)
 
-    report = LicenseAuditor().run(target=target, config=config)
+    report = run_audit(target, config)
 
     renderer: StringRenderer
     if output_format == "json":

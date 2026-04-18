@@ -6,8 +6,7 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
-from license_audit.cli._common import resolve_config
-from license_audit.core.analyzer import LicenseAuditor
+from license_audit.cli._common import resolve_config, run_audit
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import (
     CATEGORY_RANK,
@@ -55,11 +54,13 @@ class CategoryDescriptions:
         ],
         LicenseCategory.WEAK_COPYLEFT: [
             "You have weak-copyleft dependencies (e.g., LGPL, MPL). "
-            "Your project can use a different license, but modifications "
-            "to those specific dependencies must be shared under their original license.",
+            "Pick from the 'Compatible licenses' list above: the OSADL matrix "
+            "takes a strict view of weak-copyleft compatibility, so permissive "
+            "outbound licenses are typically excluded.",
             "",
-            "If you distribute as a library: ensure the weak-copyleft "
-            "components can be replaced by users (dynamic linking).",
+            "In practice, dynamic linking or shipping the dependency unmodified "
+            "may allow a broader set of outbound licenses than the matrix suggests. "
+            "Verify any exceptions with legal review.",
         ],
         LicenseCategory.STRONG_COPYLEFT: [
             "You have strong-copyleft dependencies (e.g., GPL). "
@@ -101,7 +102,7 @@ def recommend_cmd(ctx: click.Context) -> None:
     console = Console()
     target, config = resolve_config(ctx)
 
-    report = LicenseAuditor().run(target=target, config=config)
+    report = run_audit(target, config)
 
     console.print()
     console.rule(f"[bold]License Recommendation: {report.project_name}[/bold]")

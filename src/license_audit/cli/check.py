@@ -7,9 +7,8 @@ import sys
 import click
 from rich.console import Console
 
-from license_audit.cli._common import resolve_config
+from license_audit.cli._common import resolve_config, run_audit
 from license_audit.config import LicenseAuditConfig
-from license_audit.core.analyzer import LicenseAuditor
 from license_audit.core.models import (
     UNKNOWN_LICENSE,
     AnalysisReport,
@@ -27,12 +26,15 @@ def _determine_exit_code(
     unknown_pkgs: list[PackageLicense],
     config: LicenseAuditConfig,
 ) -> int:
+    # Incompatible pairs always fail the check.
     if report.incompatible_pairs:
         return 1
-    if report.policy_passed is False:
-        return 1
+    # Unknowns with fail-on-unknown get their own code (2) so CI can
+    # distinguish "we couldn't detect a license" from "policy violated".
     if unknown_pkgs and config.fail_on_unknown:
         return 2
+    if report.policy_passed is False:
+        return 1
     return 0
 
 
@@ -93,7 +95,7 @@ def check_cmd(ctx: click.Context, fail_on_unknown: bool | None) -> None:
     if fail_on_unknown is not None:
         config.fail_on_unknown = fail_on_unknown
 
-    report = LicenseAuditor().run(target=target, config=config)
+    report = run_audit(target, config)
 
     unknown_pkgs = [
         p
