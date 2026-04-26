@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 (2026-04-26)
+
+### Added
+
+- Support for Poetry projects via `poetry.lock`
+- Support for Pixi projects via `pixi.lock`
+- Integration test suite covering end-to-end analyzer flows and CLI subprocess execution
+
 ## 0.3.0 (2026-04-19)
 
 ### Added
