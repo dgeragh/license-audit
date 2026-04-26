@@ -221,7 +221,7 @@ packages:
 - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
   name: click
   version: 8.1.7
-  sha256: deadbeef
+  sha256: testhash
 """
 
 

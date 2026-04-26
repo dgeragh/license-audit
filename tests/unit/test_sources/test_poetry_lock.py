@@ -61,7 +61,7 @@ resolved_reference = "abc123def456"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "deadbeef"
+content-hash = "testhash"
 """
 
 
@@ -85,7 +85,7 @@ python-versions = ">=3.8"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "deadbeef"
+content-hash = "testhash"
 """
 
 

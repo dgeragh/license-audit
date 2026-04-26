@@ -69,7 +69,7 @@ _PKG_CLICK = (
     "- pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl\n"
     "  name: click\n"
     "  version: 8.1.7\n"
-    "  sha256: deadbeef\n"
+    "  sha256: testhash\n"
     "  requires_python: '>=3.7'"
 )
 
@@ -77,21 +77,21 @@ _PKG_PYTEST = (
     "- pypi: https://files.pythonhosted.org/packages/pytest-8.0.0.whl\n"
     "  name: pytest\n"
     "  version: 8.0.0\n"
-    "  sha256: deadbeef"
+    "  sha256: testhash"
 )
 
 _PKG_BLACK = (
     "- pypi: https://files.pythonhosted.org/packages/black-24.0.0.whl\n"
     "  name: black\n"
     "  version: 24.0.0\n"
-    "  sha256: deadbeef"
+    "  sha256: testhash"
 )
 
 _PKG_TYPING = (
     "- pypi: https://files.pythonhosted.org/packages/typing_extensions-4.0.0.whl\n"
     "  name: typing-extensions\n"
     "  version: 4.0.0\n"
-    "  sha256: deadbeef"
+    "  sha256: testhash"
 )
 
 _PKG_NUMPY_CONDA = (
@@ -346,7 +346,7 @@ packages:
   name: click
   version: 8.1.7
   url: https://files.pythonhosted.org/packages/click-8.1.7.whl
-  sha256: deadbeef
+  sha256: testhash
 """)
         specs = PixiLockSource(lock).parse()
         assert len(specs) == 1
