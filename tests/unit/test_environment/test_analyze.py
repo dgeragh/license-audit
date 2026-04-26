@@ -10,7 +10,7 @@ from license_audit.environment.analyze import analyze_environment
 class TestAnalyzeEnvironment:
     def test_own_venv(self) -> None:
         """Analyze license_audit's own .venv."""
-        venv_path = Path(__file__).parent.parent.parent.parent / ".venv"
+        venv_path = Path(__file__).parents[3] / ".venv"
         if not venv_path.exists():
             pytest.skip(".venv not found")
         # Find site-packages
@@ -31,7 +31,7 @@ class TestAnalyzeEnvironment:
 
     def test_detects_licenses(self) -> None:
         """License detection should work for installed packages."""
-        venv_path = Path(__file__).parent.parent.parent.parent / ".venv"
+        venv_path = Path(__file__).parents[3] / ".venv"
         if not venv_path.exists():
             pytest.skip(".venv not found")
         sp = None
@@ -52,7 +52,7 @@ class TestAnalyzeEnvironment:
 
     def test_overrides_applied(self) -> None:
         """Overrides should take precedence."""
-        venv_path = Path(__file__).parent.parent.parent.parent / ".venv"
+        venv_path = Path(__file__).parents[3] / ".venv"
         if not venv_path.exists():
             pytest.skip(".venv not found")
         sp = None

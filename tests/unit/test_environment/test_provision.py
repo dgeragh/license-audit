@@ -24,7 +24,7 @@ class TestCurrent:
 class TestFromVenv:
     def test_own_venv(self) -> None:
         """Point at license_audit's own .venv."""
-        venv_path = Path(__file__).parent.parent.parent.parent / ".venv"
+        venv_path = Path(__file__).parents[3] / ".venv"
         if not venv_path.exists():
             pytest.skip(".venv not found")
         env = EnvironmentProvisioner().from_venv(venv_path)
@@ -39,13 +39,13 @@ class TestFromVenv:
 
 class TestIsVenvDir:
     def test_own_venv(self) -> None:
-        venv_path = Path(__file__).parent.parent.parent.parent / ".venv"
+        venv_path = Path(__file__).parents[3] / ".venv"
         if not venv_path.exists():
             pytest.skip(".venv not found")
         assert EnvironmentProvisioner().is_venv_dir(venv_path)
 
     def test_project_dir_is_not_venv(self) -> None:
-        project_dir = Path(__file__).parent.parent.parent.parent
+        project_dir = Path(__file__).parents[3]
         assert not EnvironmentProvisioner().is_venv_dir(project_dir)
 
     def test_nonexistent_is_not_venv(self, tmp_path: Path) -> None:

@@ -10,7 +10,7 @@ from license_audit.sources.uv_lock import UvLockSource
 class TestUvLockSource:
     def test_parse_real_lock(self) -> None:
         """Parse license_audit's own uv.lock."""
-        lock_path = Path(__file__).parent.parent.parent.parent / "uv.lock"
+        lock_path = Path(__file__).parents[3] / "uv.lock"
         if not lock_path.exists():
             pytest.skip("uv.lock not found")
         source = UvLockSource(lock_path)
@@ -22,7 +22,7 @@ class TestUvLockSource:
 
     def test_pinned_versions(self) -> None:
         """Specs from uv.lock should have pinned versions."""
-        lock_path = Path(__file__).parent.parent.parent.parent / "uv.lock"
+        lock_path = Path(__file__).parents[3] / "uv.lock"
         if not lock_path.exists():
             pytest.skip("uv.lock not found")
         source = UvLockSource(lock_path)

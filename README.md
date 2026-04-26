@@ -2,7 +2,7 @@
 
 **Analyze dependency licenses and get actionable licensing guidance for Python projects.**
 
-license-audit goes beyond listing dependency licenses. It tells you what license your project can use, flags incompatible combinations, and generates compliance documents suitable for CI gating.
+license-audit tells you what license your project can use, flags incompatible combinations, and generates compliance documents suitable for CI gating.
 
 ## Features
 
@@ -11,7 +11,7 @@ license-audit goes beyond listing dependency licenses. It tells you what license
 - **Outbound license recommendations** ranked by permissiveness.
 - **Compliance reports** in Markdown, JSON, or third-party-notices form.
 - **CI-ready** with distinct exit codes for policy violations and undetected licenses.
-- **First-class support** for uv, `pyproject.toml`, and PEP 639.
+- **Support** for `uv.lock`, `poetry.lock`, `pixi.lock`, `pyproject.toml`, `requirements.txt`, and PEP 639.
 
 ## Installation
 

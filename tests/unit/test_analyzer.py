@@ -17,7 +17,7 @@ from license_audit.core.models import (
 class TestRun:
     def test_self_analysis(self) -> None:
         """Analyze license-audit's own dependencies via its .venv."""
-        project_dir = Path(__file__).parent.parent.parent
+        project_dir = Path(__file__).parents[2]
         report = LicenseAuditor().run(target=project_dir)
         assert report.project_name == "license-audit"
         assert len(report.packages) > 0

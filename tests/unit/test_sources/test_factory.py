@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 
 from license_audit.sources.factory import SourceFactory
+from license_audit.sources.pixi_lock import PixiLockSource
+from license_audit.sources.poetry_lock import PoetryLockSource
 from license_audit.sources.pyproject import PyprojectSource
 from license_audit.sources.requirements import RequirementsSource
 from license_audit.sources.uv_lock import UvLockSource
@@ -18,6 +20,21 @@ class TestCreate:
         lock.write_text("version = 1\n")
         source = SourceFactory().create(lock)
         assert isinstance(source, UvLockSource)
+
+    def test_poetry_lock(self, tmp_path: Path) -> None:
+        lock = tmp_path / "poetry.lock"
+        lock.write_text(
+            '[metadata]\nlock-version = "2.0"\npython-versions = "*"\n'
+            'content-hash = "x"\n'
+        )
+        source = SourceFactory().create(lock)
+        assert isinstance(source, PoetryLockSource)
+
+    def test_pixi_lock(self, tmp_path: Path) -> None:
+        lock = tmp_path / "pixi.lock"
+        lock.write_text("version: 6\nenvironments: {}\npackages: []\n")
+        source = SourceFactory().create(lock)
+        assert isinstance(source, PixiLockSource)
 
     def test_pyproject_with_groups(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
@@ -42,6 +59,12 @@ class TestValidate:
     def test_uv_lock(self, tmp_path: Path) -> None:
         SourceFactory().validate(tmp_path / "uv.lock")
 
+    def test_poetry_lock(self, tmp_path: Path) -> None:
+        SourceFactory().validate(tmp_path / "poetry.lock")
+
+    def test_pixi_lock(self, tmp_path: Path) -> None:
+        SourceFactory().validate(tmp_path / "pixi.lock")
+
     def test_pyproject(self, tmp_path: Path) -> None:
         SourceFactory().validate(tmp_path / "pyproject.toml")
 
@@ -57,10 +80,41 @@ class TestDetectInProjectDir:
     def test_prefers_uv_lock(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text("[project]\ndependencies = []\n")
         (tmp_path / "requirements.txt").write_text("")
+        (tmp_path / "poetry.lock").write_text(
+            '[metadata]\nlock-version = "2.0"\npython-versions = "*"\n'
+            'content-hash = "x"\n'
+        )
+        (tmp_path / "pixi.lock").write_text(
+            "version: 6\nenvironments: {}\npackages: []\n"
+        )
         (tmp_path / "uv.lock").write_text("version = 1\n")
         found = SourceFactory().detect_in_project_dir(tmp_path)
         assert found is not None
         assert found.name == "uv.lock"
+
+    def test_prefers_poetry_when_no_uv(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[project]\ndependencies = []\n")
+        (tmp_path / "requirements.txt").write_text("")
+        (tmp_path / "pixi.lock").write_text(
+            "version: 6\nenvironments: {}\npackages: []\n"
+        )
+        (tmp_path / "poetry.lock").write_text(
+            '[metadata]\nlock-version = "2.0"\npython-versions = "*"\n'
+            'content-hash = "x"\n'
+        )
+        found = SourceFactory().detect_in_project_dir(tmp_path)
+        assert found is not None
+        assert found.name == "poetry.lock"
+
+    def test_prefers_pixi_when_no_uv_or_poetry(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[project]\ndependencies = []\n")
+        (tmp_path / "requirements.txt").write_text("")
+        (tmp_path / "pixi.lock").write_text(
+            "version: 6\nenvironments: {}\npackages: []\n"
+        )
+        found = SourceFactory().detect_in_project_dir(tmp_path)
+        assert found is not None
+        assert found.name == "pixi.lock"
 
     def test_requirements_over_pyproject(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text("[project]\ndependencies = []\n")

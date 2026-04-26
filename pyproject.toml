@@ -28,6 +28,7 @@ dependencies = [
     "license-expression>=30.0.0",
     "packaging>=23.0",
     "platformdirs>=3.0.0",
+    "pyyaml>=6.0",
 ]
 
 [project.urls]
@@ -68,6 +69,7 @@ dev = [
     "pytest-cov>=4.1.0",
     "ruff>=0.2.0",
     "mypy>=1.8.0",
+    "types-pyyaml>=6.0",
 ]
 
 [tool.pytest.ini_options]

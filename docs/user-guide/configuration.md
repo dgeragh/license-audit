@@ -63,6 +63,10 @@ license-audit --dependency-groups main --dependency-groups optional:api check
 
 For `requirements.txt` targets, this option is ignored (flat format with no group concept).
 
+For `poetry.lock` targets, the `optional:<extra>` selector is rejected because the lock file does not preserve the project-level extras-to-package mapping. Use `pyproject.toml` instead when extras filtering is required.
+
+For `pixi.lock` targets, environments map to selectors as `default`->`main`, `dev`->`dev`, and any other named environment via `group:<env_name>`. The `optional:<name>` selector has no analog in pixi and is rejected.
+
 ### `overrides`
 
 Manual license assignments for packages where auto-detection fails.
@@ -102,8 +106,10 @@ The `--target` CLI flag controls what license-audit analyzes. The source type is
 | Target | Behavior |
 |--------|----------|
 | *(none)* | Analyze the current Python environment directly |
-| Project directory | Auto-detect: tries `uv.lock` -> `requirements.txt` -> `pyproject.toml` -> `.venv` |
+| Project directory | Auto-detect: tries `uv.lock` -> `poetry.lock` -> `pixi.lock` -> `requirements.txt` -> `pyproject.toml` -> `.venv` |
 | `uv.lock` | Parse lockfile, create temp environment, analyze |
+| `poetry.lock` | Parse lockfile (lock format 1.x and 2.x), create temp environment, analyze |
+| `pixi.lock` | Parse lockfile, audit PyPI packages for the host platform; conda packages are skipped with a warning |
 | `requirements.txt` | Parse requirements, create temp environment, analyze |
 | `pyproject.toml` | Parse `[project.dependencies]`, optional-dependencies, dependency-groups, and `[tool.uv.dev-dependencies]`, create temp environment, analyze |
 | `.venv` directory | Analyze the venv directly (no temp environment needed) |

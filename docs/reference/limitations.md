@@ -12,6 +12,12 @@
 
 - **`uv.lock` format stability.** `uv.lock` has no formal specification. The parser supports version 1 of the lock format and fails explicitly on unrecognized versions.
 
+- **`poetry.lock` extras filtering.** poetry.lock does not preserve the project-level extras-to-package mapping, so the `optional:<extra>` dependency-group selector is rejected for poetry.lock targets. Use `pyproject.toml` as the source when extras filtering is required.
+
+- **`pixi.lock` conda packages.** pixi.lock can mix PyPI and conda entries. Only PyPI entries are audited; conda entries are skipped with a warning indicating the count. License coverage for conda packages is not provided.
+
+- **`pixi.lock` host-platform filtering.** Only packages resolved for the current host platform (plus `noarch`) are audited, mirroring how environment markers are evaluated for `uv.lock`. Packages that exist only on other platforms in the lock file are excluded.
+
 - **Environment markers.** Dependency markers (platform, Python version, extras) are evaluated against the current runtime environment. Dependencies conditional on a different platform or Python version will not be included.
 
 - **uv required for temp environments.** When analyzing a dependency file or project directory (rather than a venv or the current environment), license-audit creates a temporary environment using uv. If uv is not installed, these targets will fail. Direct venv and current-environment analysis do not require uv.
