@@ -181,7 +181,12 @@ def _collect_pypi_specs(
     packages: object,
     selected_urls: set[str],
 ) -> list[PackageSpec]:
-    """Walk the top-level ``packages`` list, returning matching PyPI entries."""
+    """Walk the top-level ``packages`` list, returning matching PyPI entries.
+
+    Handles both pixi lock-format shapes:
+      - v6: ``- pypi: <url>`` (the value of ``pypi`` is the URL)
+      - v5: ``- kind: pypi`` with a separate ``url`` field
+    """
     if not isinstance(packages, list):
         return []
 
@@ -190,8 +195,8 @@ def _collect_pypi_specs(
     for entry in packages:
         if not isinstance(entry, dict):
             continue
-        url = entry.get("pypi")
-        if not isinstance(url, str):
+        url = _entry_pypi_url(entry)
+        if url is None:
             continue
         if url not in selected_urls:
             continue
@@ -212,6 +217,18 @@ def _collect_pypi_specs(
             )
         )
     return specs
+
+
+def _entry_pypi_url(entry: dict[str, object]) -> str | None:
+    """Return the PyPI URL of a top-level packages entry, or None if not pypi."""
+    url = entry.get("pypi")
+    if isinstance(url, str):
+        return url
+    if entry.get("kind") == "pypi":
+        url = entry.get("url")
+        if isinstance(url, str):
+            return url
+    return None
 
 
 def _coerce_dict(value: object) -> dict[str, object]:

@@ -327,6 +327,33 @@ class TestPixiLockPlatform:
             PixiLockSource(lock).parse()
 
 
+class TestPixiLockFormatV5:
+    """v5 lock files use ``kind: pypi|conda`` with a separate ``url`` field."""
+
+    def test_v5_pypi_kind_entries(self, tmp_path: Path) -> None:
+        lock = tmp_path / "pixi.lock"
+        lock.write_text(f"""\
+version: 5
+environments:
+  default:
+    channels:
+    - url: https://conda.anaconda.org/conda-forge/
+    packages:
+      {_PLATFORM}:
+      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
+packages:
+- kind: pypi
+  name: click
+  version: 8.1.7
+  url: https://files.pythonhosted.org/packages/click-8.1.7.whl
+  sha256: deadbeef
+""")
+        specs = PixiLockSource(lock).parse()
+        assert len(specs) == 1
+        assert specs[0].name == "click"
+        assert specs[0].version_constraint == "==8.1.7"
+
+
 class TestPixiLockDedup:
     def test_package_in_multiple_envs_not_duplicated(self, tmp_path: Path) -> None:
         lock = tmp_path / "pixi.lock"
