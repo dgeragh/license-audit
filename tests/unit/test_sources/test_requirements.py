@@ -44,3 +44,55 @@ class TestRequirementsSource:
         source = RequirementsSource(req_file)
         specs = source.parse()
         assert specs[0].name == "my_package"
+
+
+class TestRequirementsIndexUrl:
+    def test_extra_index_url_attached_to_all_specs(self, tmp_path: Path) -> None:
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text(
+            "--extra-index-url https://artifactory.example.com/api/pypi/internal/simple/\n"
+            "acme-utils==1.4.0+corp1\n"
+            "click==8.1.7\n"
+        )
+        specs = RequirementsSource(req_file).parse()
+        assert len(specs) == 2
+        for spec in specs:
+            assert (
+                spec.index_url
+                == "https://artifactory.example.com/api/pypi/internal/simple/"
+            )
+
+    def test_index_url_primary_wins_over_extra(self, tmp_path: Path) -> None:
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text(
+            "--extra-index-url https://b.example.com/simple/\n"
+            "--index-url https://a.example.com/simple/\n"
+            "click==8.1.7\n"
+        )
+        specs = RequirementsSource(req_file).parse()
+        assert specs[0].index_url == "https://a.example.com/simple/"
+
+    def test_short_flag_recognized(self, tmp_path: Path) -> None:
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("-i https://a.example.com/simple/\nclick==8.1.7\n")
+        specs = RequirementsSource(req_file).parse()
+        assert specs[0].index_url == "https://a.example.com/simple/"
+
+    def test_equals_form_recognized(self, tmp_path: Path) -> None:
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("--index-url=https://a.example.com/simple/\nclick==8.1.7\n")
+        specs = RequirementsSource(req_file).parse()
+        assert specs[0].index_url == "https://a.example.com/simple/"
+
+    def test_other_flags_still_skipped(self, tmp_path: Path) -> None:
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("-r other.txt\n--require-hashes\nclick==8.1.7\n")
+        specs = RequirementsSource(req_file).parse()
+        assert len(specs) == 1
+        assert specs[0].index_url == ""
+
+    def test_no_directive_leaves_index_empty(self, tmp_path: Path) -> None:
+        req_file = tmp_path / "requirements.txt"
+        req_file.write_text("click==8.1.7\n")
+        specs = RequirementsSource(req_file).parse()
+        assert specs[0].index_url == ""

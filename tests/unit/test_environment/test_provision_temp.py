@@ -311,6 +311,175 @@ class TestStatusSpinner:
         assert any("(2/2)" in m for m in update_messages)
 
 
+class TestTempIndexUrlPartitioning:
+    """When specs declare an ``index_url``, pip is invoked per-group."""
+
+    _CUSTOM_INDEX = "https://artifactory.example.com/api/pypi/internal/simple/"
+
+    def test_default_group_unchanged(self, tmp_path: Path) -> None:
+        """Specs with no index_url produce today's exact pip invocation."""
+        provisioner = EnvironmentProvisioner()
+        captured: list[list[str]] = []
+
+        def fake_run(
+            base_cmd: list[str], extra_args: list[str]
+        ) -> subprocess.CompletedProcess[str]:
+            captured.append([*base_cmd, *extra_args])
+            wheel_dir = Path(base_cmd[base_cmd.index("-w") + 1])
+            _write_fake_wheel(wheel_dir, "click", "8.0.0")
+            return _ok()
+
+        spec = PackageSpec(name="click", version_constraint=">=8.0")
+        with (
+            patch.object(EnvironmentProvisioner, "_run_pip", side_effect=fake_run),
+            provisioner.temp([spec]),
+        ):
+            pass
+
+        assert len(captured) == 1
+        cmd = captured[0]
+        assert "--index-url" not in cmd
+        assert "--extra-index-url" not in cmd
+
+    def test_single_custom_index_group(self, tmp_path: Path) -> None:
+        """All specs share one custom index → one pip call with that index."""
+        provisioner = EnvironmentProvisioner()
+        captured: list[list[str]] = []
+
+        def fake_run(
+            base_cmd: list[str], extra_args: list[str]
+        ) -> subprocess.CompletedProcess[str]:
+            captured.append([*base_cmd, *extra_args])
+            wheel_dir = Path(base_cmd[base_cmd.index("-w") + 1])
+            _write_fake_wheel(wheel_dir, "acme", "1.0")
+            return _ok()
+
+        spec = PackageSpec(
+            name="acme",
+            version_constraint="==1.4.0+corp1",
+            index_url=self._CUSTOM_INDEX,
+        )
+        with (
+            patch.object(EnvironmentProvisioner, "_run_pip", side_effect=fake_run),
+            provisioner.temp([spec]),
+        ):
+            pass
+
+        assert len(captured) == 1
+        cmd = captured[0]
+        assert "--index-url" in cmd
+        assert cmd[cmd.index("--index-url") + 1] == self._CUSTOM_INDEX
+        # PyPI must remain as a fallback for transitive deps.
+        assert "--extra-index-url" in cmd
+        assert cmd[cmd.index("--extra-index-url") + 1] == "https://pypi.org/simple"
+
+    def test_mixed_groups_run_separately(self, tmp_path: Path) -> None:
+        """Default + custom index specs trigger two distinct pip invocations."""
+        provisioner = EnvironmentProvisioner()
+        captured: list[list[str]] = []
+
+        def fake_run(
+            base_cmd: list[str], extra_args: list[str]
+        ) -> subprocess.CompletedProcess[str]:
+            captured.append([*base_cmd, *extra_args])
+            wheel_dir = Path(base_cmd[base_cmd.index("-w") + 1])
+            # Whichever name was requested, satisfy it.
+            name = extra_args[0].split("=")[0].split(">")[0].split("<")[0]
+            _write_fake_wheel(wheel_dir, name, "1.0")
+            return _ok()
+
+        specs = [
+            PackageSpec(name="click", version_constraint=">=8.0"),
+            PackageSpec(
+                name="acme",
+                version_constraint="==1.4.0+corp1",
+                index_url=self._CUSTOM_INDEX,
+            ),
+        ]
+        with (
+            patch.object(EnvironmentProvisioner, "_run_pip", side_effect=fake_run),
+            provisioner.temp(specs),
+        ):
+            pass
+
+        assert len(captured) == 2
+        default_cmd = next(c for c in captured if "--index-url" not in c)
+        custom_cmd = next(c for c in captured if "--index-url" in c)
+        assert "click>=8.0" in default_cmd
+        assert "acme==1.4.0+corp1" in custom_cmd
+        assert custom_cmd[custom_cmd.index("--index-url") + 1] == self._CUSTOM_INDEX
+
+    def test_specs_with_same_custom_index_grouped(self, tmp_path: Path) -> None:
+        """Two specs sharing the same index_url batch into one pip call."""
+        provisioner = EnvironmentProvisioner()
+        captured: list[list[str]] = []
+
+        def fake_run(
+            base_cmd: list[str], extra_args: list[str]
+        ) -> subprocess.CompletedProcess[str]:
+            captured.append([*base_cmd, *extra_args])
+            wheel_dir = Path(base_cmd[base_cmd.index("-w") + 1])
+            for arg in extra_args:
+                name = arg.split("=")[0].split(">")[0].split("<")[0]
+                _write_fake_wheel(wheel_dir, name, "1.0")
+            return _ok()
+
+        specs = [
+            PackageSpec(
+                name="acme", version_constraint="==1.4.0", index_url=self._CUSTOM_INDEX
+            ),
+            PackageSpec(
+                name="widget", version_constraint="==2.0", index_url=self._CUSTOM_INDEX
+            ),
+        ]
+        with (
+            patch.object(EnvironmentProvisioner, "_run_pip", side_effect=fake_run),
+            provisioner.temp(specs),
+        ):
+            pass
+
+        assert len(captured) == 1
+        cmd = captured[0]
+        assert "acme==1.4.0" in cmd
+        assert "widget==2.0" in cmd
+
+    def test_fallback_chain_runs_within_custom_group(self, tmp_path: Path) -> None:
+        """The batch → per-spec → bare-name fallback fires inside each group."""
+        provisioner = EnvironmentProvisioner()
+        calls: list[tuple[bool, list[str]]] = []
+
+        def fake_run(
+            base_cmd: list[str], extra_args: list[str]
+        ) -> subprocess.CompletedProcess[str]:
+            has_index = "--index-url" in base_cmd
+            calls.append((has_index, extra_args))
+            # Constrained specs fail on the custom index; bare name succeeds.
+            if has_index and any("==" in a for a in extra_args):
+                return _ok(returncode=1)
+            wheel_dir = Path(base_cmd[base_cmd.index("-w") + 1])
+            _write_fake_wheel(wheel_dir, extra_args[0].split("=")[0], "9.9.9")
+            return _ok()
+
+        spec = PackageSpec(
+            name="acme",
+            version_constraint="==1.4.0+corp1",
+            index_url=self._CUSTOM_INDEX,
+        )
+        with (
+            patch.object(EnvironmentProvisioner, "_run_pip", side_effect=fake_run),
+            provisioner.temp([spec]),
+        ):
+            pass
+
+        # batch fails, per-spec fails, bare-name succeeds — all within the
+        # custom-index group (so all three calls carry --index-url).
+        assert calls == [
+            (True, ["acme==1.4.0+corp1"]),
+            (True, ["acme==1.4.0+corp1"]),
+            (True, ["acme"]),
+        ]
+
+
 class TestProvisionedEnvCleanup:
     def _reader(self, tmp_path: Path) -> MetadataReader:
         return MetadataReader.from_site_packages(tmp_path)

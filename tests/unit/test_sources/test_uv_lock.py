@@ -112,3 +112,58 @@ class TestUvLockSourceGroupFiltering:
     def test_excludes_unselected_dev_group(self, tmp_path: Path) -> None:
         names = self._names(tmp_path, ["main", "group:test"])
         assert "ipython" not in names
+
+
+_CUSTOM_INDEX_LOCK = """\
+version = 1
+
+[[package]]
+name = "my-project"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "click" },
+    { name = "acme-utils" },
+]
+
+[[package]]
+name = "click"
+version = "8.1.7"
+source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "acme-utils"
+version = "1.4.0+corp1"
+source = { registry = "https://artifactory.example.com/api/pypi/internal/simple/" }
+"""
+
+
+class TestUvLockSourceIndexUrl:
+    def test_captures_pypi_registry(self, tmp_path: Path) -> None:
+        lock_file = tmp_path / "uv.lock"
+        lock_file.write_text(_CUSTOM_INDEX_LOCK)
+        specs = {s.name: s for s in UvLockSource(lock_file).parse()}
+        assert specs["click"].index_url == "https://pypi.org/simple"
+
+    def test_captures_custom_registry(self, tmp_path: Path) -> None:
+        lock_file = tmp_path / "uv.lock"
+        lock_file.write_text(_CUSTOM_INDEX_LOCK)
+        specs = {s.name: s for s in UvLockSource(lock_file).parse()}
+        assert (
+            specs["acme_utils"].index_url
+            == "https://artifactory.example.com/api/pypi/internal/simple/"
+        )
+
+    def test_empty_when_no_source(self, tmp_path: Path) -> None:
+        lock_file = tmp_path / "uv.lock"
+        lock_file.write_text(
+            "version = 1\n"
+            "\n"
+            "[[package]]\n"
+            'name = "my-project"\n'
+            'version = "0.1.0"\n'
+            'source = { virtual = "." }\n'
+        )
+        specs = UvLockSource(lock_file).parse()
+        # Root project itself isn't emitted, so we just confirm no errors.
+        assert specs == []

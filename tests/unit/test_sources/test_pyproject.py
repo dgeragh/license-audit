@@ -168,3 +168,137 @@ class TestPyprojectSourceGroupFiltering:
         names = self._names(tmp_path, ["main", "group:test"])
         assert "ruff" not in names
         assert "pytest" in names
+
+
+class TestPyprojectUvIndexUrl:
+    def test_uv_source_resolves_to_index_url(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            "[project]\n"
+            'name = "test"\n'
+            'dependencies = ["acme-utils==1.4.0+corp1", "click"]\n'
+            "\n"
+            "[[tool.uv.index]]\n"
+            'name = "corp"\n'
+            'url = "https://artifactory.example.com/api/pypi/internal/simple/"\n'
+            "\n"
+            "[tool.uv.sources]\n"
+            'acme-utils = { index = "corp" }\n'
+        )
+        specs = {s.name: s for s in PyprojectSource(pyproject).parse()}
+        assert (
+            specs["acme_utils"].index_url
+            == "https://artifactory.example.com/api/pypi/internal/simple/"
+        )
+        assert specs["click"].index_url == ""
+
+    def test_unreferenced_index_is_ignored(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            "[project]\n"
+            'name = "test"\n'
+            'dependencies = ["click"]\n'
+            "\n"
+            "[[tool.uv.index]]\n"
+            'name = "corp"\n'
+            'url = "https://artifactory.example.com/api/pypi/internal/simple/"\n'
+        )
+        specs = PyprojectSource(pyproject).parse()
+        assert specs[0].index_url == ""
+
+    def test_direct_url_does_not_become_index_url(self, tmp_path: Path) -> None:
+        """``{ url = ... }`` in tool.uv.sources is a direct download, not an index."""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            "[project]\n"
+            'name = "test"\n'
+            'dependencies = ["acme-utils"]\n'
+            "\n"
+            "[tool.uv.sources]\n"
+            'acme-utils = { url = "https://example.com/acme-utils-1.0.tar.gz" }\n'
+        )
+        specs = PyprojectSource(pyproject).parse()
+        assert specs[0].index_url == ""
+
+
+class TestPyprojectPoetryIndexUrl:
+    def test_poetry_source_attaches_index_url(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            "[[tool.poetry.source]]\n"
+            'name = "corp"\n'
+            'url = "https://artifactory.example.com/api/pypi/internal/simple/"\n'
+            'priority = "explicit"\n'
+            "\n"
+            "[tool.poetry.dependencies]\n"
+            'acme-utils = { version = "==1.4.0+corp1", source = "corp" }\n'
+        )
+        specs = {s.name: s for s in PyprojectSource(pyproject).parse()}
+        assert (
+            specs["acme_utils"].index_url
+            == "https://artifactory.example.com/api/pypi/internal/simple/"
+        )
+        assert specs["acme_utils"].version_constraint == "==1.4.0+corp1"
+
+    def test_poetry_caret_version_falls_back_to_empty(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            "[[tool.poetry.source]]\n"
+            'name = "corp"\n'
+            'url = "https://artifactory.example.com/api/pypi/internal/simple/"\n'
+            "\n"
+            "[tool.poetry.dependencies]\n"
+            'acme-utils = { version = "^1.4.0", source = "corp" }\n'
+        )
+        specs = PyprojectSource(pyproject).parse()
+        assert specs[0].name == "acme_utils"
+        assert specs[0].version_constraint == ""
+        assert (
+            specs[0].index_url
+            == "https://artifactory.example.com/api/pypi/internal/simple/"
+        )
+
+    def test_poetry_dep_without_source_ignored(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            "[[tool.poetry.source]]\n"
+            'name = "corp"\n'
+            'url = "https://artifactory.example.com/api/pypi/internal/simple/"\n'
+            "\n"
+            "[tool.poetry.dependencies]\n"
+            'click = "^8.0"\n'
+        )
+        specs = PyprojectSource(pyproject).parse()
+        # No PEP 621 deps and no source-referenced poetry deps → nothing emitted.
+        assert specs == []
+
+    def test_poetry_group_dep_with_source(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            "[[tool.poetry.source]]\n"
+            'name = "corp"\n'
+            'url = "https://artifactory.example.com/api/pypi/internal/simple/"\n'
+            "\n"
+            "[tool.poetry.group.test.dependencies]\n"
+            'acme-utils = { version = "1.4.0", source = "corp" }\n'
+        )
+        specs = PyprojectSource(pyproject, groups=["group:test"]).parse()
+        assert specs[0].name == "acme_utils"
+        assert (
+            specs[0].index_url
+            == "https://artifactory.example.com/api/pypi/internal/simple/"
+        )
+        assert specs[0].version_constraint == "==1.4.0"
+
+    def test_poetry_group_filtered_out(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            "[[tool.poetry.source]]\n"
+            'name = "corp"\n'
+            'url = "https://artifactory.example.com/api/pypi/internal/simple/"\n'
+            "\n"
+            "[tool.poetry.group.test.dependencies]\n"
+            'acme-utils = { version = "1.4.0", source = "corp" }\n'
+        )
+        specs = PyprojectSource(pyproject, groups=["main"]).parse()
+        assert specs == []
