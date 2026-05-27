@@ -48,6 +48,8 @@ class ProvisionedEnv:
 class EnvironmentProvisioner:
     """Creates or attaches to the Python environment we analyze."""
 
+    _PYPI_FALLBACK_URL = "https://pypi.org/simple"
+
     def __init__(self, console: Console | None = None) -> None:
         # Spinner output goes to stderr so stdout (e.g. piped JSON) stays clean.
         self._console = console or Console(stderr=True)
@@ -119,7 +121,20 @@ class EnvironmentProvisioner:
         if not specs:
             return
 
-        base_cmd = [sys.executable, "-m", "pip", "wheel", "--pre", "-w", str(wheel_dir)]
+        groups: dict[str, list[PackageSpec]] = {}
+        for spec in specs:
+            groups.setdefault(spec.index_url, []).append(spec)
+
+        for index_url, group_specs in groups.items():
+            base_cmd = self._build_base_cmd(wheel_dir, index_url)
+            self._download_group(base_cmd, group_specs, status)
+
+    def _download_group(
+        self,
+        base_cmd: list[str],
+        specs: list[PackageSpec],
+        status: Status,
+    ) -> None:
         install_args = [self._spec_to_install_arg(s) for s in specs]
 
         result = self._run_pip(base_cmd, install_args)
@@ -177,6 +192,15 @@ class EnvironmentProvisioner:
         if spec.source_url:
             return f"{spec.name} @ {spec.source_url}"
         return f"{spec.name}{spec.version_constraint}"
+
+    @staticmethod
+    def _build_base_cmd(wheel_dir: Path, index_url: str) -> list[str]:
+        """Build the `pip wheel` base command for a given index URL."""
+        cmd = [sys.executable, "-m", "pip", "wheel", "--pre", "-w", str(wheel_dir)]
+        if index_url:
+            cmd.extend(["--index-url", index_url])
+            cmd.extend(["--extra-index-url", EnvironmentProvisioner._PYPI_FALLBACK_URL])
+        return cmd
 
     @staticmethod
     def _find_site_packages(venv_path: Path) -> Path | None:

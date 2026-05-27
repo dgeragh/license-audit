@@ -52,11 +52,11 @@ class PixiLockSource:
         platform_key = _pixi_platform_key()
         environments = _coerce_dict(data.get("environments"))
         selected_envs = _select_environments(environments, self._groups)
-        selected_pypi_urls, conda_count = _collect_env_refs(
+        selected_pypi, conda_count = _collect_env_refs(
             environments, selected_envs, platform_key
         )
 
-        specs = _collect_pypi_specs(data.get("packages"), selected_pypi_urls)
+        specs = _collect_pypi_specs(data.get("packages"), selected_pypi)
 
         if conda_count:
             warnings.warn(
@@ -126,12 +126,13 @@ def _collect_env_refs(
     environments: dict[str, object],
     selected_envs: list[str],
     platform_key: str,
-) -> tuple[set[str], int]:
-    """Walk selected environments and collect pypi URLs + skipped conda count."""
-    selected_pypi_urls: set[str] = set()
+) -> tuple[dict[str, str], int]:
+    selected_pypi: dict[str, str] = {}
     conda_count = 0
     for env_name in selected_envs:
         env = _coerce_dict(environments.get(env_name))
+        env_indexes = _coerce_str_list(env.get("indexes"))
+        custom_index = _custom_index(env_indexes)
         env_packages = _coerce_dict(env.get("packages"))
         for plat in (platform_key, _NOARCH):
             entries = env_packages.get(plat)
@@ -142,11 +143,43 @@ def _collect_env_refs(
                     continue
                 if "pypi" in entry:
                     url = entry.get("pypi")
-                    if isinstance(url, str):
-                        selected_pypi_urls.add(url)
+                    # If a URL is referenced from multiple envs, prefer the
+                    # first non-empty custom index resolution.
+                    if isinstance(url, str) and (
+                        url not in selected_pypi
+                        or (custom_index and not selected_pypi[url])
+                    ):
+                        selected_pypi[url] = custom_index
                 elif "conda" in entry:
                     conda_count += 1
-    return selected_pypi_urls, conda_count
+    return selected_pypi, conda_count
+
+
+def _custom_index(env_indexes: list[str]) -> str:
+    """Return the single non-PyPI index URL declared by an env, or empty.
+
+    Returns empty if the env declares only PyPI, or declares multiple custom
+    indexes.
+    """
+    non_default = [idx for idx in env_indexes if not _is_default_pypi(idx)]
+    if len(non_default) == 1:
+        return non_default[0]
+    return ""
+
+
+def _is_default_pypi(url: str) -> bool:
+    """Return True if the URL is the default public PyPI simple index."""
+    return url.rstrip("/") in {
+        "https://pypi.org/simple",
+        "http://pypi.org/simple",
+    }
+
+
+def _coerce_str_list(value: object) -> list[str]:
+    """Coerce a value to a list of strings, filtering out non-string items."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 def _select_environments(
@@ -179,7 +212,7 @@ def _select_environments(
 
 def _collect_pypi_specs(
     packages: object,
-    selected_urls: set[str],
+    selected_urls: dict[str, str],
 ) -> list[PackageSpec]:
     """Walk the top-level ``packages`` list, returning matching PyPI entries.
 
@@ -214,6 +247,7 @@ def _collect_pypi_specs(
             PackageSpec(
                 name=canonical,
                 version_constraint=f"=={raw_version}",
+                index_url=selected_urls[url],
             )
         )
     return specs

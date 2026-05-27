@@ -109,11 +109,14 @@ def _build_spec(
         return None
 
     name = canonicalize(raw_name)
-    source_url = _build_source_url(pkg.get("source"))
+    source = pkg.get("source")
+    source_url = _build_source_url(source)
+    index_url = _build_index_url(source)
     return PackageSpec(
         name=name,
         version_constraint=f"=={raw_version}",
         source_url=source_url,
+        index_url=index_url,
     )
 
 
@@ -161,3 +164,15 @@ def _build_source_url(source: object) -> str:
     if isinstance(ref, str) and ref:
         return f"git+{url}@{ref}"
     return f"git+{url}"
+
+
+def _build_index_url(source: object) -> str:
+    """Return the index URL for ``legacy``/``pypi`` source types, else empty."""
+    if not isinstance(source, dict):
+        return ""
+    if source.get("type") not in ("legacy", "pypi"):
+        return ""
+    url = source.get("url")
+    if isinstance(url, str):
+        return url
+    return ""
