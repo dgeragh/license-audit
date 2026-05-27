@@ -408,3 +408,92 @@ class TestPixiLockFixture:
         for spec in specs:
             assert spec.name
             assert spec.version_constraint.startswith("==")
+
+
+class TestPixiLockIndexUrl:
+    """Index-URL extraction from environment-level ``indexes:`` declarations."""
+
+    def _custom_index_lock(self) -> str:
+        return (
+            "version: 6\n"
+            "environments:\n"
+            "  default:\n"
+            "    channels:\n"
+            "    - url: https://conda.anaconda.org/conda-forge/\n"
+            "    indexes:\n"
+            "    - https://pypi.org/simple\n"
+            "    - https://artifactory.example.com/api/pypi/internal/simple/\n"
+            "    packages:\n"
+            f"      {_PLATFORM}:\n"
+            "      - pypi: https://artifactory.example.com/api/pypi/internal/"
+            "packages/acme-utils-1.4.0+corp1.whl\n"
+            "packages:\n"
+            "- pypi: https://artifactory.example.com/api/pypi/internal/"
+            "packages/acme-utils-1.4.0+corp1.whl\n"
+            "  name: acme-utils\n"
+            "  version: 1.4.0+corp1\n"
+            "  sha256: testhash\n"
+        )
+
+    def test_custom_index_attached_to_pypi_specs(self, tmp_path: Path) -> None:
+        lock = tmp_path / "pixi.lock"
+        lock.write_text(self._custom_index_lock())
+        specs = PixiLockSource(lock).parse()
+        assert len(specs) == 1
+        assert (
+            specs[0].index_url
+            == "https://artifactory.example.com/api/pypi/internal/simple/"
+        )
+
+    def test_only_pypi_index_yields_empty(self, tmp_path: Path) -> None:
+        lock = tmp_path / "pixi.lock"
+        lock.write_text(
+            "version: 6\n"
+            "environments:\n"
+            "  default:\n"
+            "    channels:\n"
+            "    - url: https://conda.anaconda.org/conda-forge/\n"
+            "    indexes:\n"
+            "    - https://pypi.org/simple\n"
+            "    packages:\n"
+            f"      {_PLATFORM}:\n"
+            "      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl\n"
+            "packages:\n" + _PKG_CLICK + "\n"
+        )
+        specs = PixiLockSource(lock).parse()
+        assert specs[0].index_url == ""
+
+    def test_multiple_custom_indexes_yields_empty(self, tmp_path: Path) -> None:
+        """When an env declares two custom indexes we can't disambiguate."""
+        lock = tmp_path / "pixi.lock"
+        lock.write_text(
+            "version: 6\n"
+            "environments:\n"
+            "  default:\n"
+            "    channels:\n"
+            "    - url: https://conda.anaconda.org/conda-forge/\n"
+            "    indexes:\n"
+            "    - https://pypi.org/simple\n"
+            "    - https://a.example.com/simple/\n"
+            "    - https://b.example.com/simple/\n"
+            "    packages:\n"
+            f"      {_PLATFORM}:\n"
+            "      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl\n"
+            "packages:\n" + _PKG_CLICK + "\n"
+        )
+        specs = PixiLockSource(lock).parse()
+        assert specs[0].index_url == ""
+
+    def test_no_indexes_section_yields_empty(self, tmp_path: Path) -> None:
+        """A lockfile without an ``indexes:`` list still parses cleanly."""
+        lock = tmp_path / "pixi.lock"
+        lock.write_text(
+            _lock(
+                default_pypi=[
+                    "https://files.pythonhosted.org/packages/click-8.1.7.whl"
+                ],
+                package_entries=[_PKG_CLICK],
+            )
+        )
+        specs = PixiLockSource(lock).parse()
+        assert specs[0].index_url == ""

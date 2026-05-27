@@ -100,6 +100,7 @@ def _collect_deps(
                 PackageSpec(
                     name=name,
                     version_constraint=f"=={version}",
+                    index_url=_registry_url(pkg_entry),
                 )
             )
         elif isinstance(source, dict) and "git" in source:
@@ -190,6 +191,17 @@ def _is_registry_source(pkg_entry: dict[str, object]) -> bool:
     if not isinstance(source, dict):
         return True  # no source info -- assume registry
     return "registry" in source
+
+
+def _registry_url(pkg_entry: dict[str, object]) -> str:
+    """Return the registry URL for a registry-sourced package, or empty string."""
+    source = pkg_entry.get("source")
+    if not isinstance(source, dict):
+        return ""
+    url = source.get("registry")
+    if isinstance(url, str):
+        return url
+    return ""
 
 
 def _build_git_url(source: dict[str, object]) -> str:

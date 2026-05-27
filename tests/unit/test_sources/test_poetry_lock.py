@@ -267,6 +267,81 @@ content-hash = "x"
         assert specs[0].source_url == ""
 
 
+class TestPoetryLockIndexUrl:
+    _CUSTOM_INDEX_LOCK = """\
+[[package]]
+name = "acme-utils"
+version = "1.4.0+corp1"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+
+[package.source]
+type = "legacy"
+url = "https://artifactory.example.com/api/pypi/internal/simple/"
+reference = "corp"
+
+[[package]]
+name = "click"
+version = "8.1.7"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+
+[metadata]
+lock-version = "2.0"
+python-versions = ">=3.10"
+content-hash = "x"
+"""
+
+    def test_legacy_source_captured_as_index_url(self, tmp_path: Path) -> None:
+        lock_file = tmp_path / "poetry.lock"
+        lock_file.write_text(self._CUSTOM_INDEX_LOCK)
+        specs = {s.name: s for s in PoetryLockSource(lock_file).parse()}
+        assert (
+            specs["acme_utils"].index_url
+            == "https://artifactory.example.com/api/pypi/internal/simple/"
+        )
+        assert specs["acme_utils"].source_url == ""
+
+    def test_pypi_source_type_captured_as_index_url(self, tmp_path: Path) -> None:
+        lock_file = tmp_path / "poetry.lock"
+        lock_file.write_text("""\
+[[package]]
+name = "acme-utils"
+version = "1.4.0"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+
+[package.source]
+type = "pypi"
+url = "https://artifactory.example.com/api/pypi/internal/simple/"
+
+[metadata]
+lock-version = "2.0"
+python-versions = ">=3.10"
+content-hash = "x"
+""")
+        specs = PoetryLockSource(lock_file).parse()
+        assert (
+            specs[0].index_url
+            == "https://artifactory.example.com/api/pypi/internal/simple/"
+        )
+
+    def test_no_source_leaves_index_empty(self, tmp_path: Path) -> None:
+        lock_file = tmp_path / "poetry.lock"
+        lock_file.write_text(self._CUSTOM_INDEX_LOCK)
+        specs = {s.name: s for s in PoetryLockSource(lock_file).parse()}
+        assert specs["click"].index_url == ""
+
+    def test_git_source_does_not_populate_index_url(self, tmp_path: Path) -> None:
+        lock_file = tmp_path / "poetry.lock"
+        lock_file.write_text(_SYNTHETIC_LOCK_V2)
+        specs = {s.name: s for s in PoetryLockSource(lock_file).parse()}
+        assert specs["git_pkg"].index_url == ""
+
+
 _FIXTURE = Path(__file__).parents[2] / "fixtures" / "poetry.lock"
 
 

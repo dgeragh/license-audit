@@ -14,6 +14,7 @@ class PackageSpec:
     version_constraint: str = ""
     source_url: str = ""
     extras: frozenset[str] = frozenset()
+    index_url: str = ""
 
 
 class Source(Protocol):
