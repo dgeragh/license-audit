@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0 (2026-05-27)
+
+### Fixed
+
+- Forward custom package indices to `pip wheel`
+
+### Changed
+
+- Bumped `urllib3`, `idna`, and `pymdown-extensions` via Dependabot
+
 ## 0.7.0 (2026-05-06)
 
 ### Changed
