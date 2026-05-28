@@ -68,12 +68,23 @@ class PackageLicense(BaseModel):
     name: str
     version: str
     license_expression: str = UNKNOWN_LICENSE
+    declared_license: str | None = None
     license_source: LicenseSource = LicenseSource.UNKNOWN
     category: LicenseCategory = LicenseCategory.UNKNOWN
     parent: str = ""
     license_text: str | None = None
     ignored: bool = False
     ignore_reason: str = ""
+
+    @property
+    def display_license(self) -> str:
+        """License string to show users.
+
+        Prefers the raw declared identifier when the license could not be
+        mapped to SPDX, so reports surface the actual string (e.g. "
+        Proprietary License") instead of a bare ``UNKNOWN``.
+        """
+        return self.declared_license or self.license_expression
 
 
 class DependencyNode(BaseModel):

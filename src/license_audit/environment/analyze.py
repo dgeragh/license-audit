@@ -44,13 +44,14 @@ def _resolve_package(
     """Recursively resolve a package and its dependencies."""
     canonical = canonicalize(name)
     version = _get_version(canonical, reader)
-    license_expr, source = detect_license(canonical, reader, overrides)
+    detected = detect_license(canonical, reader, overrides)
 
     pkg = PackageLicense(
         name=canonical,
         version=version,
-        license_expression=license_expr,
-        license_source=source,
+        license_expression=detected.expression,
+        declared_license=detected.declared_license,
+        license_source=detected.source,
     )
 
     if canonical in visited:

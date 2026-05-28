@@ -7,6 +7,7 @@ from pathlib import Path
 
 from license_audit.core.models import LicenseSource
 from license_audit.licenses.detection import (
+    DetectionResult,
     _detect_from_metadata,
     _try_classifiers,
     _try_license_field,
@@ -45,13 +46,14 @@ def _write_dist_info(
 class TestDetectLicense:
     def test_override_takes_precedence(self, tmp_path: Path) -> None:
         reader = MetadataReader.from_site_packages(tmp_path)
-        expr, source = detect_license(
+        result = detect_license(
             "mypkg",
             reader,
             overrides={"mypkg": "Apache-2.0"},
         )
-        assert expr == "Apache-2.0"
-        assert source == LicenseSource.OVERRIDE
+        assert result.expression == "Apache-2.0"
+        assert result.source == LicenseSource.OVERRIDE
+        assert result.declared_license is None
 
     def test_reads_from_dist_info(self, tmp_path: Path) -> None:
         _write_dist_info(
@@ -61,15 +63,31 @@ class TestDetectLicense:
             metadata_extra="License-Expression: MIT\n",
         )
         reader = MetadataReader.from_site_packages(tmp_path)
-        expr, source = detect_license("tools", reader)
-        assert expr == "MIT"
-        assert source == LicenseSource.PEP639
+        result = detect_license("tools", reader)
+        assert result.expression == "MIT"
+        assert result.source == LicenseSource.PEP639
 
     def test_nonexistent_package(self, tmp_path: Path) -> None:
         reader = MetadataReader.from_site_packages(tmp_path)
-        expr, source = detect_license("nonexistent", reader)
-        assert expr == "UNKNOWN"
-        assert source == LicenseSource.UNKNOWN
+        result = detect_license("nonexistent", reader)
+        assert result.expression == "UNKNOWN"
+        assert result.source == LicenseSource.UNKNOWN
+        assert result.declared_license is None
+
+    def test_unrecognized_license_preserves_declared_string(
+        self, tmp_path: Path
+    ) -> None:
+        _write_dist_info(
+            tmp_path,
+            "gpu",
+            "1.0.0",
+            metadata_extra="License: Proprietary License\n",
+        )
+        reader = MetadataReader.from_site_packages(tmp_path)
+        result = detect_license("gpu", reader)
+        assert result.expression == "UNKNOWN"
+        assert result.declared_license == "Proprietary License"
+        assert result.source == LicenseSource.METADATA
 
 
 class TestTryPep639:
@@ -77,8 +95,9 @@ class TestTryPep639:
         meta = _make_metadata(License_Expression="MIT")
         result = _try_pep639(meta)
         assert result is not None
-        assert result[0] == "MIT"
-        assert result[1] == LicenseSource.PEP639
+        assert result.expression == "MIT"
+        assert result.source == LicenseSource.PEP639
+        assert result.declared_license is None
 
     def test_unknown_value_skipped(self) -> None:
         meta = _make_metadata(License_Expression="UNKNOWN")
@@ -92,13 +111,22 @@ class TestTryPep639:
         meta = _make_metadata()
         assert _try_pep639(meta) is None
 
+    def test_unrecognized_expression_preserves_raw_string(self) -> None:
+        meta = _make_metadata(License_Expression="Proprietary License")
+        result = _try_pep639(meta)
+        assert result is not None
+        assert result.expression == "UNKNOWN"
+        assert result.declared_license == "Proprietary License"
+        assert result.source == LicenseSource.PEP639
+
 
 class TestTryLicenseField:
     def test_valid_license(self) -> None:
         meta = _make_metadata(License="MIT License")
         result = _try_license_field(meta)
         assert result is not None
-        assert result[1] == LicenseSource.METADATA
+        assert result.source == LicenseSource.METADATA
+        assert result.declared_license is None
 
     def test_unknown_skipped(self) -> None:
         meta = _make_metadata(License="UNKNOWN")
@@ -112,14 +140,22 @@ class TestTryLicenseField:
         meta = _make_metadata(License="")
         assert _try_license_field(meta) is None
 
+    def test_unrecognized_license_preserves_raw_string(self) -> None:
+        meta = _make_metadata(License="Weird Custom Terms v3")
+        result = _try_license_field(meta)
+        assert result is not None
+        assert result.expression == "UNKNOWN"
+        assert result.declared_license == "Weird Custom Terms v3"
+        assert result.source == LicenseSource.METADATA
+
 
 class TestTryClassifiers:
     def test_single_classifier(self) -> None:
         meta = _make_metadata(Classifier=["License :: OSI Approved :: MIT License"])
         result = _try_classifiers(meta)
         assert result is not None
-        assert result[0] == "MIT"
-        assert result[1] == LicenseSource.CLASSIFIER
+        assert result.expression == "MIT"
+        assert result.source == LicenseSource.CLASSIFIER
 
     def test_multiple_classifiers_produce_or_expression(self) -> None:
         meta = _make_metadata(
@@ -130,18 +166,47 @@ class TestTryClassifiers:
         )
         result = _try_classifiers(meta)
         assert result is not None
-        assert "OR" in result[0]
-        assert result[1] == LicenseSource.CLASSIFIER
+        assert "OR" in result.expression
+        assert result.source == LicenseSource.CLASSIFIER
 
     def test_no_license_classifiers(self) -> None:
         meta = _make_metadata(Classifier=["Programming Language :: Python :: 3"])
         assert _try_classifiers(meta) is None
 
-    def test_unrecognized_license_classifier(self) -> None:
+    def test_unrecognized_license_classifier_preserves_declared(self) -> None:
         meta = _make_metadata(Classifier=["License :: Other/Proprietary License"])
         result = _try_classifiers(meta)
-        if result is not None:
-            assert result[1] == LicenseSource.CLASSIFIER
+        assert result is not None
+        assert result.expression == "UNKNOWN"
+        assert result.source == LicenseSource.CLASSIFIER
+        assert result.declared_license == "Other/Proprietary License"
+
+    def test_multiple_unrecognized_classifiers_joined(self) -> None:
+        meta = _make_metadata(
+            Classifier=[
+                "License :: Other/Proprietary License",
+                "License :: Free For Educational Use",
+            ]
+        )
+        result = _try_classifiers(meta)
+        assert result is not None
+        assert result.declared_license == (
+            "Other/Proprietary License; Free For Educational Use"
+        )
+
+    def test_bare_license_classifier_is_not_declared(self) -> None:
+        # A malformed bare "License ::" has no segment, so it must not surface
+        # an empty declared license or a leading "; " join artifact.
+        meta = _make_metadata(
+            Classifier=["License ::", "License :: Other/Proprietary License"]
+        )
+        result = _try_classifiers(meta)
+        assert result is not None
+        assert result.declared_license == "Other/Proprietary License"
+
+    def test_only_bare_license_classifier_returns_none(self) -> None:
+        meta = _make_metadata(Classifier=["License ::"])
+        assert _try_classifiers(meta) is None
 
 
 class TestDetectFromMetadata:
@@ -150,23 +215,56 @@ class TestDetectFromMetadata:
             License_Expression="Apache-2.0",
             License="MIT License",
         )
-        expr, source = _detect_from_metadata(meta)
-        assert expr == "Apache-2.0"
-        assert source == LicenseSource.PEP639
+        result = _detect_from_metadata(meta)
+        assert result.expression == "Apache-2.0"
+        assert result.source == LicenseSource.PEP639
 
     def test_falls_back_to_license_field(self) -> None:
         meta = _make_metadata(License="MIT License")
-        _expr, source = _detect_from_metadata(meta)
-        assert source == LicenseSource.METADATA
+        result = _detect_from_metadata(meta)
+        assert result.source == LicenseSource.METADATA
 
     def test_falls_back_to_classifiers(self) -> None:
         meta = _make_metadata(Classifier=["License :: OSI Approved :: MIT License"])
-        expr, source = _detect_from_metadata(meta)
-        assert expr == "MIT"
-        assert source == LicenseSource.CLASSIFIER
+        result = _detect_from_metadata(meta)
+        assert result.expression == "MIT"
+        assert result.source == LicenseSource.CLASSIFIER
 
     def test_returns_unknown_when_nothing_found(self) -> None:
         meta = _make_metadata()
-        expr, source = _detect_from_metadata(meta)
-        assert expr == "UNKNOWN"
-        assert source == LicenseSource.UNKNOWN
+        result = _detect_from_metadata(meta)
+        assert result.expression == "UNKNOWN"
+        assert result.source == LicenseSource.UNKNOWN
+        assert result.declared_license is None
+
+    def test_recognized_classifier_wins_over_unrecognized_license_field(self) -> None:
+        # A recognized SPDX result anywhere beats a declared-but-unrecognized one.
+        meta = _make_metadata(
+            License="Some Bespoke License",
+            Classifier=["License :: OSI Approved :: MIT License"],
+        )
+        result = _detect_from_metadata(meta)
+        assert result.expression == "MIT"
+        assert result.declared_license is None
+
+    def test_declared_unrecognized_surfaced_when_no_spdx_found(self) -> None:
+        meta = _make_metadata(License="Some Bespoke License")
+        result = _detect_from_metadata(meta)
+        assert result.expression == "UNKNOWN"
+        assert result.declared_license == "Some Bespoke License"
+
+    def test_pep639_declared_string_preferred_over_classifier_declared(self) -> None:
+        meta = _make_metadata(
+            License_Expression="Custom GPU EULA",
+            Classifier=["License :: Other/Proprietary License"],
+        )
+        result = _detect_from_metadata(meta)
+        assert result.expression == "UNKNOWN"
+        assert result.declared_license == "Custom GPU EULA"
+        assert result.source == LicenseSource.PEP639
+
+
+class TestDetectionResult:
+    def test_recognized_property(self) -> None:
+        assert DetectionResult("MIT", LicenseSource.PEP639).recognized
+        assert not DetectionResult("UNKNOWN", LicenseSource.UNKNOWN).recognized

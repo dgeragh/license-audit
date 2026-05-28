@@ -48,7 +48,7 @@ license-audit report --format notices --output NOTICES.md
 
 | Format | Use case |
 |---|---|
-| `markdown` (default) | Human-readable compliance summary |
+| `markdown` (default) | Human-readable compliance summary. Includes a **Licenses Requiring Review** section with the full license text of any dependency whose license could not be mapped to SPDX. |
 | `json` | Machine-readable, suitable for downstream tooling |
 | `notices` | `THIRD_PARTY_NOTICES.md` with full license texts |
 

@@ -225,6 +225,14 @@ class PolicyEngine:
         """User-facing explanation for why a package's license is unknown."""
         suffix = "Add an override in [tool.license-audit.overrides] or check manually."
 
+        if pkg.declared_license:
+            return (
+                f"Package '{pkg.name}' declares license '{pkg.declared_license}', "
+                f"which is not a recognized SPDX identifier. Review its license "
+                f"text in the report to determine the correct classification. "
+                f"{suffix}"
+            )
+
         if pkg.license_expression == UNKNOWN_LICENSE:
             return f"License for '{pkg.name}' could not be detected. {suffix}"
 

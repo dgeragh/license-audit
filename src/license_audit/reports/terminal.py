@@ -12,6 +12,7 @@ from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
     SummaryStats,
+    license_label,
 )
 
 
@@ -67,7 +68,7 @@ class TerminalRenderer:
             table.add_row(
                 pkg.name,
                 pkg.version,
-                Text(pkg.license_expression),
+                Text(license_label(pkg.display_license)),
                 category_text,
                 pkg.license_source.value,
                 parent,

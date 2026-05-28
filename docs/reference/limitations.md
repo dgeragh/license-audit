@@ -14,7 +14,7 @@ The matrix encodes a strict reading of license compatibility. For weak-copyleft 
 
 ## License strings on PyPI are messy
 
-PyPI packages use inconsistent license strings. license-audit normalizes 60+ common aliases to SPDX identifiers, but uncommon or malformed strings will be reported as UNKNOWN. Overrides fill the gap.
+PyPI packages use inconsistent license strings. license-audit normalizes 60+ common aliases to SPDX identifiers. Strings it can't map (e.g. `Proprietary License`) are reported verbatim and flagged as an unknown category rather than collapsed to `UNKNOWN`, and the Markdown report's **Licenses Requiring Review** section includes their license text so you can verify the terms. Use overrides to assign a canonical SPDX identifier once you've confirmed it.
 
 ## You must provision the environment first
 

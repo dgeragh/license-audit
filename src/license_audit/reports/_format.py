@@ -56,6 +56,46 @@ class SummaryStats:
         )
 
 
+def license_label(value: str, limit: int = 120) -> str:
+    """Collapse whitespace and bound length so a license fits one table cell.
+
+    A detected SPDX expression is always short and single-line, so this is a
+    no-op for it. But a *declared-but-unrecognized* license comes straight from
+    package metadata, where some projects stuff an entire license body into the
+    ``License`` field. Collapsing and truncating keeps such values from blowing
+    up table layouts or terminal rows.
+    """
+    collapsed = " ".join(value.split())
+    if len(collapsed) > limit:
+        return collapsed[: limit - 1].rstrip() + "…"
+    return collapsed
+
+
+def markdown_license_cell(value: str) -> str:
+    """`license_label` plus pipe-escaping for safe markdown-table inclusion."""
+    return license_label(value).replace("|", "\\|")
+
+
+def fenced_code_block(text: str) -> str:
+    """Wrap `text` in a backtick fence long enough to contain it intact.
+
+    License bodies are publisher-controlled and may themselves contain a
+    ```` ``` ```` fence (some bundle Markdown-formatted notices). Per CommonMark
+    a fence is only closed by a backtick run at least as long as the opener, so
+    we size the fence one longer than the longest run in the body.
+    """
+    longest = 0
+    run = 0
+    for char in text:
+        if char == "`":
+            run += 1
+            longest = max(longest, run)
+        else:
+            run = 0
+    fence = "`" * max(3, longest + 1)
+    return f"{fence}\n{text.rstrip()}\n{fence}"
+
+
 def generated_metadata_block(report: AnalysisReport) -> str:
     """`Generated: <timestamp>` line plus an optional `Source: ...` line."""
     now = datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M UTC")

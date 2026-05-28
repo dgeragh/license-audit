@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from license_audit.core.analyzer import LicenseAuditor
+from license_audit.core.models import LicenseCategory
 
 VenvBuilder = Callable[[Path, dict[str, str]], Path]
 
@@ -66,6 +67,25 @@ class TestConfigPropagation:
         report = LicenseAuditor().run(target=tmp_path)
         click = next(p for p in report.packages if p.name == "click")
         assert click.license_expression == "Apache-2.0"
+
+    def test_unrecognized_license_preserves_declared_string(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A declared-but-unrecognized license surfaces its raw string and
+        still counts as unknown (so fail-on-unknown CI gating keeps working)."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(tmp_path / ".venv", {"gpu": "Proprietary License"})
+        report = LicenseAuditor().run(target=tmp_path)
+        gpu = next(p for p in report.packages if p.name == "gpu")
+        assert gpu.license_expression == "UNKNOWN"
+        assert gpu.declared_license == "Proprietary License"
+        assert gpu.display_license == "Proprietary License"
+        assert gpu.category == LicenseCategory.UNKNOWN
 
     def test_ignored_package_marked_in_report(
         self,

@@ -236,3 +236,21 @@ class TestRecommendIgnoredPackages:
         assert result.exit_code == 0
         assert "Most restrictive dependency" in result.output
         assert "gpl-pkg" in result.output
+
+    def test_constraint_shows_declared_string_not_unknown(self) -> None:
+        """An unrecognized (UNKNOWN-category) dependency drives the constraint
+        line and shows its declared identifier rather than bare UNKNOWN."""
+        gpu = PackageLicense(
+            name="proprietary-package",
+            version="12.0",
+            license_expression="UNKNOWN",
+            declared_license="Proprietary License",
+            license_source=LicenseSource.METADATA,
+            category=LicenseCategory.UNKNOWN,
+        )
+        report = _make_report(packages=[gpu], recommended_licenses=[])
+        with patch("license_audit.cli.recommend.run_audit", return_value=report) as _m:
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert result.exit_code == 0
+        assert "Most restrictive dependency" in result.output
+        assert "Proprietary License" in result.output

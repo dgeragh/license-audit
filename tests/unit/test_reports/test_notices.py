@@ -17,11 +17,13 @@ def _make_pkg(
     license_expression: str = "MIT",
     category: LicenseCategory = LicenseCategory.PERMISSIVE,
     license_text: str | None = None,
+    declared_license: str | None = None,
 ) -> PackageLicense:
     return PackageLicense(
         name=name,
         version=version,
         license_expression=license_expression,
+        declared_license=declared_license,
         license_source=LicenseSource.PEP639,
         category=category,
         license_text=license_text,
@@ -93,3 +95,40 @@ class TestNoticesRenderer:
         report = AnalysisReport(project_name="p", source="/abs/.venv")
         result = NoticesRenderer().render(report)
         assert "Source: /abs/.venv" in result
+
+    def test_declared_license_shown_with_note(self) -> None:
+        report = AnalysisReport(
+            project_name="my-project",
+            packages=[
+                _make_pkg(
+                    name="proprietary-package",
+                    license_expression="UNKNOWN",
+                    declared_license="Proprietary License",
+                    category=LicenseCategory.UNKNOWN,
+                    license_text="SOFTWARE LICENSE AGREEMENT",
+                )
+            ],
+        )
+        result = NoticesRenderer().render(report)
+        assert "**License:** Proprietary License" in result
+        assert "not a recognized SPDX identifier" in result
+        assert "SOFTWARE LICENSE AGREEMENT" in result
+
+    def test_falls_back_to_declared_string_when_no_license_file(self) -> None:
+        # No bundled LICENSE file: the declared string is the only content, so
+        # it must appear in the fence rather than "License text not available".
+        report = AnalysisReport(
+            project_name="my-project",
+            packages=[
+                _make_pkg(
+                    name="gpu",
+                    license_expression="UNKNOWN",
+                    declared_license="WHOLE EULA BODY in the metadata field",
+                    category=LicenseCategory.UNKNOWN,
+                    license_text=None,
+                )
+            ],
+        )
+        result = NoticesRenderer().render(report)
+        assert "WHOLE EULA BODY in the metadata field" in result
+        assert "License text not available" not in result

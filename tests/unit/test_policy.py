@@ -343,6 +343,14 @@ class TestBuildActionItems:
         warnings = [i for i in items if i.severity == "warning"]
         assert len(warnings) >= 1
 
+    def test_not_detected_message_distinct_from_declared(self) -> None:
+        # The not-found state must read differently from declared-but-unrecognized,
+        # or requirement #2 (distinguishing the two) is lost at the policy layer.
+        items = PolicyEngine().build_action_items([_UNKNOWN], [], LicenseAuditConfig())
+        msg = next(i.message for i in items if i.package == _UNKNOWN.name)
+        assert "could not be detected" in msg
+        assert "declares license" not in msg
+
     def test_unrecognized_expression_warning(self) -> None:
         items = PolicyEngine().build_action_items(
             [_UNRECOGNIZED],
@@ -351,6 +359,23 @@ class TestBuildActionItems:
         )
         warnings = [i for i in items if "not a recognized SPDX" in i.message]
         assert len(warnings) == 1
+
+    def test_declared_license_warning_names_raw_identifier(self) -> None:
+        pkg = PackageLicense(
+            name="proprietary-package",
+            version="12.0",
+            license_expression="UNKNOWN",
+            declared_license="Proprietary License",
+            license_source=LicenseSource.METADATA,
+            category=LicenseCategory.UNKNOWN,
+        )
+        items = PolicyEngine().build_action_items([pkg], [], LicenseAuditConfig())
+        warnings = [i for i in items if i.package == "proprietary-package"]
+        assert len(warnings) == 1
+        msg = warnings[0].message
+        assert "Proprietary License" in msg
+        assert "not a recognized SPDX identifier" in msg
+        assert "Review its license text" in msg
 
     def test_and_expression_names_unclassifiable_component(self) -> None:
         """Pkg with a parseable expression where only one AND component is
