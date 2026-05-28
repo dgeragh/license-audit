@@ -20,9 +20,9 @@ from license_audit.reports.terminal import TerminalRenderer
 @click.pass_context
 def analyze_cmd(ctx: click.Context, output_format: str) -> None:
     """Scan dependencies and show license analysis."""
-    target, config = resolve_config(ctx)
+    target, config, config_dir = resolve_config(ctx)
 
-    report = run_audit(target, config)
+    report = run_audit(target, config, config_dir)
 
     if output_format == "json":
         click.echo(JsonRenderer().render(report))

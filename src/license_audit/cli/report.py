@@ -33,9 +33,9 @@ def report_cmd(
     ctx: click.Context, output_format: str, output_path: Path | None
 ) -> None:
     """Generate a license compliance report."""
-    target, config = resolve_config(ctx)
+    target, config, config_dir = resolve_config(ctx)
 
-    report = run_audit(target, config)
+    report = run_audit(target, config, config_dir)
 
     renderer: StringRenderer
     if output_format == "json":

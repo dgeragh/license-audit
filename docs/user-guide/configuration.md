@@ -2,7 +2,7 @@
 
 license-audit is configured via `[tool.license-audit]` in your `pyproject.toml`.
 
-When using `--target`, configuration is loaded from the target project's `pyproject.toml`. So `--target /path/to/uv.lock` reads its config from `/path/to/pyproject.toml`. If no config is found, defaults apply.
+Configuration is loaded from the target's location: a project directory uses its own `pyproject.toml`, and a virtualenv uses the `pyproject.toml` beside it. Use `--config` to read config from elsewhere — handy when the virtualenv lives outside your project. If no config is found, defaults apply.
 
 ## Options
 
@@ -37,35 +37,9 @@ Explicit list of allowed SPDX identifiers. When set, only these licenses pass th
 
 SPDX identifiers that always fail the policy check, regardless of `policy` or `allowed-licenses`.
 
-### `dependency-groups`
+### Choosing dependency groups
 
-Restricts analysis to specific groups. When unset, all groups are included.
-
-Each entry is a group selector:
-
-| Selector | Maps to |
-|---|---|
-| `main` | `[project.dependencies]` |
-| `dev` | `[tool.uv.dev-dependencies]` |
-| `optional:<name>` | `[project.optional-dependencies.<name>]` |
-| `group:<name>` | `[dependency-groups.<name>]` (PEP 735) |
-
-```toml
-[tool.license-audit]
-dependency-groups = ["main", "optional:api"]
-```
-
-The `--dependency-groups` CLI flag (repeatable) overrides this setting:
-
-```bash
-license-audit --dependency-groups main --dependency-groups optional:api check
-```
-
-Source-specific notes:
-
-- `requirements.txt` ignores this option (flat format with no group concept).
-- `poetry.lock` rejects `optional:<extra>` because the lock file doesn't preserve which extras own which packages. Use `pyproject.toml` if you need extras filtering.
-- `pixi.lock` maps environments to selectors: `default` -> `main`, `dev` -> `dev`, anything else via `group:<env_name>`. `optional:<name>` is rejected because pixi doesn't have an extras concept.
+Selecting which dependency groups to audit happens when you provision: install only the groups you care about, then audit that environment. For example, `uv sync --no-dev` for a production-only audit, or `uv sync --all-groups` to include everything.
 
 ### `target`
 
@@ -112,25 +86,23 @@ Use `overrides` when you want to re-assert what the license is. Use `ignored-pac
 
 ## Target resolution
 
-The `--target` flag (or `target` field in `[tool.license-audit]`) controls what license-audit analyzes. The source type is inferred from the target:
+license-audit always reads an **installed environment**. Provision your dependencies first (`uv sync`, `poetry install`, `pip install -e .`, ...), then point license-audit at the result. `--target` selects the environment:
 
 | Target | Behavior |
 |--------|----------|
-| *(none)* | Analyze the current Python environment directly |
-| Project directory | Auto-detect: tries `uv.lock` -> `poetry.lock` -> `pixi.lock` -> `requirements.txt` -> `pyproject.toml` -> `.venv` |
-| `uv.lock` | Parse lockfile, create temp environment, analyze |
-| `poetry.lock` | Parse lockfile (lock format 1.x and 2.x), create temp environment, analyze |
-| `pixi.lock` | Parse lockfile, audit PyPI packages for the host platform; conda packages are skipped with a warning |
-| `requirements.txt` | Parse requirements, create temp environment, analyze |
-| `pyproject.toml` | Parse `[project.dependencies]`, optional-dependencies, dependency-groups, and `[tool.uv.dev-dependencies]`, create temp environment, analyze |
-| `.venv` directory | Analyze the venv directly (no temp environment needed) |
+| *(none)* | Audit `./.venv` if present, otherwise the Python environment running license-audit |
+| Project directory | Audit `<dir>/.venv` (errors if there is no virtualenv to read) |
+| Virtualenv directory | Audit that virtualenv directly |
+| A file | Rejected — point at a project directory or virtualenv instead |
+
+`--config` decouples where config and the project name come from. By default they follow the target (a project directory, or a virtualenv's parent); pass `--config path/to/pyproject.toml` to override, which is useful when the virtualenv lives outside your project.
 
 Examples:
 
 ```bash
-license-audit analyze                                # current environment (default)
-license-audit --target . analyze                     # auto-detect from current dir
-license-audit --target /path/to/project analyze      # auto-detect from project dir
-license-audit --target /path/to/uv.lock analyze      # parse a specific lock file
-license-audit --target /path/to/.venv analyze        # analyze an existing venv
+license-audit analyze                                   # ./.venv, else the active environment
+uv run license-audit analyze                            # the project's own environment
+license-audit --target /path/to/project analyze         # that project's .venv
+license-audit --target /path/to/.venv analyze           # an existing virtualenv
+license-audit --target /ext/.venv --config . analyze    # external venv, this project's policy
 ```

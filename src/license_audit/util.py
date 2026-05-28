@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import zipfile
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from email.message import Message
@@ -92,103 +91,10 @@ class _SitePackagesSource(_Source):
         return canonicalize(stem.split("-", 1)[0])
 
 
-class _DistInfoArchive(_DistInfo):
-    """A dist-info read out of a wheel (zip) archive.
-
-    Contents are eagerly loaded so the wheel file can be closed before
-    the constructor returns. Holding zip handles open prevents Windows
-    from cleaning up the temp dir.
-    """
-
-    def __init__(self, contents: dict[str, bytes]) -> None:
-        self._contents = contents
-
-    def read_text(self, name: str) -> str | None:
-        data = self._contents.get(name)
-        if data is None:
-            return None
-        return data.decode("utf-8", errors="replace")
-
-    def iter_files(self) -> Iterator[str]:
-        return iter(self._contents)
-
-
-class _WheelDirSource(_Source):
-    """Reads dist-infos out of ``.whl`` archives in a directory.
-
-    PEP 427 wheel filenames are ``{name}-{version}-{python}-{abi}-{platform}.whl``;
-    the dist-info inside is ``{name}-{version}.dist-info/``. First read
-    of each package is cached so the recursive dep walk doesn't reopen
-    the same archive on every visit.
-    """
-
-    def __init__(self, path: Path) -> None:
-        self._path = path
-        self._cache: dict[str, _DistInfoArchive | None] = {}
-
-    def find_dist_info(self, canonical_name: str) -> _DistInfo | None:
-        if canonical_name not in self._cache:
-            self._cache[canonical_name] = self._load(canonical_name)
-        return self._cache[canonical_name]
-
-    def iter_package_names(self) -> Iterator[str]:
-        seen: set[str] = set()
-        for whl in sorted(self._path.glob("*.whl")):
-            name = self._wheel_name(whl.name)
-            if name is None or name in seen:
-                continue
-            seen.add(name)
-            yield name
-
-    def describe(self) -> str:
-        return str(self._path)
-
-    def _load(self, canonical_name: str) -> _DistInfoArchive | None:
-        candidates = [
-            whl
-            for whl in self._path.glob("*.whl")
-            if self._wheel_name(whl.name) == canonical_name
-        ]
-        if not candidates:
-            return None
-        # Two wheels for the same package can land here when pip rebuilds an
-        # sdist alongside a downloaded wheel. Lexicographic-last picks the
-        # higher version in the common case.
-        chosen = max(candidates, key=lambda p: p.name)
-        return self._load_dist_info_from_wheel(chosen)
-
-    @staticmethod
-    def _load_dist_info_from_wheel(wheel: Path) -> _DistInfoArchive | None:
-        contents: dict[str, bytes] = {}
-        prefix: str | None = None
-        with zipfile.ZipFile(wheel) as zf:
-            for entry in zf.namelist():
-                head, _, _ = entry.partition("/")
-                if not head.endswith(".dist-info"):
-                    continue
-                if prefix is None:
-                    prefix = head + "/"
-                if entry.startswith(prefix) and not entry.endswith("/"):
-                    contents[entry[len(prefix) :]] = zf.read(entry)
-        if not contents:
-            return None
-        return _DistInfoArchive(contents)
-
-    @staticmethod
-    def _wheel_name(filename: str) -> str | None:
-        # PEP 427: {name}-{version}-{python}-{abi}-{platform}.whl
-        parts = filename.split("-", 1)
-        if not parts or not parts[0]:
-            return None
-        return canonicalize(parts[0])
-
-
 class MetadataReader:
     """Reads METADATA and license files for a set of packages.
 
-    The source is bound at construction: :meth:`from_site_packages` for
-    an installed env, :meth:`from_wheel_dir` for a directory of ``.whl``
-    files.
+    The source is bound at construction via :meth:`from_site_packages`.
     """
 
     LICENSE_FILE_PATTERNS: tuple[str, ...] = (
@@ -206,11 +112,6 @@ class MetadataReader:
     def from_site_packages(cls, path: Path) -> Self:
         """Reader over an installed site-packages directory."""
         return cls(_SitePackagesSource(path))
-
-    @classmethod
-    def from_wheel_dir(cls, path: Path) -> Self:
-        """Reader over a directory of ``.whl`` files."""
-        return cls(_WheelDirSource(path))
 
     def read_metadata(self, package_name: str) -> Message | None:
         """Parsed METADATA for `package_name`, or None if absent."""

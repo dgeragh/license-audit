@@ -90,6 +90,6 @@ class TestNoticesRenderer:
         assert "# Third-Party Notices" in result
 
     def test_source_in_header(self) -> None:
-        report = AnalysisReport(project_name="p", source="/abs/uv.lock")
+        report = AnalysisReport(project_name="p", source="/abs/.venv")
         result = NoticesRenderer().render(report)
-        assert "Source: /abs/uv.lock" in result
+        assert "Source: /abs/.venv" in result

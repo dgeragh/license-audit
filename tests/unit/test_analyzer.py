@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from license_audit.config import LicenseAuditConfig
 from license_audit.core.analyzer import LicenseAuditor, TargetInfo
 from license_audit.core.models import (
     UNKNOWN_LICENSE,
@@ -19,62 +18,51 @@ class TestRun:
     def test_self_analysis(self) -> None:
         """Analyze license-audit's own dependencies via its .venv."""
         project_dir = Path(__file__).parents[2]
+        if not (project_dir / ".venv").exists():
+            pytest.skip(".venv not found")
         report = LicenseAuditor().run(target=project_dir)
         assert report.project_name == "license-audit"
         assert len(report.packages) > 0
         assert report.policy_passed is not None
-        # source should point at the resolved dependency file inside the project.
-        assert report.source
-        assert "license-audit" in report.source or str(project_dir) in report.source
+        assert ".venv" in report.source
 
-    def test_unknown_project(self, tmp_path: Path) -> None:
-        """Empty directory with no source files raises FileNotFoundError."""
+    def test_project_without_venv_raises(self, tmp_path: Path) -> None:
+        """A directory with no virtualenv raises FileNotFoundError."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n')
         with pytest.raises(FileNotFoundError):
             LicenseAuditor().run(target=tmp_path)
 
-    def test_no_target_uses_current_env(self) -> None:
+    def test_no_target_uses_current_env(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
         report = LicenseAuditor().run()
         assert report.project_name is not None
         assert report.source == "active environment"
 
+    def test_config_dir_overrides_project_name(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """--config location supplies the project name, not the target's."""
+        project = tmp_path / "proj"
+        project.mkdir()
+        (project / "pyproject.toml").write_text('[project]\nname = "from-config"\n')
+        monkeypatch.chdir(tmp_path)
+        report = LicenseAuditor().run(config_dir=project)
+        assert report.project_name == "from-config"
+
 
 class TestDescribeSource:
-    def test_source_path_wins(self, tmp_path: Path) -> None:
-        info = TargetInfo(source_path=tmp_path / "uv.lock", config_dir=tmp_path)
-        assert LicenseAuditor._describe_source(info) == str(tmp_path / "uv.lock")
-
-    def test_site_packages_when_no_source(self, tmp_path: Path) -> None:
+    def test_site_packages_wins(self, tmp_path: Path) -> None:
         info = TargetInfo(site_packages=tmp_path / ".venv", config_dir=tmp_path)
         assert LicenseAuditor._describe_source(info) == str(tmp_path / ".venv")
 
     def test_active_environment_fallback(self) -> None:
         assert LicenseAuditor._describe_source(TargetInfo()) == "active environment"
-
-
-class TestWarnIfGroupsIgnored:
-    def test_warns_when_groups_set_and_no_target(self) -> None:
-        config = LicenseAuditConfig(dependency_groups=["main"])
-        info = TargetInfo()
-        with pytest.warns(UserWarning, match="dependency-groups is configured"):
-            LicenseAuditor()._warn_if_groups_ignored(info, config)
-
-    def test_no_warning_when_source_resolved(self, tmp_path: Path) -> None:
-        config = LicenseAuditConfig(dependency_groups=["main"])
-        info = TargetInfo(source_path=tmp_path / "uv.lock", config_dir=tmp_path)
-        import warnings as _warnings
-
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("error")
-            LicenseAuditor()._warn_if_groups_ignored(info, config)
-
-    def test_no_warning_when_groups_unset(self) -> None:
-        config = LicenseAuditConfig()
-        info = TargetInfo()
-        import warnings as _warnings
-
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("error")
-            LicenseAuditor()._warn_if_groups_ignored(info, config)
 
 
 class TestClassifyPackage:

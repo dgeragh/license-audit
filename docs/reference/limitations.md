@@ -16,21 +16,13 @@ The matrix encodes a strict reading of license compatibility. For weak-copyleft 
 
 PyPI packages use inconsistent license strings. license-audit normalizes 60+ common aliases to SPDX identifiers, but uncommon or malformed strings will be reported as UNKNOWN. Overrides fill the gap.
 
-## Source-format quirks
+## You must provision the environment first
 
-- `requirements.txt` is flat: only direct dependencies in the file are parsed. Transitive packages get pulled in when the temp environment is provisioned, but the parser itself only sees what's written down.
-- `uv.lock` has no formal spec. The parser supports lock-format version 1 and fails explicitly on anything else.
-- `poetry.lock` doesn't preserve the project-level extras-to-package mapping, so the `optional:<extra>` selector is rejected. Use `pyproject.toml` if you need extras filtering.
-- `pixi.lock` can mix PyPI and conda entries. Only PyPI entries are audited; conda entries are skipped with a warning showing the count.
-- `pixi.lock` is also filtered to the host platform (plus `noarch`), matching how environment markers are evaluated for `uv.lock`.
+license-audit reads an already-installed environment; it does not resolve or install dependencies. Run `uv sync`, `poetry install`, `pip install -e .`, or equivalent before auditing. Only what's installed is audited, so a partial install yields a partial audit.
 
 ## Environment markers track the host
 
 Dependency markers (platform, Python version, extras) are evaluated against the current runtime. Dependencies that are conditional on a different platform or Python version aren't included.
-
-## A C toolchain may be needed for some dependencies
-
-Analyzing a dependency file or project directory downloads wheels and (when no wheel is published for a package) builds the source distribution into a wheel via PEP 517 isolated builds. Most of PyPI ships pre-built wheels, but for the small minority that don't (and that contain C extensions) `pip wheel` will need a working C toolchain (e.g. `build-essential` on Linux, the Xcode Command Line Tools on macOS, Visual Studio Build Tools on Windows). When the build fails, license-audit logs a warning and continues; that package's license info will be unavailable until you supply a `[tool.license-audit.overrides]` entry or install the toolchain. Direct venv and current-environment analysis aren't affected.
 
 ## Not legal advice
 

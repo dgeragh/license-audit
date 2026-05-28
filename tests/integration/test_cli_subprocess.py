@@ -1,17 +1,15 @@
 """End-to-end subprocess tests for the license-audit CLI.
 
-These tests run the installed ``license-audit`` console script as a real
+These run the installed ``license-audit`` console script as a real
 subprocess so they catch what in-process ``CliRunner`` tests can't:
 
 - The ``[project.scripts]`` entry point actually wires up.
 - Real OS exit codes propagate through the process boundary.
 - Stdout / stderr separation works under shell-style invocation.
 - JSON output is parseable by an external interpreter.
-- ``warnings.warn`` from inside the analyzer reaches the user's stderr.
 
-Each test provisions a synthetic project under ``tmp_path``. The provisioning
-step (``pip wheel`` of small real packages) makes these noticeably slower
-than the unit suite, hence their separate location under ``tests/integration``.
+Each test points the CLI at a fake virtualenv built under ``tmp_path``
+(see ``conftest.make_venv``).
 """
 
 from __future__ import annotations
@@ -19,9 +17,12 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+
+VenvBuilder = Callable[[Path, dict[str, str]], Path]
 
 
 def _binary() -> str:
@@ -46,7 +47,6 @@ def _run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProces
 def _make_pyproject(
     path: Path,
     *,
-    deps: list[str] | None = None,
     overrides: dict[str, str] | None = None,
     ignored: dict[str, str] | None = None,
     allowed: list[str] | None = None,
@@ -59,9 +59,6 @@ def _make_pyproject(
         'name = "synthetic"',
         'version = "0.0.1"',
     ]
-    if deps:
-        deps_repr = ", ".join(f'"{d}"' for d in deps)
-        lines.append(f"dependencies = [{deps_repr}]")
     if any(x is not None for x in (allowed, denied, policy)):
         lines.append("[tool.license-audit]")
         if policy:
@@ -107,40 +104,53 @@ class TestEntryPoint:
 
 
 class TestExitCodes:
-    def test_clean_check_exits_zero(self, tmp_path: Path) -> None:
-        _make_pyproject(tmp_path / "pyproject.toml", deps=["click>=8.1.0"])
+    def test_clean_check_exits_zero(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _make_pyproject(tmp_path / "pyproject.toml")
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         result = _run(["--target", str(tmp_path), "check"])
         assert result.returncode == 0, result.stdout + result.stderr
 
-    def test_policy_violation_exits_one(self, tmp_path: Path) -> None:
+    def test_policy_violation_exits_one(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
         _make_pyproject(
             tmp_path / "pyproject.toml",
-            deps=["click>=8.1.0"],
             policy="permissive",
             overrides={"click": "GPL-3.0-only"},
         )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         result = _run(["--target", str(tmp_path), "check"])
         assert result.returncode == 1
 
     def test_unknown_license_with_fail_on_unknown_exits_two(
-        self, tmp_path: Path
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
     ) -> None:
         _make_pyproject(
             tmp_path / "pyproject.toml",
-            deps=["click>=8.1.0"],
             overrides={"click": "PROPRIETARY-NOT-A-REAL-SPDX"},
         )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         result = _run(["--target", str(tmp_path), "check", "--fail-on-unknown"])
         assert result.returncode == 2
 
     def test_unknown_license_with_no_fail_on_unknown_exits_zero(
-        self, tmp_path: Path
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
     ) -> None:
         _make_pyproject(
             tmp_path / "pyproject.toml",
-            deps=["click>=8.1.0"],
             overrides={"click": "PROPRIETARY-NOT-A-REAL-SPDX"},
         )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         result = _run(["--target", str(tmp_path), "check", "--no-fail-on-unknown"])
         assert result.returncode == 0
 
@@ -151,8 +161,13 @@ class TestExitCodes:
 
 
 class TestJsonOutputs:
-    def test_analyze_json_parses_and_has_expected_shape(self, tmp_path: Path) -> None:
-        _make_pyproject(tmp_path / "pyproject.toml", deps=["click>=8.1.0"])
+    def test_analyze_json_parses_and_has_expected_shape(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _make_pyproject(tmp_path / "pyproject.toml")
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         result = _run(["--target", str(tmp_path), "analyze", "--format", "json"])
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
@@ -160,15 +175,25 @@ class TestJsonOutputs:
         assert "policy_passed" in payload
         assert any(p["name"] == "click" for p in payload["packages"])
 
-    def test_report_json_parses(self, tmp_path: Path) -> None:
-        _make_pyproject(tmp_path / "pyproject.toml", deps=["click>=8.1.0"])
+    def test_report_json_parses(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _make_pyproject(tmp_path / "pyproject.toml")
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         result = _run(["--target", str(tmp_path), "report", "--format", "json"])
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
         assert {"packages", "policy_passed", "metadata"}.issubset(payload.keys())
 
-    def test_report_output_writes_file(self, tmp_path: Path) -> None:
-        _make_pyproject(tmp_path / "pyproject.toml", deps=["click>=8.1.0"])
+    def test_report_output_writes_file(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _make_pyproject(tmp_path / "pyproject.toml")
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         out = tmp_path / "out.json"
         result = _run([
             "--target",
@@ -182,54 +207,3 @@ class TestJsonOutputs:
         assert result.returncode == 0
         assert out.exists() and out.stat().st_size > 0
         json.loads(out.read_text())  # parses
-
-
-# -----------------------------------------------------------------------------
-# pixi conda warning surfaces through CLI to stderr
-# -----------------------------------------------------------------------------
-
-
-_PIXI_WITH_CONDA = """\
-version: 6
-environments:
-  default:
-    channels:
-    - url: https://conda.anaconda.org/conda-forge/
-    indexes:
-    - https://pypi.org/simple
-    packages:
-      linux-64:
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-      linux-aarch64:
-      - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-      osx-64:
-      - conda: https://conda.anaconda.org/conda-forge/osx-64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-      osx-arm64:
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-      win-64:
-      - conda: https://conda.anaconda.org/conda-forge/win-64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-packages:
-- conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.0-x.conda
-  name: python
-  version: 3.12.0
-  build: x
-  subdir: linux-64
-- pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-  name: click
-  version: 8.1.7
-  sha256: testhash
-"""
-
-
-class TestPixiCondaWarningSurfaces:
-    def test_conda_skip_warning_appears_on_stderr(self, tmp_path: Path) -> None:
-        _make_pyproject(tmp_path / "pyproject.toml")
-        (tmp_path / "pixi.lock").write_text(_PIXI_WITH_CONDA)
-        result = _run(["--target", str(tmp_path / "pixi.lock"), "analyze"])
-        assert result.returncode == 0
-        assert "conda package" in result.stderr

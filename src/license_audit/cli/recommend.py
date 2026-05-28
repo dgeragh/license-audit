@@ -101,9 +101,9 @@ class CategoryDescriptions:
 def recommend_cmd(ctx: click.Context) -> None:
     """Recommend a license for your project based on dependencies."""
     console = Console()
-    target, config = resolve_config(ctx)
+    target, config, config_dir = resolve_config(ctx)
 
-    report = run_audit(target, config)
+    report = run_audit(target, config, config_dir)
 
     console.print()
     console.rule(f"[bold]License Recommendation: {report.project_name}[/bold]")

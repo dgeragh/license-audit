@@ -10,44 +10,6 @@ from pydantic import BaseModel, Field, field_validator
 from license_audit.core.models import PolicyLevel
 
 
-class GroupSpec:
-    """Valid dependency-group selectors.
-
-    A selector is either a literal ('main', 'dev') or a prefixed name like
-    'optional:docs' or 'group:test'.
-    """
-
-    PREFIXES: tuple[str, ...] = ("optional:", "group:")
-    LITERALS: tuple[str, ...] = ("main", "dev")
-
-    @classmethod
-    def validate(cls, entry: str) -> None:
-        """Raise ValueError if `entry` isn't a valid selector."""
-        if entry in cls.LITERALS:
-            return
-        for prefix in cls.PREFIXES:
-            if entry.startswith(prefix):
-                if not entry[len(prefix) :]:
-                    msg = (
-                        f"Invalid dependency group: '{entry}' "
-                        f"(missing name after prefix)"
-                    )
-                    raise ValueError(msg)
-                return
-        msg = (
-            f"Invalid dependency group: '{entry}'. "
-            f"Must be 'main', 'dev', 'optional:<name>', or 'group:<name>'."
-        )
-        raise ValueError(msg)
-
-    @classmethod
-    def validate_list(cls, entries: list[str]) -> list[str]:
-        """Validate every entry and return the list unchanged."""
-        for entry in entries:
-            cls.validate(entry)
-        return entries
-
-
 class LicenseAuditConfig(BaseModel):
     """Parsed [tool.license-audit] section."""
 
@@ -56,22 +18,8 @@ class LicenseAuditConfig(BaseModel):
     allowed_licenses: list[str] = Field(default_factory=list)
     denied_licenses: list[str] = Field(default_factory=list)
     overrides: dict[str, str] = Field(default_factory=dict)
-    dependency_groups: list[str] | None = None
     ignored_packages: dict[str, str] = Field(default_factory=dict)
     target: str | None = None
-
-    @field_validator("dependency_groups", mode="before")
-    @classmethod
-    def _validate_dependency_groups(
-        cls,
-        value: list[str] | None,
-    ) -> list[str] | None:
-        if value is None:
-            return None
-        if not isinstance(value, list):
-            msg = "dependency_groups must be a list of strings"
-            raise TypeError(msg)
-        return GroupSpec.validate_list(value)
 
     @field_validator("ignored_packages", mode="before")
     @classmethod

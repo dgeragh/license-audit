@@ -271,12 +271,12 @@ class TestCheckFailOnUnknownFlag:
 class TestCheckSource:
     def test_source_displayed(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
-        report.source = "/abs/uv.lock"
+        report.source = "/abs/.venv"
         with patch("license_audit.cli.check.run_audit", return_value=report) as _m:
             result = CliRunner().invoke(cli, ["check"])
         assert result.exit_code == 0
         assert "Source:" in result.stderr
-        assert "/abs/uv.lock" in result.stderr
+        assert "/abs/.venv" in result.stderr
 
 
 class TestCheckIgnoredPackages:

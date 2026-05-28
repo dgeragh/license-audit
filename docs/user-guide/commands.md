@@ -1,6 +1,6 @@
 # Commands
 
-license-audit provides the five commands detailed below. All accept the global flags `--target`, `--policy`, and `--dependency-groups`.
+license-audit provides the five commands detailed below. All accept the global flags `--target`, `--policy`, and `--config`.
 
 ## `analyze`
 
@@ -8,8 +8,8 @@ Default analysis output: a per-package table with version, license expression, c
 
 ```bash
 license-audit analyze
-license-audit --target . analyze
 license-audit --target /path/to/project analyze
+license-audit --target /path/to/.venv analyze
 ```
 
 ## `check`
@@ -68,7 +68,7 @@ These apply to every command:
 
 | Flag | Purpose |
 |---|---|
-| `--target PATH` | Project directory, dependency file, or venv. See [target resolution](configuration.md#target-resolution). |
+| `--target PATH` | Project directory or virtualenv to analyze. See [target resolution](configuration.md#target-resolution). |
 | `--policy LEVEL` | Override the configured policy level (`permissive`, `weak-copyleft`, `strong-copyleft`, `network-copyleft`). |
-| `--dependency-groups GROUP` | Restrict to specific dep groups; repeatable. See [dependency-groups](configuration.md#dependency-groups). |
+| `--config PATH` | `pyproject.toml` (or its directory) to read config and the project name from. See [target resolution](configuration.md#target-resolution). |
 | `--version` | Print version and exit. |

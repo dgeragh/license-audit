@@ -91,11 +91,11 @@ def check_cmd(ctx: click.Context, fail_on_unknown: bool | None) -> None:
       2 = unknown licenses found (when --fail-on-unknown)
     """
     console = Console(stderr=True)
-    target, config = resolve_config(ctx)
+    target, config, config_dir = resolve_config(ctx)
     if fail_on_unknown is not None:
         config.fail_on_unknown = fail_on_unknown
 
-    report = run_audit(target, config)
+    report = run_audit(target, config, config_dir)
 
     # Ignored packages are exempted from all policy evaluation, including
     # the unknown-license check that drives exit code 2.

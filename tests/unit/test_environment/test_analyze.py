@@ -7,10 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from license_audit.environment.analyze import (
-    analyze_environment,
-    analyze_installed_packages,
-)
+from license_audit.environment.analyze import analyze_environment
 from license_audit.util import MetadataReader
 
 
@@ -138,16 +135,11 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         tree = analyze_environment("rootpkg", reader)
         assert "orphan" in {p.name for p in tree.flatten()}
 
-
-class TestAnalyzeInstalledPackages:
-    def test_synthetic_root_with_named_deps(self, tmp_path: Path) -> None:
+    def test_root_absent_lists_all_installed(self, tmp_path: Path) -> None:
+        """When the root project isn't installed, every package still surfaces."""
         _make_dist_info(tmp_path, "leaf_a", "1.0", license_expression="MIT")
         _make_dist_info(tmp_path, "leaf_b", "1.0", license_expression="Apache-2.0")
         reader = MetadataReader.from_site_packages(tmp_path)
-        tree = analyze_installed_packages(
-            "synth_root",
-            reader,
-            ["leaf_a", "leaf_b"],
-        )
+        tree = analyze_environment("synth_root", reader)
         names = {p.name for p in tree.flatten()}
         assert names == {"synth_root", "leaf_a", "leaf_b"}

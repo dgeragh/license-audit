@@ -11,7 +11,7 @@ license-audit tells you what license your project can use, flags incompatible co
 - Outbound license recommendations ranked by permissiveness.
 - Compliance reports as Markdown, JSON, or third-party-notices.
 - CI exit codes that distinguish policy violations from undetected licenses.
-- Reads `uv.lock`, `poetry.lock`, `pixi.lock`, `pyproject.toml`, `requirements.txt`, and live virtualenvs.
+- Reads the licenses straight from your installed environment — provision it however you like (`uv`, Poetry, pip), then point license-audit at it.
 
 ## Installation
 
@@ -27,10 +27,17 @@ uv add license-audit --dev
 
 ## Quickstart
 
-Run against the current project directory:
+Provision your dependencies first, then run license-audit inside that environment:
 
 ```bash
-license-audit --target . analyze
+uv sync
+uv run license-audit analyze
+```
+
+Or point it at an existing virtualenv:
+
+```bash
+license-audit --target .venv analyze
 ```
 
 ```

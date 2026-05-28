@@ -11,10 +11,10 @@
 | CI policy gating with exit codes | Yes | Via scripting | Via flags | Yes |
 | Compliance report generation | Markdown, JSON, notices | JSON, HTML, CSV, SPDX | CSV, JSON, Markdown | No |
 | Allow/deny lists | Yes | Via scripting | No | Yes |
-| Dependency group filtering | Yes (main, dev, optional, PEP 735) | N/A | No | No |
+| Dependency group filtering | Via provisioning | N/A | No | No |
 | Language support | Python | Any | Python | Python |
 | `pyproject.toml` configuration | Yes | No | No | Yes |
-| Reads `uv.lock` / `poetry.lock` / `pixi.lock` | Yes | No | No | No |
+| Audits any installed environment (uv, Poetry, pip) | Yes | No | Yes | Yes |
 | PEP 639 `License-Expression` | Yes | No | No | No |
 
 license-audit flags dependency conflicts and provides licensing recommendations. If you need file-level scanning across a multi-language codebase, use ScanCode.

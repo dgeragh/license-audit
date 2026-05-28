@@ -34,34 +34,6 @@ def analyze_environment(
     return root
 
 
-def analyze_installed_packages(
-    project_name: str,
-    reader: MetadataReader,
-    package_names: list[str],
-    overrides: dict[str, str] | None = None,
-    package_extras: dict[str, frozenset[str]] | None = None,
-) -> DependencyNode:
-    """Build a dependency tree from a known list of top-level packages.
-
-    Used when the root project itself isn't in the reader (e.g. analyzing
-    via a temp env built from a source file). Each name in
-    ``package_names`` becomes a direct dependency of a synthetic root,
-    and transitive deps come from each package's METADATA.
-    """
-    overrides = overrides or {}
-    package_extras = package_extras or {}
-    visited: set[str] = set()
-    root_pkg = PackageLicense(name=canonicalize(project_name), version="0.0.0")
-    deps: list[DependencyNode] = []
-
-    for name in package_names:
-        extras = package_extras.get(name, frozenset())
-        node = _resolve_package(name, reader, overrides, visited, extras)
-        deps.append(node)
-
-    return DependencyNode(package=root_pkg, dependencies=deps)
-
-
 def _resolve_package(
     name: str,
     reader: MetadataReader,

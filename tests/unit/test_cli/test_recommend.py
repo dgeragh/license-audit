@@ -133,12 +133,12 @@ class TestRecommendPolicyFlag:
 class TestRecommendSource:
     def test_source_displayed(self) -> None:
         report = _make_report(packages=[_MIT_PKG], recommended_licenses=["MIT"])
-        report.source = "/abs/uv.lock"
+        report.source = "/abs/.venv"
         with patch("license_audit.cli.recommend.run_audit", return_value=report) as _m:
             result = CliRunner().invoke(cli, ["recommend"])
         assert result.exit_code == 0
         assert "Source:" in result.output
-        assert "/abs/uv.lock" in result.output
+        assert "/abs/.venv" in result.output
 
 
 _UNKNOWN_PKG = PackageLicense(

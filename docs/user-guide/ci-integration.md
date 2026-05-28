@@ -2,6 +2,8 @@
 
 `license-audit check` is built for CI pipelines. It returns three distinct exit codes so a pipeline can tell real violations apart from packages whose license couldn't be detected.
 
+It audits your installed environment, so install dependencies before running it. The examples below do this with `uv sync --locked`.
+
 ## Exit codes
 
 | Code | Meaning |
