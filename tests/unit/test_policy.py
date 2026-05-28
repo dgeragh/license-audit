@@ -54,6 +54,26 @@ _UNRECOGNIZED = PackageLicense(
     license_source=LicenseSource.METADATA,
     category=LicenseCategory.UNKNOWN,
 )
+# A declared-but-unrecognized license the user classified as permissive via the
+# whitelist: the expression stays UNKNOWN but the category is now authoritative.
+_CLASSIFIED_PERMISSIVE = PackageLicense(
+    name="g",
+    version="1.0",
+    license_expression="UNKNOWN",
+    declared_license="Proprietary License",
+    license_source=LicenseSource.METADATA,
+    category=LicenseCategory.PERMISSIVE,
+    category_overridden=True,
+)
+_CLASSIFIED_STRONG = PackageLicense(
+    name="h",
+    version="1.0",
+    license_expression="UNKNOWN",
+    declared_license="Some Copyleft EULA",
+    license_source=LicenseSource.METADATA,
+    category=LicenseCategory.STRONG_COPYLEFT,
+    category_overridden=True,
+)
 
 
 def _policy(
@@ -82,6 +102,10 @@ class TestIsUnknown:
 
     def test_copyleft_license(self) -> None:
         assert PolicyEngine.is_unknown(_GPL) is False
+
+    def test_whitelisted_unknown_expression_is_not_unknown(self) -> None:
+        # Expression is still "UNKNOWN" but the user assigned a real category.
+        assert PolicyEngine.is_unknown(_CLASSIFIED_PERMISSIVE) is False
 
 
 class TestMaxRank:
@@ -196,6 +220,25 @@ class TestCheck:
                 _policy(PolicyLevel.PERMISSIVE, fail_on_unknown=False),
             )
             is True
+        )
+
+    def test_whitelisted_permissive_passes_even_with_fail_on_unknown(self) -> None:
+        assert (
+            PolicyEngine().check(
+                [_CLASSIFIED_PERMISSIVE],
+                _policy(PolicyLevel.PERMISSIVE, fail_on_unknown=True),
+            )
+            is True
+        )
+
+    def test_whitelisted_strong_copyleft_rejected_by_permissive_policy(self) -> None:
+        # Deeming it strong-copyleft means a permissive policy must reject it.
+        assert (
+            PolicyEngine().check(
+                [_CLASSIFIED_STRONG],
+                _policy(PolicyLevel.PERMISSIVE, fail_on_unknown=True),
+            )
+            is False
         )
 
     def test_denied_list_rejects(self) -> None:
@@ -359,6 +402,32 @@ class TestBuildActionItems:
         )
         warnings = [i for i in items if "not a recognized SPDX" in i.message]
         assert len(warnings) == 1
+
+    def test_whitelisted_permissive_produces_no_unknown_warning(self) -> None:
+        items = PolicyEngine().build_action_items(
+            [_CLASSIFIED_PERMISSIVE],
+            [],
+            LicenseAuditConfig(),
+        )
+        assert not any(
+            i.package == _CLASSIFIED_PERMISSIVE.name and "unknown" in i.message.lower()
+            for i in items
+        )
+        # A deemed-permissive package under a permissive policy is fully clean.
+        assert items == []
+
+    def test_deemed_copyleft_violation_names_declared_license(self) -> None:
+        # The violation message must name the declared string the user
+        # classified, not the bare "UNKNOWN" sentinel kept in the expression.
+        items = PolicyEngine().build_action_items(
+            [_CLASSIFIED_STRONG],
+            [],
+            LicenseAuditConfig(),  # permissive policy
+        )
+        errors = [i for i in items if i.package == _CLASSIFIED_STRONG.name]
+        assert len(errors) == 1
+        assert "Some Copyleft EULA" in errors[0].message
+        assert "'UNKNOWN'" not in errors[0].message
 
     def test_declared_license_warning_names_raw_identifier(self) -> None:
         pkg = PackageLicense(

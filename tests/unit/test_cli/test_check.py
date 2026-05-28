@@ -187,6 +187,23 @@ class TestCheckFailsUnknown:
             result = CliRunner().invoke(cli, ["check", "--no-fail-on-unknown"])
         assert result.exit_code == 0
 
+    def test_whitelisted_license_does_not_trigger_exit_2(self) -> None:
+        """A declared license the user classified is no longer unknown, so
+        --fail-on-unknown passes."""
+        classified = PackageLicense(
+            name="proprietary-package",
+            version="12.0",
+            license_expression="UNKNOWN",
+            declared_license="Proprietary License",
+            license_source=LicenseSource.METADATA,
+            category=LicenseCategory.PERMISSIVE,
+            category_overridden=True,
+        )
+        report = _make_report(packages=[_MIT_PKG, classified])
+        with patch("license_audit.cli.check.run_audit", return_value=report) as _m:
+            result = CliRunner().invoke(cli, ["check", "--fail-on-unknown"])
+        assert result.exit_code == 0
+
 
 class TestCheckPolicyFlag:
     """Test the --policy CLI flag on the check command."""

@@ -27,6 +27,16 @@ from license_audit.licenses.spdx import SpdxNormalizer
 from license_audit.util import MetadataReader, canonicalize
 
 
+def _normalize_license_key(value: str) -> str:
+    """Canonical form for matching a declared license against config keys.
+
+    Collapses internal whitespace and lowercases, so a config entry matches
+    regardless of casing or irregular spacing in package metadata (and matches
+    the whitespace-collapsed form shown in reports).
+    """
+    return " ".join(value.split()).lower()
+
+
 @dataclass
 class TargetInfo:
     """Resolved --target: which virtualenv to audit and where config lives."""
@@ -141,18 +151,28 @@ class LicenseAuditor:
         tree = analyze_environment(project_name, reader, dict(config.overrides))
         packages = tree.flatten()
         self._classify_packages(packages)
+        self._apply_classifications(packages, config.license_classifications)
         self._collect_license_text(packages, reader)
         self._apply_ignores(packages, config.ignored_packages)
 
         dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
         active_packages = [p for p in dep_packages if not p.ignored]
-        dep_licenses = [p.license_expression for p in active_packages]
+        spdx_packages = [p for p in active_packages if not p.category_overridden]
+        dep_licenses = [p.license_expression for p in spdx_packages]
         dep_spdx_ids = self._extract_spdx_ids(dep_licenses)
 
         has_unknown = any(
             p.category == LicenseCategory.UNKNOWN for p in active_packages
         )
-        recommended = [] if has_unknown else self._recommender.recommend(dep_licenses)
+        has_deemed_constraint = any(
+            p.category_overridden and p.category != LicenseCategory.PERMISSIVE
+            for p in active_packages
+        )
+        recommended = (
+            []
+            if has_unknown or has_deemed_constraint
+            else self._recommender.recommend(dep_licenses)
+        )
         incompatible = self._matrix.find_incompatible_pairs(dep_spdx_ids)
         action_items = self._policy.build_action_items(
             dep_packages,
@@ -193,6 +213,26 @@ class LicenseAuditor:
 
     def _classify_package(self, pkg: PackageLicense) -> None:
         pkg.category = self._expression.classify(pkg.license_expression)
+
+    @staticmethod
+    def _apply_classifications(
+        packages: list[PackageLicense],
+        classifications: dict[str, str],
+    ) -> None:
+        """Assign user-deemed categories to packages by their license string."""
+        if not classifications:
+            return
+        lookup = {
+            _normalize_license_key(name): LicenseCategory(category)
+            for name, category in classifications.items()
+        }
+        for pkg in packages:
+            if pkg.display_license == UNKNOWN_LICENSE:
+                continue
+            category = lookup.get(_normalize_license_key(pkg.display_license))
+            if category is not None:
+                pkg.category = category
+                pkg.category_overridden = True
 
     @staticmethod
     def _collect_license_text(

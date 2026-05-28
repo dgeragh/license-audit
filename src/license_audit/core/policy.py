@@ -151,7 +151,7 @@ class PolicyEngine:
                         package=pkg.name,
                         message=(
                             f"Package '{pkg.name}' uses {pkg.category.value} license "
-                            f"'{pkg.license_expression}', which violates the "
+                            f"'{pkg.display_license}', which violates the "
                             f"'{config.policy}' policy."
                         ),
                     ),
@@ -166,7 +166,7 @@ class PolicyEngine:
                         package=pkg.name,
                         message=(
                             f"Package '{pkg.name}' uses {pkg.category.value} license "
-                            f"'{pkg.license_expression}'. This may require your project "
+                            f"'{pkg.display_license}'. This may require your project "
                             f"to use a compatible copyleft license."
                         ),
                     ),
@@ -215,11 +215,8 @@ class PolicyEngine:
 
     @staticmethod
     def is_unknown(pkg: PackageLicense) -> bool:
-        """True if the license is literally UNKNOWN or can't be categorized."""
-        return (
-            pkg.license_expression == UNKNOWN_LICENSE
-            or pkg.category == LicenseCategory.UNKNOWN
-        )
+        """True if the package's license has no usable classification."""
+        return pkg.category == LicenseCategory.UNKNOWN
 
     def unknown_message(self, pkg: PackageLicense) -> str:
         """User-facing explanation for why a package's license is unknown."""

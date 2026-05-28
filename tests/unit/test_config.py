@@ -2,7 +2,10 @@
 
 from pathlib import Path
 
-from license_audit.config import get_project_name, load_config
+import pytest
+from pydantic import ValidationError
+
+from license_audit.config import LicenseAuditConfig, get_project_name, load_config
 
 
 class TestLoadConfig:
@@ -48,6 +51,49 @@ class TestLoadConfig:
     def test_target_default_is_none(self, tmp_path: Path) -> None:
         config = load_config(tmp_path)
         assert config.target is None
+
+    def test_license_classifications_from_pyproject(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            "[tool.license-audit.license-classifications]\n"
+            '"Proprietary License" = "permissive"\n'
+        )
+        config = load_config(tmp_path)
+        assert config.license_classifications == {"Proprietary License": "permissive"}
+
+    def test_license_classifications_default_empty(self, tmp_path: Path) -> None:
+        assert load_config(tmp_path).license_classifications == {}
+
+
+class TestLicenseClassificationsValidation:
+    def test_valid_category_accepted(self) -> None:
+        config = LicenseAuditConfig(
+            license_classifications={"Custom License": "weak-copyleft"}
+        )
+        assert config.license_classifications == {"Custom License": "weak-copyleft"}
+
+    def test_invalid_category_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="must be one of"):
+            LicenseAuditConfig(
+                license_classifications={"Custom License": "super-permissive"}
+            )
+
+    def test_unknown_category_rejected(self) -> None:
+        # Classifying *to* unknown is a no-op that would still fail policy.
+        with pytest.raises(ValidationError, match="must be one of"):
+            LicenseAuditConfig(license_classifications={"Custom License": "unknown"})
+
+    def test_non_dict_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            LicenseAuditConfig(
+                license_classifications=["Custom License"]  # type: ignore[arg-type]
+            )
+
+    def test_non_string_category_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            LicenseAuditConfig(
+                license_classifications={"Custom License": 1}  # type: ignore[dict-item]
+            )
 
 
 class TestGetProjectName:

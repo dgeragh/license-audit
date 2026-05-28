@@ -2,7 +2,7 @@
 
 license-audit is configured via `[tool.license-audit]` in your `pyproject.toml`.
 
-Configuration is loaded from the target's location: a project directory uses its own `pyproject.toml`, and a virtualenv uses the `pyproject.toml` beside it. Use `--config` to read config from elsewhere — handy when the virtualenv lives outside your project. If no config is found, defaults apply.
+Configuration is loaded from the target's location: a project directory uses its own `pyproject.toml`, and a virtualenv uses the `pyproject.toml` beside it. Use `--config` to read config from elsewhere, which is handy when the virtualenv lives outside your project. If no config is found, defaults apply.
 
 ## Options
 
@@ -84,6 +84,24 @@ The reason is required and must be non-empty; empty reasons are rejected at conf
 
 Use `overrides` when you want to re-assert what the license is. Use `ignored-packages` when the license is correct but doesn't apply to your situation (e.g. the package isn't shipped, or you've reviewed it manually and accepted the risk).
 
+### `license-classifications`
+
+Record your own judgement about a license and apply it to every package that uses that license. This is useful both for custom strings detection can't map to SPDX and for a recognized license you've reviewed (for example, MPL-2.0 dependencies you distribute unmodified, which you consider permissive). Unlike `overrides` (keyed by package name), one entry here applies to all matching packages.
+
+```toml
+[tool.license-audit.license-classifications]
+"MPL-2.0" = "permissive"
+"Proprietary License" = "proprietary"
+```
+
+The value must be one of `permissive`, `weak-copyleft`, `strong-copyleft`, `network-copyleft`, or `proprietary`. (`unknown` is rejected, since the point is to *resolve* an unknown.) The key is matched case- and whitespace-insensitively against the license string shown in reports: a recognized SPDX expression like `MPL-2.0`, or the raw declared string when the license couldn't be mapped to SPDX. A package with no detectable license at all isn't matched, so `"UNKNOWN"` as a key matches nothing.
+
+Once classified, the package is governed by the deemed category: it passes `--fail-on-unknown`, is evaluated against your `policy` by that category (so deeming something `strong-copyleft` still fails a `permissive` policy), and no longer blocks outbound recommendations. Reports tag the category with a `(classified)` marker to record that it's your judgement rather than detected from OSADL data.
+
+A classified package is dropped from pairwise compatibility analysis, since you've asserted its category directly. Deeming `MPL-2.0` permissive, for example, also waives any MPL incompatibility warnings. A deemed *permissive* license imposes no outbound constraint, so recommendations proceed normally; deeming something *copyleft/proprietary* leaves a constraint with no SPDX identity to compute against, so recommendations are withheld with an explanation rather than risk suggesting an incompatible outbound license.
+
+Use `license-classifications` to assert a category and have it apply everywhere; use `overrides` when you want a license treated as a genuine SPDX equivalent and kept in full compatibility analysis.
+
 ## Target resolution
 
 license-audit always reads an **installed environment**. Provision your dependencies first (`uv sync`, `poetry install`, `pip install -e .`, ...), then point license-audit at the result. `--target` selects the environment:
@@ -93,7 +111,7 @@ license-audit always reads an **installed environment**. Provision your dependen
 | *(none)* | Audit `./.venv` if present, otherwise the Python environment running license-audit |
 | Project directory | Audit `<dir>/.venv` (errors if there is no virtualenv to read) |
 | Virtualenv directory | Audit that virtualenv directly |
-| A file | Rejected — point at a project directory or virtualenv instead |
+| A file | Rejected; point at a project directory or virtualenv instead |
 
 `--config` decouples where config and the project name come from. By default they follow the target (a project directory, or a virtualenv's parent); pass `--config path/to/pyproject.toml` to override, which is useful when the virtualenv lives outside your project.
 

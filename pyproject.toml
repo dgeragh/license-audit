@@ -125,3 +125,6 @@ ignore_missing_imports = true
 
 [tool.ruff.format]
 preview = true
+
+[tool.license-audit.license-classifications]
+"MPL-2.0" = "permissive" # all MPL packages are included as-is (not modified)

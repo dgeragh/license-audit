@@ -87,6 +87,112 @@ class TestConfigPropagation:
         assert gpu.display_license == "Proprietary License"
         assert gpu.category == LicenseCategory.UNKNOWN
 
+    def test_license_classification_whitelist_resolves_unknown(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming a declared license a category covers every package that
+        declares it: it is reclassified, no longer unknown, and policy passes."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"Proprietary License" = "permissive"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"gpu_a": "Proprietary License", "gpu_b": "Proprietary License"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        gpus = [p for p in report.packages if p.name.startswith("gpu_")]
+        assert len(gpus) == 2
+        for gpu in gpus:
+            assert gpu.category == LicenseCategory.PERMISSIVE
+            assert gpu.category_overridden is True
+            assert gpu.declared_license == "Proprietary License"
+        assert report.policy_passed is True
+        # No longer blocked from recommending an outbound license.
+        assert report.recommended_licenses
+
+    def test_deemed_strong_copyleft_fails_policy_but_stays_out_of_compatibility(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming a license strong-copyleft makes a permissive policy reject
+        it (with a violation action item), while it stays out of pairwise
+        compatibility (no SPDX id) and suppresses recommendations."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"Vendor EULA" = "strong-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"vendor_sdk": "Vendor EULA"})
+        report = LicenseAuditor().run(target=tmp_path)
+        sdk = next(p for p in report.packages if p.name == "vendor_sdk")
+        assert sdk.category == LicenseCategory.STRONG_COPYLEFT
+        assert report.policy_passed is False
+        assert report.incompatible_pairs == []
+        assert report.recommended_licenses == []
+        violations = [i for i in report.action_items if i.package == "vendor_sdk"]
+        assert violations
+        assert any("Vendor EULA" in i.message for i in violations)
+
+    def test_reclassifying_recognized_license_waives_its_compatibility(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming a recognized SPDX license (MPL-2.0) permissive applies by
+        its id, drops it from pairwise compatibility (so its conflicts are
+        waived), and lets recommendations proceed."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"MPL-2.0" = "permissive"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"weak_pkg": "MPL-2.0", "py_pkg": "PSF-2.0", "mit_pkg": "MIT"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        mpl = next(p for p in report.packages if p.name == "weak_pkg")
+        assert mpl.category == LicenseCategory.PERMISSIVE
+        assert mpl.category_overridden is True
+        assert all(
+            "MPL-2.0" not in (pair.inbound, pair.outbound)
+            for pair in report.incompatible_pairs
+        )
+        assert report.policy_passed is True
+        assert report.recommended_licenses
+
+    def test_classified_and_ignored_package(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A package can be both classified (by license string) and ignored
+        (by name); it carries the deemed category and the ignore marker."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"Vendor EULA" = "permissive"\n'
+            "[tool.license-audit.ignored-packages]\n"
+            'vendor_sdk = "Reviewed and vendored"\n',
+        )
+        make_venv(tmp_path / ".venv", {"vendor_sdk": "Vendor EULA"})
+        report = LicenseAuditor().run(target=tmp_path)
+        sdk = next(p for p in report.packages if p.name == "vendor_sdk")
+        assert sdk.category == LicenseCategory.PERMISSIVE
+        assert sdk.category_overridden is True
+        assert sdk.ignored is True
+        # Ignored -> exempt from action items.
+        assert not any(i.package == "vendor_sdk" for i in report.action_items)
+
     def test_ignored_package_marked_in_report(
         self,
         tmp_path: Path,

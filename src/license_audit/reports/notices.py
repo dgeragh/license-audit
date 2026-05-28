@@ -5,6 +5,7 @@ from __future__ import annotations
 from license_audit.core.models import AnalysisReport, PackageLicense
 from license_audit.reports._format import (
     attribution_footer,
+    category_label,
     fenced_code_block,
     generated_metadata_block,
     license_label,
@@ -36,7 +37,7 @@ class NoticesRenderer:
         lines = [
             f"\n---\n\n## {pkg.name} {pkg.version}\n",
             f"- **License:** {license_label(pkg.display_license)}",
-            f"- **Category:** {pkg.category.value}",
+            f"- **Category:** {category_label(pkg)}",
         ]
         if pkg.declared_license:
             lines.append(

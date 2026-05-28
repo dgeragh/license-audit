@@ -184,7 +184,6 @@ class TestLicensesRequiringReview:
         assert "SOFTWARE LICENSE AGREEMENT" in result
 
     def test_section_notes_missing_text(self) -> None:
-        # Nothing declared and no LICENSE file -> genuinely nothing to show.
         report = AnalysisReport(
             project_name="p",
             packages=[_unrecognized_pkg(declared_license=None, license_text=None)],
@@ -213,6 +212,27 @@ class TestLicensesRequiringReview:
         self, sample_report: AnalysisReport
     ) -> None:
         result = MarkdownRenderer().render(sample_report)
+        assert "## Licenses Requiring Review" not in result
+
+    def test_classified_package_annotated_and_excluded_from_review(self) -> None:
+        pkg = PackageLicense(
+            name="proprietary-package",
+            version="12.0.0",
+            license_expression="UNKNOWN",
+            declared_license="Proprietary License",
+            license_source=LicenseSource.METADATA,
+            category=LicenseCategory.PERMISSIVE,
+            category_overridden=True,
+        )
+        report = AnalysisReport(project_name="p", packages=[pkg])
+        result = MarkdownRenderer().render(report)
+        row = next(
+            line
+            for line in result.splitlines()
+            if line.startswith("| proprietary-package")
+        )
+        assert "Proprietary License" in row
+        assert "permissive (classified)" in row
         assert "## Licenses Requiring Review" not in result
 
     def test_ignored_unknown_excluded_from_review(self) -> None:

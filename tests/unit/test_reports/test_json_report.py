@@ -55,3 +55,25 @@ class TestJsonRenderer:
         )
         data = json.loads(JsonRenderer().render(report))
         assert data["packages"][0]["declared_license"] is None
+
+    def test_category_overridden_serialized(self) -> None:
+        # In JSON, category_overridden is the only signal that a category was
+        # user-assigned (display_license / "(classified)" are render-only).
+        report = AnalysisReport(
+            project_name="p",
+            packages=[
+                PackageLicense(
+                    name="gpu",
+                    version="1.0",
+                    license_expression="UNKNOWN",
+                    declared_license="Proprietary License",
+                    category=LicenseCategory.PERMISSIVE,
+                    category_overridden=True,
+                ),
+                PackageLicense(name="click", version="8.0", license_expression="MIT"),
+            ],
+        )
+        data = json.loads(JsonRenderer().render(report))
+        by_name = {p["name"]: p for p in data["packages"]}
+        assert by_name["gpu"]["category_overridden"] is True
+        assert by_name["click"]["category_overridden"] is False

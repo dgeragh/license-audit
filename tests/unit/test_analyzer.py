@@ -103,6 +103,90 @@ class TestClassifyPackage:
         assert pkg.category == LicenseCategory.WEAK_COPYLEFT
 
 
+class TestApplyClassifications:
+    def _unrecognized(self, name: str = "gpu") -> PackageLicense:
+        return PackageLicense(
+            name=name,
+            version="1.0",
+            license_expression=UNKNOWN_LICENSE,
+            declared_license="Proprietary License",
+            category=LicenseCategory.UNKNOWN,
+        )
+
+    def test_assigns_category_and_marks_overridden(self) -> None:
+        pkg = self._unrecognized()
+        LicenseAuditor._apply_classifications(
+            [pkg], {"Proprietary License": "permissive"}
+        )
+        assert pkg.category == LicenseCategory.PERMISSIVE
+        assert pkg.category_overridden is True
+        # The expression stays the sentinel so SPDX-based steps skip it.
+        assert pkg.license_expression == UNKNOWN_LICENSE
+
+    def test_matches_case_insensitively(self) -> None:
+        pkg = self._unrecognized()
+        LicenseAuditor._apply_classifications(
+            [pkg], {"proprietary license": "permissive"}
+        )
+        assert pkg.category == LicenseCategory.PERMISSIVE
+
+    def test_one_entry_covers_all_occurrences(self) -> None:
+        pkgs = [self._unrecognized("a"), self._unrecognized("b")]
+        LicenseAuditor._apply_classifications(
+            pkgs, {"Proprietary License": "permissive"}
+        )
+        assert all(p.category == LicenseCategory.PERMISSIVE for p in pkgs)
+
+    def test_non_matching_package_untouched(self) -> None:
+        pkg = self._unrecognized()
+        LicenseAuditor._apply_classifications(
+            [pkg], {"Some Other License": "permissive"}
+        )
+        assert pkg.category == LicenseCategory.UNKNOWN
+        assert pkg.category_overridden is False
+
+    def test_empty_config_is_noop(self) -> None:
+        pkg = self._unrecognized()
+        LicenseAuditor._apply_classifications([pkg], {})
+        assert pkg.category == LicenseCategory.UNKNOWN
+
+    def test_matches_whitespace_insensitively(self) -> None:
+        pkg = PackageLicense(
+            name="gpu",
+            version="1.0",
+            license_expression=UNKNOWN_LICENSE,
+            declared_license="  Proprietary\tLicense",
+            category=LicenseCategory.UNKNOWN,
+        )
+        LicenseAuditor._apply_classifications(
+            [pkg], {"Proprietary License": "permissive"}
+        )
+        assert pkg.category == LicenseCategory.PERMISSIVE
+
+    def test_recognized_license_is_reclassified_by_its_spdx_id(self) -> None:
+        pkg = PackageLicense(
+            name="x",
+            version="1.0",
+            license_expression="MPL-2.0",
+            category=LicenseCategory.WEAK_COPYLEFT,
+        )
+        LicenseAuditor._apply_classifications([pkg], {"MPL-2.0": "permissive"})
+        assert pkg.category == LicenseCategory.PERMISSIVE
+        assert pkg.category_overridden is True
+        assert pkg.license_expression == "MPL-2.0"
+
+    def test_not_detected_package_is_not_blanket_reclassified(self) -> None:
+        pkg = PackageLicense(
+            name="mystery",
+            version="1.0",
+            license_expression=UNKNOWN_LICENSE,
+            category=LicenseCategory.UNKNOWN,
+        )
+        LicenseAuditor._apply_classifications([pkg], {"UNKNOWN": "permissive"})
+        assert pkg.category == LicenseCategory.UNKNOWN
+        assert pkg.category_overridden is False
+
+
 class TestExtractSpdxIds:
     def test_skips_unknown(self) -> None:
         auditor = LicenseAuditor()

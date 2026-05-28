@@ -9,6 +9,8 @@ from license_audit.reports._format import (
     IncompatiblePairFormatter,
     SummaryStats,
     attribution_footer,
+    category_label,
+    deemed_constraint_packages,
     fenced_code_block,
     generated_metadata_block,
     license_label,
@@ -72,13 +74,10 @@ class MarkdownRenderer:
         ]
         for pkg in sorted(report.packages, key=lambda p: p.name):
             parent = pkg.parent if pkg.parent != pkg.name else "(direct)"
-            category = (
-                f"{pkg.category.value} (ignored)" if pkg.ignored else pkg.category.value
-            )
             lines.append(
                 f"| {pkg.name} | {pkg.version} "
                 f"| {markdown_license_cell(pkg.display_license)} "
-                f"| {category} | {pkg.license_source.value} | {parent} |"
+                f"| {category_label(pkg)} | {pkg.license_source.value} | {parent} |"
             )
         return "\n".join(lines) + "\n"
 
@@ -139,6 +138,7 @@ class MarkdownRenderer:
                 for p in report.packages
                 if not p.ignored and p.category == LicenseCategory.UNKNOWN
             ]
+            deemed = deemed_constraint_packages(report)
             lines = ["\n## Recommended Licenses\n"]
             if unknown:
                 names = ", ".join(f"`{p.name}`" for p in unknown)
@@ -146,6 +146,15 @@ class MarkdownRenderer:
                     f"Cannot recommend a license: {len(unknown)} dependency(ies) "
                     f"have an unrecognized license ({names}). "
                     "Resolve them via `[tool.license-audit.overrides]` and re-run."
+                )
+            elif deemed:
+                names = ", ".join(f"`{p.name}`" for p in deemed)
+                lines.append(
+                    f"Cannot recommend a license: {len(deemed)} dependency(ies) "
+                    f"are classified as a non-permissive license with no SPDX id "
+                    f"({names}), so outbound compatibility can't be computed. Map "
+                    "them to an SPDX id via `[tool.license-audit.overrides]` if you "
+                    "need recommendations."
                 )
             else:
                 lines.append("No compatible outbound license found.")

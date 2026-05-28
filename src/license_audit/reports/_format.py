@@ -12,6 +12,7 @@ from license_audit.core.models import (
     AnalysisReport,
     CompatibilityResult,
     LicenseCategory,
+    PackageLicense,
 )
 
 _ATTRIBUTION_LINK = "[license_audit](https://github.com/dgeragh/license-audit)"
@@ -56,18 +57,31 @@ class SummaryStats:
         )
 
 
-def license_label(value: str, limit: int = 120) -> str:
-    """Collapse whitespace and bound length so a license fits one table cell.
+def category_label(pkg: PackageLicense) -> str:
+    """Category value, annotated when it was ignored or user-classified."""
+    if pkg.ignored:
+        return f"{pkg.category.value} (ignored)"
+    if pkg.category_overridden:
+        return f"{pkg.category.value} (classified)"
+    return pkg.category.value
 
-    A detected SPDX expression is always short and single-line, so this is a
-    no-op for it. But a *declared-but-unrecognized* license comes straight from
-    package metadata, where some projects stuff an entire license body into the
-    ``License`` field. Collapsing and truncating keeps such values from blowing
-    up table layouts or terminal rows.
-    """
+
+def deemed_constraint_packages(report: AnalysisReport) -> list[PackageLicense]:
+    """Active packages the user classified as a non-permissive category."""
+    return [
+        p
+        for p in report.packages
+        if not p.ignored
+        and p.category_overridden
+        and p.category != LicenseCategory.PERMISSIVE
+    ]
+
+
+def license_label(value: str, limit: int = 120) -> str:
+    """Collapse whitespace and bound length so a license fits one table cell."""
     collapsed = " ".join(value.split())
     if len(collapsed) > limit:
-        return collapsed[: limit - 1].rstrip() + "…"
+        return collapsed[: limit - 3].rstrip() + "..."
     return collapsed
 
 
@@ -77,13 +91,7 @@ def markdown_license_cell(value: str) -> str:
 
 
 def fenced_code_block(text: str) -> str:
-    """Wrap `text` in a backtick fence long enough to contain it intact.
-
-    License bodies are publisher-controlled and may themselves contain a
-    ```` ``` ```` fence (some bundle Markdown-formatted notices). Per CommonMark
-    a fence is only closed by a backtick run at least as long as the opener, so
-    we size the fence one longer than the longest run in the body.
-    """
+    """Wrap `text` in a backtick fence long enough to contain it intact."""
     longest = 0
     run = 0
     for char in text:

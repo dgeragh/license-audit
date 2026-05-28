@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
 
-from license_audit.core.models import PolicyLevel
+from license_audit.core.models import LicenseCategory, PolicyLevel
 
 
 class LicenseAuditConfig(BaseModel):
@@ -19,6 +19,7 @@ class LicenseAuditConfig(BaseModel):
     denied_licenses: list[str] = Field(default_factory=list)
     overrides: dict[str, str] = Field(default_factory=dict)
     ignored_packages: dict[str, str] = Field(default_factory=dict)
+    license_classifications: dict[str, str] = Field(default_factory=dict)
     target: str | None = None
 
     @field_validator("ignored_packages", mode="before")
@@ -40,6 +41,34 @@ class LicenseAuditConfig(BaseModel):
                 msg = (
                     f"ignored-packages['{key}'] must be a non-empty string "
                     f"explaining why the package is ignored"
+                )
+                raise ValueError(msg)
+        return value
+
+    @field_validator("license_classifications", mode="before")
+    @classmethod
+    def _validate_license_classifications(
+        cls,
+        value: object,
+    ) -> dict[str, str]:
+        if not value:
+            return {}
+        if not isinstance(value, dict):
+            msg = (
+                "license-classifications must be a table mapping a license "
+                "string to a category"
+            )
+            raise ValueError(msg)  # noqa: TRY004
+        # "unknown" is excluded: the whole point is to *resolve* an unknown,
+        # so re-asserting unknown would be a no-op that still fails policy.
+        valid = sorted(
+            c.value for c in LicenseCategory if c is not LicenseCategory.UNKNOWN
+        )
+        for key, category in value.items():
+            if not isinstance(category, str) or category not in valid:
+                msg = (
+                    f"license-classifications['{key}'] must be one of: "
+                    f"{', '.join(valid)}"
                 )
                 raise ValueError(msg)
         return value

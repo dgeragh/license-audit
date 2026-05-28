@@ -71,6 +71,7 @@ class PackageLicense(BaseModel):
     declared_license: str | None = None
     license_source: LicenseSource = LicenseSource.UNKNOWN
     category: LicenseCategory = LicenseCategory.UNKNOWN
+    category_overridden: bool = False
     parent: str = ""
     license_text: str | None = None
     ignored: bool = False

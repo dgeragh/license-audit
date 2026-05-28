@@ -18,6 +18,7 @@ from license_audit.core.models import (
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
+    deemed_constraint_packages,
 )
 
 _classifier = LicenseClassifier()
@@ -162,6 +163,7 @@ def _render_recommendations(console: Console, report: AnalysisReport) -> None:
             for p in report.packages
             if not p.ignored and p.category == LicenseCategory.UNKNOWN
         ]
+        deemed = deemed_constraint_packages(report)
         if unknown:
             names = ", ".join(p.name for p in unknown)
             console.print(
@@ -169,6 +171,16 @@ def _render_recommendations(console: Console, report: AnalysisReport) -> None:
                 f"{len(unknown)} dependency(ies) have an unrecognized license "
                 f"({names}).\n"
                 r"Resolve them via `\[tool.license-audit.overrides]` and re-run."
+            )
+        elif deemed:
+            names = ", ".join(p.name for p in deemed)
+            console.print(
+                "[bold yellow]Cannot recommend a license:[/bold yellow] "
+                f"{len(deemed)} dependency(ies) are classified as a non-permissive "
+                f"license with no SPDX id ({names}), so outbound compatibility "
+                "can't be computed.\n"
+                r"Map them to an SPDX id via `\[tool.license-audit.overrides]` "
+                "if you need recommendations."
             )
         else:
             console.print(
