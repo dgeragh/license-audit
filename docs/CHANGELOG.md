@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.0 (2026-05-28)
+
+### Added
+
+- Unrecognized licenses now show their actual declared identifier instead of `UNKNOWN`, distinguish undetected from unrecognized, and include their license text in Markdown reports for review
+- License classification via `[tool.license-audit.license-classifications]`: deem a license a category and have it apply to every package that uses it, including individual components of `AND`/`OR` expressions
+
+### Changed
+
+- Audits a user-provisioned environment directly; removed built-in provisioning and lockfile parsing (`uv.lock`, `poetry.lock`, `pixi.lock`, `requirements.txt`, `pyproject.toml`)
+
 ## 0.8.0 (2026-05-27)
 
 ### Fixed
