@@ -10,6 +10,7 @@ from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import (
     UNKNOWN_LICENSE,
+    ActionItem,
     AnalysisReport,
     LicenseCategory,
     PackageLicense,
@@ -151,7 +152,9 @@ class LicenseAuditor:
         tree = analyze_environment(project_name, reader, dict(config.overrides))
         packages = tree.flatten()
         self._classify_packages(packages)
-        self._apply_classifications(packages, config.license_classifications)
+        unmatched_classifications = self._apply_classifications(
+            packages, config.license_classifications
+        )
         self._collect_license_text(packages, reader)
         self._apply_ignores(packages, config.ignored_packages)
 
@@ -179,6 +182,7 @@ class LicenseAuditor:
             incompatible,
             config,
         )
+        action_items.extend(self._classification_warnings(unmatched_classifications))
         policy_passed = self._policy.check(
             dep_packages,
             self._policy.build_policy(config),
@@ -218,21 +222,49 @@ class LicenseAuditor:
     def _apply_classifications(
         packages: list[PackageLicense],
         classifications: dict[str, str],
-    ) -> None:
-        """Assign user-deemed categories to packages by their license string."""
+    ) -> list[str]:
+        """Assign user-deemed categories to packages by their license string.
+
+        Matches a package's whole displayed license (its SPDX expression, or
+        the raw declared string when unrecognized) case- and
+        whitespace-insensitively. Matching does not descend into the components
+        of an AND/OR expression, so a config key only takes effect when it
+        equals a package's full license string. Returns the configured strings
+        that matched no package, so the caller can warn about typos or
+        component-only keys.
+        """
         if not classifications:
-            return
+            return []
         lookup = {
-            _normalize_license_key(name): LicenseCategory(category)
+            _normalize_license_key(name): (name, LicenseCategory(category))
             for name, category in classifications.items()
         }
+        matched: set[str] = set()
         for pkg in packages:
             if pkg.display_license == UNKNOWN_LICENSE:
                 continue
-            category = lookup.get(_normalize_license_key(pkg.display_license))
-            if category is not None:
-                pkg.category = category
+            key = _normalize_license_key(pkg.display_license)
+            entry = lookup.get(key)
+            if entry is not None:
+                pkg.category = entry[1]
                 pkg.category_overridden = True
+                matched.add(key)
+        return [name for key, (name, _) in lookup.items() if key not in matched]
+
+    @staticmethod
+    def _classification_warnings(unmatched: list[str]) -> list[ActionItem]:
+        """Warn about classification entries that matched no package."""
+        return [
+            ActionItem(
+                severity="warning",
+                message=(
+                    f"License classification '{name}' matched no package. It "
+                    "must equal a package's full license string; it does not "
+                    "apply to individual components of an AND/OR expression."
+                ),
+            )
+            for name in unmatched
+        ]
 
     @staticmethod
     def _collect_license_text(

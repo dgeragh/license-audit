@@ -169,6 +169,33 @@ class TestConfigPropagation:
         assert report.policy_passed is True
         assert report.recommended_licenses
 
+    def test_classification_matching_nothing_warns(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A classification keyed on a component of a compound expression
+        matches nothing (matching is whole-string) and surfaces a warning."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"MPL-2.0" = "permissive"\n',
+        )
+        # The MPL only appears inside a compound, never standalone.
+        make_venv(tmp_path / ".venv", {"compound_pkg": "MPL-2.0 AND MIT"})
+        report = LicenseAuditor().run(target=tmp_path)
+        compound = next(p for p in report.packages if p.name == "compound_pkg")
+        # Compound keeps its computed category; the component is not reclassified.
+        assert compound.category == LicenseCategory.WEAK_COPYLEFT
+        assert compound.category_overridden is False
+        warnings = [
+            i.message
+            for i in report.action_items
+            if i.severity == "warning" and "matched no package" in i.message
+        ]
+        assert any("MPL-2.0" in m for m in warnings)
+
     def test_classified_and_ignored_package(
         self,
         tmp_path: Path,

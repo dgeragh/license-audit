@@ -186,6 +186,42 @@ class TestApplyClassifications:
         assert pkg.category == LicenseCategory.UNKNOWN
         assert pkg.category_overridden is False
 
+    def test_component_of_compound_expression_is_not_matched(self) -> None:
+        # Matching is on the whole license string, not AND/OR components.
+        pkg = PackageLicense(
+            name="x",
+            version="1.0",
+            license_expression="GPL-2.0-only AND MIT",
+            category=LicenseCategory.STRONG_COPYLEFT,
+        )
+        unmatched = LicenseAuditor._apply_classifications(
+            [pkg], {"GPL-2.0-only": "permissive"}
+        )
+        assert pkg.category == LicenseCategory.STRONG_COPYLEFT
+        assert pkg.category_overridden is False
+        assert unmatched == ["GPL-2.0-only"]
+
+    def test_returns_unmatched_keys(self) -> None:
+        pkg = self._unrecognized()  # declares "Proprietary License"
+        unmatched = LicenseAuditor._apply_classifications(
+            [pkg], {"Proprietary License": "permissive", "Typo License": "permissive"}
+        )
+        assert unmatched == ["Typo License"]
+
+    def test_no_unmatched_when_all_match(self) -> None:
+        pkg = self._unrecognized()
+        unmatched = LicenseAuditor._apply_classifications(
+            [pkg], {"Proprietary License": "permissive"}
+        )
+        assert unmatched == []
+
+    def test_classification_warnings_built_for_unmatched(self) -> None:
+        items = LicenseAuditor._classification_warnings(["Typo License"])
+        assert len(items) == 1
+        assert items[0].severity == "warning"
+        assert "Typo License" in items[0].message
+        assert "matched no package" in items[0].message
+
 
 class TestExtractSpdxIds:
     def test_skips_unknown(self) -> None:
