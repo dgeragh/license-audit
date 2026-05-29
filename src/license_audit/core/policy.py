@@ -151,7 +151,7 @@ class PolicyEngine:
                         package=pkg.name,
                         message=(
                             f"Package '{pkg.name}' uses {pkg.category.value} license "
-                            f"'{pkg.license_expression}', which violates the "
+                            f"'{pkg.display_license}', which violates the "
                             f"'{config.policy}' policy."
                         ),
                     ),
@@ -166,7 +166,7 @@ class PolicyEngine:
                         package=pkg.name,
                         message=(
                             f"Package '{pkg.name}' uses {pkg.category.value} license "
-                            f"'{pkg.license_expression}'. This may require your project "
+                            f"'{pkg.display_license}'. This may require your project "
                             f"to use a compatible copyleft license."
                         ),
                     ),
@@ -215,15 +215,20 @@ class PolicyEngine:
 
     @staticmethod
     def is_unknown(pkg: PackageLicense) -> bool:
-        """True if the license is literally UNKNOWN or can't be categorized."""
-        return (
-            pkg.license_expression == UNKNOWN_LICENSE
-            or pkg.category == LicenseCategory.UNKNOWN
-        )
+        """True if the package's license has no usable classification."""
+        return pkg.category == LicenseCategory.UNKNOWN
 
     def unknown_message(self, pkg: PackageLicense) -> str:
         """User-facing explanation for why a package's license is unknown."""
         suffix = "Add an override in [tool.license-audit.overrides] or check manually."
+
+        if pkg.declared_license:
+            return (
+                f"Package '{pkg.name}' declares license '{pkg.declared_license}', "
+                f"which is not a recognized SPDX identifier. Review its license "
+                f"text in the report to determine the correct classification. "
+                f"{suffix}"
+            )
 
         if pkg.license_expression == UNKNOWN_LICENSE:
             return f"License for '{pkg.name}' could not be detected. {suffix}"

@@ -1,227 +1,304 @@
-"""End-to-end ``LicenseAuditor`` tests with real provisioning.
+"""End-to-end ``LicenseAuditor`` tests against a real installed layout.
 
-These tests run the unmocked auditor against synthetic ``tmp_path`` projects
-covering every source format. They verify the spec to ``pip wheel`` to
-metadata read to report flow per format, plus that config (overrides, ignored,
-groups) reaches the produced ``AnalysisReport``.
-
-Slower than unit tests because each invocation provisions a small temp wheel
-directory via pip. Lives in ``tests/integration`` so the unit suite stays fast.
+These run the unmocked auditor against a fake virtualenv built under
+``tmp_path`` (see ``conftest.make_venv``). They verify the read to detect to
+classify to policy to report flow, plus that config (overrides, ignored,
+allow/deny, policy level) reaches the produced ``AnalysisReport``.
 """
 
 from __future__ import annotations
 
-import warnings
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from license_audit.config import LicenseAuditConfig
 from license_audit.core.analyzer import LicenseAuditor
+from license_audit.core.models import LicenseCategory
+
+VenvBuilder = Callable[[Path, dict[str, str]], Path]
 
 
 def _write_pyproject(path: Path, body: str) -> None:
     path.write_text(body)
 
 
-# -----------------------------------------------------------------------------
-# Source format coverage: each format provisions and produces a report
-# -----------------------------------------------------------------------------
+class TestVenvAnalysis:
+    def test_reads_installed_packages(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        venv = make_venv(
+            tmp_path / ".venv",
+            {"click": "BSD-3-Clause", "rich": "MIT"},
+        )
+        report = LicenseAuditor().run(target=venv)
+        names = {p.name for p in report.packages}
+        assert {"click", "rich"}.issubset(names)
 
-
-class TestSourceFormats:
-    def test_pyproject_only(self, tmp_path: Path) -> None:
+    def test_project_dir_resolves_to_venv(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
         _write_pyproject(
             tmp_path / "pyproject.toml",
-            '[project]\nname = "x"\nversion = "0.0.1"\n'
-            'dependencies = ["click>=8.1.0"]\n',
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
         )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         report = LicenseAuditor().run(target=tmp_path)
-        names = {p.name for p in report.packages}
-        assert "click" in names
-
-    def test_requirements_txt(self, tmp_path: Path) -> None:
-        (tmp_path / "requirements.txt").write_text("click>=8.1.0\n")
-        report = LicenseAuditor().run(target=tmp_path / "requirements.txt")
-        names = {p.name for p in report.packages}
-        assert "click" in names
-
-    def test_poetry_lock(self, tmp_path: Path) -> None:
-        _write_pyproject(
-            tmp_path / "pyproject.toml",
-            '[project]\nname = "x"\nversion = "0.0.1"\n',
-        )
-        (tmp_path / "poetry.lock").write_text("""\
-[[package]]
-name = "click"
-version = "8.1.7"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = []
-
-[[package]]
-name = "pytest"
-version = "8.3.3"
-optional = false
-python-versions = ">=3.8"
-groups = ["dev"]
-files = []
-
-[metadata]
-lock-version = "2.1"
-python-versions = ">=3.10"
-content-hash = "x"
-""")
-        report = LicenseAuditor().run(target=tmp_path / "poetry.lock")
-        names = {p.name for p in report.packages}
-        assert {"click", "pytest"}.issubset(names)
-
-    def test_poetry_lock_with_main_group_filter(self, tmp_path: Path) -> None:
-        _write_pyproject(
-            tmp_path / "pyproject.toml",
-            '[project]\nname = "x"\nversion = "0.0.1"\n',
-        )
-        (tmp_path / "poetry.lock").write_text("""\
-[[package]]
-name = "click"
-version = "8.1.7"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = []
-
-[[package]]
-name = "pytest"
-version = "8.3.3"
-optional = false
-python-versions = ">=3.8"
-groups = ["dev"]
-files = []
-
-[metadata]
-lock-version = "2.1"
-python-versions = ">=3.10"
-content-hash = "x"
-""")
-        config = LicenseAuditConfig(dependency_groups=["main"])
-        report = LicenseAuditor().run(target=tmp_path / "poetry.lock", config=config)
-        names = {p.name for p in report.packages}
-        assert "click" in names
-        assert "pytest" not in names
-
-    def test_pixi_lock_pypi_only(self, tmp_path: Path) -> None:
-        _write_pyproject(
-            tmp_path / "pyproject.toml",
-            '[project]\nname = "x"\nversion = "0.0.1"\n',
-        )
-        (tmp_path / "pixi.lock").write_text("""\
-version: 6
-environments:
-  default:
-    channels:
-    - url: https://conda.anaconda.org/conda-forge/
-    indexes:
-    - https://pypi.org/simple
-    packages:
-      linux-64:
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-      linux-aarch64:
-      - conda: https://conda.anaconda.org/conda-forge/linux-aarch64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-      osx-64:
-      - conda: https://conda.anaconda.org/conda-forge/osx-64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-      osx-arm64:
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-      win-64:
-      - conda: https://conda.anaconda.org/conda-forge/win-64/python-3.12.0-x.conda
-      - pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-packages:
-- conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.0-x.conda
-  name: python
-  version: 3.12.0
-  build: x
-  subdir: linux-64
-- pypi: https://files.pythonhosted.org/packages/click-8.1.7.whl
-  name: click
-  version: 8.1.7
-  sha256: testhash
-""")
-        with warnings.catch_warnings(record=True) as captured:
-            warnings.simplefilter("always")
-            report = LicenseAuditor().run(target=tmp_path / "pixi.lock")
-        names = {p.name for p in report.packages}
-        assert "click" in names
-        # Conda packages are skipped; the warning is what surfaces them.
-        assert any("conda" in str(w.message) for w in captured)
-
-
-# -----------------------------------------------------------------------------
-# Config flows from pyproject.toml through analyzer to report
-# -----------------------------------------------------------------------------
+        assert "click" in {p.name for p in report.packages}
 
 
 class TestConfigPropagation:
-    def test_override_applied_to_package(self, tmp_path: Path) -> None:
+    def test_override_applied_to_package(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
         _write_pyproject(
             tmp_path / "pyproject.toml",
             '[project]\nname = "x"\nversion = "0.0.1"\n'
-            'dependencies = ["click>=8.1.0"]\n'
             "[tool.license-audit.overrides]\n"
             'click = "Apache-2.0"\n',
         )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         report = LicenseAuditor().run(target=tmp_path)
         click = next(p for p in report.packages if p.name == "click")
-        # Override should swap click's actual BSD-3-Clause license for Apache-2.0.
         assert click.license_expression == "Apache-2.0"
 
-    def test_ignored_package_marked_in_report(self, tmp_path: Path) -> None:
+    def test_unrecognized_license_preserves_declared_string(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A declared-but-unrecognized license surfaces its raw string and
+        still counts as unknown (so fail-on-unknown CI gating keeps working)."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(tmp_path / ".venv", {"gpu": "Proprietary License"})
+        report = LicenseAuditor().run(target=tmp_path)
+        gpu = next(p for p in report.packages if p.name == "gpu")
+        assert gpu.license_expression == "UNKNOWN"
+        assert gpu.declared_license == "Proprietary License"
+        assert gpu.display_license == "Proprietary License"
+        assert gpu.category == LicenseCategory.UNKNOWN
+
+    def test_license_classification_whitelist_resolves_unknown(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming a declared license a category covers every package that
+        declares it: it is reclassified, no longer unknown, and policy passes."""
         _write_pyproject(
             tmp_path / "pyproject.toml",
             '[project]\nname = "x"\nversion = "0.0.1"\n'
-            'dependencies = ["click>=8.1.0"]\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"Proprietary License" = "permissive"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"gpu_a": "Proprietary License", "gpu_b": "Proprietary License"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        gpus = [p for p in report.packages if p.name.startswith("gpu_")]
+        assert len(gpus) == 2
+        for gpu in gpus:
+            assert gpu.category == LicenseCategory.PERMISSIVE
+            assert gpu.category_overridden is True
+            assert gpu.declared_license == "Proprietary License"
+        assert report.policy_passed is True
+        # No longer blocked from recommending an outbound license.
+        assert report.recommended_licenses
+
+    def test_deemed_strong_copyleft_fails_policy_but_stays_out_of_compatibility(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming a license strong-copyleft makes a permissive policy reject
+        it (with a violation action item), while it stays out of pairwise
+        compatibility (no SPDX id) and suppresses recommendations."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"Vendor EULA" = "strong-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"vendor_sdk": "Vendor EULA"})
+        report = LicenseAuditor().run(target=tmp_path)
+        sdk = next(p for p in report.packages if p.name == "vendor_sdk")
+        assert sdk.category == LicenseCategory.STRONG_COPYLEFT
+        assert report.policy_passed is False
+        assert report.incompatible_pairs == []
+        assert report.recommended_licenses == []
+        violations = [i for i in report.action_items if i.package == "vendor_sdk"]
+        assert violations
+        assert any("Vendor EULA" in i.message for i in violations)
+
+    def test_reclassifying_recognized_license_waives_its_compatibility(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming a recognized SPDX license (MPL-2.0) permissive applies by
+        its id, drops it from pairwise compatibility (so its conflicts are
+        waived), and lets recommendations proceed."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"MPL-2.0" = "permissive"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"weak_pkg": "MPL-2.0", "py_pkg": "PSF-2.0", "mit_pkg": "MIT"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        mpl = next(p for p in report.packages if p.name == "weak_pkg")
+        assert mpl.category == LicenseCategory.PERMISSIVE
+        assert mpl.category_overridden is True
+        assert all(
+            "MPL-2.0" not in (pair.inbound, pair.outbound)
+            for pair in report.incompatible_pairs
+        )
+        assert report.policy_passed is True
+        assert report.recommended_licenses
+
+    def test_classification_matching_nothing_warns(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A classification key that matches neither a whole license nor any
+        component (a typo) surfaces a warning."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"Typo License" = "permissive"\n',
+        )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        report = LicenseAuditor().run(target=tmp_path)
+        warnings = [
+            i.message
+            for i in report.action_items
+            if i.severity == "warning" and "matched no package" in i.message
+        ]
+        assert any("Typo License" in m for m in warnings)
+
+    def test_component_classification_reclassifies_compound(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming a component permissive re-evaluates the whole AND, and the
+        component's id is dropped from compatibility."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"MPL-2.0" = "permissive"\n',
+        )
+        make_venv(tmp_path / ".venv", {"compound_pkg": "MPL-2.0 AND MIT"})
+        report = LicenseAuditor().run(target=tmp_path)
+        compound = next(p for p in report.packages if p.name == "compound_pkg")
+        assert compound.category == LicenseCategory.PERMISSIVE
+        assert compound.category_overridden is True
+        # MPL waived even though it was only a component.
+        assert all(
+            "MPL-2.0" not in (p.inbound, p.outbound) for p in report.incompatible_pairs
+        )
+        # No spurious no-match warning (the component matched).
+        assert not any("matched no package" in i.message for i in report.action_items)
+
+    def test_classified_and_ignored_package(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A package can be both classified (by license string) and ignored
+        (by name); it carries the deemed category and the ignore marker."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"Vendor EULA" = "permissive"\n'
+            "[tool.license-audit.ignored-packages]\n"
+            'vendor_sdk = "Reviewed and vendored"\n',
+        )
+        make_venv(tmp_path / ".venv", {"vendor_sdk": "Vendor EULA"})
+        report = LicenseAuditor().run(target=tmp_path)
+        sdk = next(p for p in report.packages if p.name == "vendor_sdk")
+        assert sdk.category == LicenseCategory.PERMISSIVE
+        assert sdk.category_overridden is True
+        assert sdk.ignored is True
+        # Ignored -> exempt from action items.
+        assert not any(i.package == "vendor_sdk" for i in report.action_items)
+
+    def test_ignored_package_marked_in_report(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
             "[tool.license-audit.ignored-packages]\n"
             'click = "Smoke test exemption"\n',
         )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         report = LicenseAuditor().run(target=tmp_path)
         click = next(p for p in report.packages if p.name == "click")
         assert click.ignored is True
         assert click.ignore_reason == "Smoke test exemption"
 
-    def test_denied_license_fails_policy(self, tmp_path: Path) -> None:
-        # click ships as BSD-3-Clause; deny it.
+    def test_denied_license_fails_policy(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
         _write_pyproject(
             tmp_path / "pyproject.toml",
             '[project]\nname = "x"\nversion = "0.0.1"\n'
-            'dependencies = ["click>=8.1.0"]\n'
             "[tool.license-audit]\n"
             'denied-licenses = ["BSD-3-Clause"]\n',
         )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         report = LicenseAuditor().run(target=tmp_path)
         assert report.policy_passed is False
 
-    def test_allowed_licenses_pass_when_matching(self, tmp_path: Path) -> None:
+    def test_allowed_licenses_pass_when_matching(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
         _write_pyproject(
             tmp_path / "pyproject.toml",
             '[project]\nname = "x"\nversion = "0.0.1"\n'
-            'dependencies = ["click>=8.1.0"]\n'
             "[tool.license-audit]\n"
             'allowed-licenses = ["BSD-3-Clause"]\n',
         )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         report = LicenseAuditor().run(target=tmp_path)
         assert report.policy_passed is True
 
-    def test_allowed_licenses_fail_when_not_matching(self, tmp_path: Path) -> None:
+    def test_allowed_licenses_fail_when_not_matching(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
         _write_pyproject(
             tmp_path / "pyproject.toml",
             '[project]\nname = "x"\nversion = "0.0.1"\n'
-            'dependencies = ["click>=8.1.0"]\n'
             "[tool.license-audit]\n"
             'allowed-licenses = ["MIT"]\n',
         )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         report = LicenseAuditor().run(target=tmp_path)
         assert report.policy_passed is False
 
@@ -235,16 +312,37 @@ class TestConfigPropagation:
         ],
     )
     def test_policy_level_graduation(
-        self, tmp_path: Path, policy: str, expected_pass: bool
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+        policy: str,
+        expected_pass: bool,
     ) -> None:
         _write_pyproject(
             tmp_path / "pyproject.toml",
             '[project]\nname = "x"\nversion = "0.0.1"\n'
-            'dependencies = ["click>=8.1.0"]\n'
             "[tool.license-audit]\n"
-            f'policy = "{policy}"\n'
-            "[tool.license-audit.overrides]\n"
-            'click = "MPL-2.0"\n',
+            f'policy = "{policy}"\n',
         )
+        make_venv(tmp_path / ".venv", {"click": "MPL-2.0"})
         report = LicenseAuditor().run(target=tmp_path)
         assert report.policy_passed is expected_pass
+
+    def test_config_flag_audits_external_venv(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A venv outside the project still gets the project's policy."""
+        project = tmp_path / "project"
+        project.mkdir()
+        _write_pyproject(
+            project / "pyproject.toml",
+            '[project]\nname = "from-config"\nversion = "0.0.1"\n'
+            "[tool.license-audit]\n"
+            'denied-licenses = ["BSD-3-Clause"]\n',
+        )
+        venv = make_venv(tmp_path / "env", {"click": "BSD-3-Clause"})
+        report = LicenseAuditor().run(target=venv, config_dir=project)
+        assert report.project_name == "from-config"
+        assert report.policy_passed is False

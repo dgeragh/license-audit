@@ -11,6 +11,21 @@ from license_audit.core.models import CATEGORY_RANK, LicenseCategory
 from license_audit.licenses.spdx import SpdxNormalizer
 
 
+def normalize_license_key(value: str) -> str:
+    """Canonical form for matching a license string against config keys.
+
+    Collapses internal whitespace and lowercases, so a configured
+    classification matches regardless of casing or irregular spacing in
+    package metadata.
+    """
+    return " ".join(value.split()).lower()
+
+
+# Maps a normalized license string to a user-deemed category, used to override
+# a component's classification while evaluating an AND/OR expression.
+CategoryOverrides = dict[str, LicenseCategory]
+
+
 class ExpressionEvaluator:
     """Evaluates SPDX expressions with AND/OR semantics.
 
@@ -62,14 +77,23 @@ class ExpressionEvaluator:
             if self._classifier.classify(lic) == LicenseCategory.UNKNOWN
         ]
 
-    def classify(self, expr: str) -> LicenseCategory:
-        """Category of the best-case alternative for `expr`."""
+    def classify(
+        self, expr: str, overrides: CategoryOverrides | None = None
+    ) -> LicenseCategory:
+        """Category of the best-case alternative for `expr`.
+
+        `overrides` lets a caller force the category of individual component
+        licenses (a user classification). An AND keeps the most restrictive
+        component, so a deemed-restrictive component dominates; a deemed-
+        permissive one stops binding. An OR keeps the most permissive
+        alternative, so re-evaluation handles both correctly.
+        """
         non_empty = [alt for alt in self.alternatives(expr) if alt]
         if not non_empty:
-            return self._classifier.classify(expr)
-        best = min(non_empty, key=self._alt_rank)
+            return self._component_category(expr, overrides)
+        best = min(non_empty, key=lambda alt: self._alt_rank(alt, overrides))
         return max(
-            (self._classifier.classify(lic) for lic in best),
+            (self._component_category(lic, overrides) for lic in best),
             key=lambda c: CATEGORY_RANK.get(c, 5),
         )
 
@@ -95,11 +119,26 @@ class ExpressionEvaluator:
             return True
         return False
 
-    def _alt_rank(self, alt: list[str]) -> int:
+    def _alt_rank(
+        self, alt: list[str], overrides: CategoryOverrides | None = None
+    ) -> int:
         return max(
-            (CATEGORY_RANK.get(self._classifier.classify(lic), 5) for lic in alt),
+            (
+                CATEGORY_RANK.get(self._component_category(lic, overrides), 5)
+                for lic in alt
+            ),
             default=CATEGORY_RANK[LicenseCategory.UNKNOWN],
         )
+
+    def _component_category(
+        self, lic: str, overrides: CategoryOverrides | None = None
+    ) -> LicenseCategory:
+        """Category of a single component, honoring user overrides first."""
+        if overrides:
+            deemed = overrides.get(normalize_license_key(lic))
+            if deemed is not None:
+                return deemed
+        return self._classifier.classify(lic)
 
     def _walk_alternatives(self, node: Any) -> list[list[str]]:
         if isinstance(node, LicenseSymbol):

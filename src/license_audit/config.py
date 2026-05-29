@@ -7,45 +7,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
 
-from license_audit.core.models import PolicyLevel
-
-
-class GroupSpec:
-    """Valid dependency-group selectors.
-
-    A selector is either a literal ('main', 'dev') or a prefixed name like
-    'optional:docs' or 'group:test'.
-    """
-
-    PREFIXES: tuple[str, ...] = ("optional:", "group:")
-    LITERALS: tuple[str, ...] = ("main", "dev")
-
-    @classmethod
-    def validate(cls, entry: str) -> None:
-        """Raise ValueError if `entry` isn't a valid selector."""
-        if entry in cls.LITERALS:
-            return
-        for prefix in cls.PREFIXES:
-            if entry.startswith(prefix):
-                if not entry[len(prefix) :]:
-                    msg = (
-                        f"Invalid dependency group: '{entry}' "
-                        f"(missing name after prefix)"
-                    )
-                    raise ValueError(msg)
-                return
-        msg = (
-            f"Invalid dependency group: '{entry}'. "
-            f"Must be 'main', 'dev', 'optional:<name>', or 'group:<name>'."
-        )
-        raise ValueError(msg)
-
-    @classmethod
-    def validate_list(cls, entries: list[str]) -> list[str]:
-        """Validate every entry and return the list unchanged."""
-        for entry in entries:
-            cls.validate(entry)
-        return entries
+from license_audit.core.models import LicenseCategory, PolicyLevel
 
 
 class LicenseAuditConfig(BaseModel):
@@ -56,22 +18,9 @@ class LicenseAuditConfig(BaseModel):
     allowed_licenses: list[str] = Field(default_factory=list)
     denied_licenses: list[str] = Field(default_factory=list)
     overrides: dict[str, str] = Field(default_factory=dict)
-    dependency_groups: list[str] | None = None
     ignored_packages: dict[str, str] = Field(default_factory=dict)
+    license_classifications: dict[str, str] = Field(default_factory=dict)
     target: str | None = None
-
-    @field_validator("dependency_groups", mode="before")
-    @classmethod
-    def _validate_dependency_groups(
-        cls,
-        value: list[str] | None,
-    ) -> list[str] | None:
-        if value is None:
-            return None
-        if not isinstance(value, list):
-            msg = "dependency_groups must be a list of strings"
-            raise TypeError(msg)
-        return GroupSpec.validate_list(value)
 
     @field_validator("ignored_packages", mode="before")
     @classmethod
@@ -92,6 +41,34 @@ class LicenseAuditConfig(BaseModel):
                 msg = (
                     f"ignored-packages['{key}'] must be a non-empty string "
                     f"explaining why the package is ignored"
+                )
+                raise ValueError(msg)
+        return value
+
+    @field_validator("license_classifications", mode="before")
+    @classmethod
+    def _validate_license_classifications(
+        cls,
+        value: object,
+    ) -> dict[str, str]:
+        if not value:
+            return {}
+        if not isinstance(value, dict):
+            msg = (
+                "license-classifications must be a table mapping a license "
+                "string to a category"
+            )
+            raise ValueError(msg)  # noqa: TRY004
+        # "unknown" is excluded: the whole point is to *resolve* an unknown,
+        # so re-asserting unknown would be a no-op that still fails policy.
+        valid = sorted(
+            c.value for c in LicenseCategory if c is not LicenseCategory.UNKNOWN
+        )
+        for key, category in value.items():
+            if not isinstance(category, str) or category not in valid:
+                msg = (
+                    f"license-classifications['{key}'] must be one of: "
+                    f"{', '.join(valid)}"
                 )
                 raise ValueError(msg)
         return value

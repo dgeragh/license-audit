@@ -133,12 +133,12 @@ class TestRecommendPolicyFlag:
 class TestRecommendSource:
     def test_source_displayed(self) -> None:
         report = _make_report(packages=[_MIT_PKG], recommended_licenses=["MIT"])
-        report.source = "/abs/uv.lock"
+        report.source = "/abs/.venv"
         with patch("license_audit.cli.recommend.run_audit", return_value=report) as _m:
             result = CliRunner().invoke(cli, ["recommend"])
         assert result.exit_code == 0
         assert "Source:" in result.output
-        assert "/abs/uv.lock" in result.output
+        assert "/abs/.venv" in result.output
 
 
 _UNKNOWN_PKG = PackageLicense(
@@ -236,3 +236,49 @@ class TestRecommendIgnoredPackages:
         assert result.exit_code == 0
         assert "Most restrictive dependency" in result.output
         assert "gpl-pkg" in result.output
+
+    def test_deemed_copyleft_suppresses_recommendations_without_contradiction(
+        self,
+    ) -> None:
+        """A user-deemed copyleft dep can't be reflected in outbound
+        recommendations, so the command explains that instead of listing
+        permissive licenses that would contradict the copyleft banner."""
+        deemed = PackageLicense(
+            name="vendor-sdk",
+            version="1.0",
+            license_expression="UNKNOWN",
+            declared_license="Vendor Copyleft EULA",
+            license_source=LicenseSource.METADATA,
+            category=LicenseCategory.STRONG_COPYLEFT,
+            category_overridden=True,
+        )
+        # analyzer suppresses recommendations for this case.
+        report = _make_report(packages=[deemed], recommended_licenses=[])
+        with patch("license_audit.cli.recommend.run_audit", return_value=report) as _m:
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert result.exit_code == 0
+        # Collapse whitespace: Rich wraps lines at the console width.
+        flat = " ".join(result.output.split())
+        assert "Cannot recommend" in flat
+        assert "outbound compatibility can't be computed" in flat
+        # No permissive recommendations shown -> no contradiction with the
+        # "most restrictive dependency" copyleft banner.
+        assert "-> MIT" not in result.output
+
+    def test_constraint_shows_declared_string_not_unknown(self) -> None:
+        """An unrecognized (UNKNOWN-category) dependency drives the constraint
+        line and shows its declared identifier rather than bare UNKNOWN."""
+        gpu = PackageLicense(
+            name="proprietary-package",
+            version="12.0",
+            license_expression="UNKNOWN",
+            declared_license="Proprietary License",
+            license_source=LicenseSource.METADATA,
+            category=LicenseCategory.UNKNOWN,
+        )
+        report = _make_report(packages=[gpu], recommended_licenses=[])
+        with patch("license_audit.cli.recommend.run_audit", return_value=report) as _m:
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert result.exit_code == 0
+        assert "Most restrictive dependency" in result.output
+        assert "Proprietary License" in result.output

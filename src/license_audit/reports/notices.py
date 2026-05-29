@@ -5,7 +5,10 @@ from __future__ import annotations
 from license_audit.core.models import AnalysisReport, PackageLicense
 from license_audit.reports._format import (
     attribution_footer,
+    category_label,
+    fenced_code_block,
     generated_metadata_block,
+    license_label,
 )
 
 
@@ -33,12 +36,19 @@ class NoticesRenderer:
     def _package_section(self, pkg: PackageLicense) -> str:
         lines = [
             f"\n---\n\n## {pkg.name} {pkg.version}\n",
-            f"- **License:** {pkg.license_expression}",
-            f"- **Category:** {pkg.category.value}",
+            f"- **License:** {license_label(pkg.display_license)}",
+            f"- **Category:** {category_label(pkg)}",
         ]
+        if pkg.declared_license:
+            lines.append(
+                "- *Declared license string; not a recognized SPDX identifier.*"
+            )
 
-        if pkg.license_text:
-            lines.append(f"\n```\n{pkg.license_text.rstrip()}\n```\n")
+        # Prefer a bundled LICENSE file; fall back to the declared string itself
+        # so packages that only put their terms in the metadata aren't blank.
+        text = pkg.license_text or pkg.declared_license
+        if text:
+            lines.append(f"\n{fenced_code_block(text)}\n")
         else:
             lines.append(
                 "\n*License text not available. "

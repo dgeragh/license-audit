@@ -1,11 +1,12 @@
 # How it works
 
-The pipeline runs in seven steps:
+The pipeline runs in six steps:
 
-1. **Parse**: read the dependency specifier (`uv.lock`, `poetry.lock`, `pixi.lock`, `requirements.txt`, `pyproject.toml`, or an existing environment).
-2. **Provision**: download wheels (building sdists when needed, via PEP 517) into a temporary directory using `pip wheel`. Skipped when analyzing a venv or the current environment directly; those paths read the existing site-packages.
-3. **Detect**: read each package's METADATA, either from `.whl` archives (temp path) or from installed `*.dist-info/METADATA` files (venv paths). Licenses come from PEP 639 `License-Expression`, the legacy `License` field, trove classifiers, or user overrides.
-4. **Classify**: categorize each license as permissive, weak-copyleft, strong-copyleft, or network-copyleft using OSADL copyleft data.
-5. **Analyze**: check pairwise compatibility using the OSADL matrix and flag conflicts.
-6. **Recommend**: determine the most permissive outbound license that satisfies every dependency constraint. For OR expressions (e.g. `MIT OR GPL-2.0`), the most permissive alternative is selected before constraint solving.
-7. **Report**: render findings as terminal output, Markdown, JSON, or third-party notices.
+1. **Read**: enumerate the installed packages in the target environment's site-packages and walk each package's `Requires-Dist` to build the dependency tree.
+2. **Detect**: read each package's installed `*.dist-info/METADATA`. Licenses come from PEP 639 `License-Expression`, the legacy `License` field, trove classifiers, or user overrides. A declared license that can't be normalized to SPDX is preserved verbatim (rather than discarded) so the report shows the actual string.
+3. **Classify**: categorize each license as permissive, weak-copyleft, strong-copyleft, or network-copyleft using OSADL copyleft data.
+4. **Analyze**: check pairwise compatibility using the OSADL matrix and flag conflicts.
+5. **Recommend**: determine the most permissive outbound license that satisfies every dependency constraint. For OR expressions (e.g. `MIT OR GPL-2.0`), the most permissive alternative is selected before constraint solving.
+6. **Report**: render findings as terminal output, Markdown, JSON, or third-party notices.
+
+Because license-audit reads an already-installed environment, you provision it however you like first (`uv sync`, `poetry install`, `pip install -e .`). Whatever is installed is what gets audited, so choosing dependency groups is just a matter of how you provision.

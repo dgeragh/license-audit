@@ -2,7 +2,7 @@
 
 license-audit is configured via `[tool.license-audit]` in your `pyproject.toml`.
 
-When using `--target`, configuration is loaded from the target project's `pyproject.toml`. So `--target /path/to/uv.lock` reads its config from `/path/to/pyproject.toml`. If no config is found, defaults apply.
+Configuration is loaded from the target's location: a project directory uses its own `pyproject.toml`, and a virtualenv uses the `pyproject.toml` beside it. Use `--config` to read config from elsewhere, which is handy when the virtualenv lives outside your project. If no config is found, defaults apply.
 
 ## Options
 
@@ -37,35 +37,9 @@ Explicit list of allowed SPDX identifiers. When set, only these licenses pass th
 
 SPDX identifiers that always fail the policy check, regardless of `policy` or `allowed-licenses`.
 
-### `dependency-groups`
+### Choosing dependency groups
 
-Restricts analysis to specific groups. When unset, all groups are included.
-
-Each entry is a group selector:
-
-| Selector | Maps to |
-|---|---|
-| `main` | `[project.dependencies]` |
-| `dev` | `[tool.uv.dev-dependencies]` |
-| `optional:<name>` | `[project.optional-dependencies.<name>]` |
-| `group:<name>` | `[dependency-groups.<name>]` (PEP 735) |
-
-```toml
-[tool.license-audit]
-dependency-groups = ["main", "optional:api"]
-```
-
-The `--dependency-groups` CLI flag (repeatable) overrides this setting:
-
-```bash
-license-audit --dependency-groups main --dependency-groups optional:api check
-```
-
-Source-specific notes:
-
-- `requirements.txt` ignores this option (flat format with no group concept).
-- `poetry.lock` rejects `optional:<extra>` because the lock file doesn't preserve which extras own which packages. Use `pyproject.toml` if you need extras filtering.
-- `pixi.lock` maps environments to selectors: `default` -> `main`, `dev` -> `dev`, anything else via `group:<env_name>`. `optional:<name>` is rejected because pixi doesn't have an extras concept.
+Selecting which dependency groups to audit happens when you provision: install only the groups you care about, then audit that environment. For example, `uv sync --no-dev` for a production-only audit, or `uv sync --all-groups` to include everything.
 
 ### `target`
 
@@ -110,27 +84,45 @@ The reason is required and must be non-empty; empty reasons are rejected at conf
 
 Use `overrides` when you want to re-assert what the license is. Use `ignored-packages` when the license is correct but doesn't apply to your situation (e.g. the package isn't shipped, or you've reviewed it manually and accepted the risk).
 
+### `license-classifications`
+
+Record your own judgement about a license and apply it to every package that uses that license. This is useful both for custom strings detection can't map to SPDX and for a recognized license you've reviewed (for example, MPL-2.0 dependencies you distribute unmodified, which you consider permissive). Unlike `overrides` (keyed by package name), one entry here applies to all matching packages.
+
+```toml
+[tool.license-audit.license-classifications]
+"MPL-2.0" = "permissive"
+"Proprietary License" = "proprietary"
+```
+
+The value must be one of `permissive`, `weak-copyleft`, `strong-copyleft`, `network-copyleft`, or `proprietary`. (`unknown` is rejected, since the point is to *resolve* an unknown.) The key is matched case- and whitespace-insensitively against the license string shown in reports: a recognized SPDX expression like `MPL-2.0`, or the raw declared string when the license couldn't be mapped to SPDX. A package with no detectable license at all isn't matched, so `"UNKNOWN"` as a key matches nothing.
+
+A key also matches a component **inside** an AND/OR expression. The deemed category is substituted for that component and the expression is re-evaluated under normal AND/OR rules: deeming `MPL-2.0` permissive makes `MPL-2.0 AND MIT` permissive (both parts are now permissive), while deeming it proprietary makes the whole expression proprietary (an `AND` keeps the most restrictive part). For `OR`, the most permissive alternative still wins, so deeming one branch permissive makes the expression permissive. A matched component is also dropped from compatibility analysis, so the waiver is consistent. When a key matches neither a whole license nor any component, the report adds a warning (a likely typo).
+
+Once classified, the package is governed by the deemed category: it passes `--fail-on-unknown`, is evaluated against your `policy` by that category (so deeming something `strong-copyleft` still fails a `permissive` policy), and no longer blocks outbound recommendations. Reports tag the category with a `(classified)` marker to record that it's your judgement rather than detected from OSADL data.
+
+A classified package is dropped from pairwise compatibility analysis, since you've asserted its category directly. Deeming `MPL-2.0` permissive, for example, also waives any MPL incompatibility warnings. A deemed *permissive* license imposes no outbound constraint, so recommendations proceed normally; deeming something *copyleft/proprietary* leaves a constraint with no SPDX identity to compute against, so recommendations are withheld with an explanation rather than risk suggesting an incompatible outbound license.
+
+Use `license-classifications` to assert a category and have it apply everywhere; use `overrides` when you want a license treated as a genuine SPDX equivalent and kept in full compatibility analysis.
+
 ## Target resolution
 
-The `--target` flag (or `target` field in `[tool.license-audit]`) controls what license-audit analyzes. The source type is inferred from the target:
+license-audit always reads an **installed environment**. Provision your dependencies first (`uv sync`, `poetry install`, `pip install -e .`, ...), then point license-audit at the result. `--target` selects the environment:
 
 | Target | Behavior |
 |--------|----------|
-| *(none)* | Analyze the current Python environment directly |
-| Project directory | Auto-detect: tries `uv.lock` -> `poetry.lock` -> `pixi.lock` -> `requirements.txt` -> `pyproject.toml` -> `.venv` |
-| `uv.lock` | Parse lockfile, create temp environment, analyze |
-| `poetry.lock` | Parse lockfile (lock format 1.x and 2.x), create temp environment, analyze |
-| `pixi.lock` | Parse lockfile, audit PyPI packages for the host platform; conda packages are skipped with a warning |
-| `requirements.txt` | Parse requirements, create temp environment, analyze |
-| `pyproject.toml` | Parse `[project.dependencies]`, optional-dependencies, dependency-groups, and `[tool.uv.dev-dependencies]`, create temp environment, analyze |
-| `.venv` directory | Analyze the venv directly (no temp environment needed) |
+| *(none)* | Audit `./.venv` if present, otherwise the Python environment running license-audit |
+| Project directory | Audit `<dir>/.venv` (errors if there is no virtualenv to read) |
+| Virtualenv directory | Audit that virtualenv directly |
+| A file | Rejected; point at a project directory or virtualenv instead |
+
+`--config` decouples where config and the project name come from. By default they follow the target (a project directory, or a virtualenv's parent); pass `--config path/to/pyproject.toml` to override, which is useful when the virtualenv lives outside your project.
 
 Examples:
 
 ```bash
-license-audit analyze                                # current environment (default)
-license-audit --target . analyze                     # auto-detect from current dir
-license-audit --target /path/to/project analyze      # auto-detect from project dir
-license-audit --target /path/to/uv.lock analyze      # parse a specific lock file
-license-audit --target /path/to/.venv analyze        # analyze an existing venv
+license-audit analyze                                   # ./.venv, else the active environment
+uv run license-audit analyze                            # the project's own environment
+license-audit --target /path/to/project analyze         # that project's .venv
+license-audit --target /path/to/.venv analyze           # an existing virtualenv
+license-audit --target /ext/.venv --config . analyze    # external venv, this project's policy
 ```

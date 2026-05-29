@@ -19,7 +19,7 @@ from license_audit.core.models import PolicyLevel
     "--target",
     type=click.Path(exists=True, path_type=Path),
     default=None,
-    help="Project directory, dependency file, or venv to analyze.",
+    help="Project directory or virtualenv to analyze.",
 )
 @click.option(
     "--policy",
@@ -28,13 +28,12 @@ from license_audit.core.models import PolicyLevel
     help="License policy level. Overrides [tool.license-audit] config.",
 )
 @click.option(
-    "--dependency-groups",
-    multiple=True,
+    "--config",
+    type=click.Path(exists=True, path_type=Path),
     default=None,
     help=(
-        "Dependency groups to include. Can be specified multiple times. "
-        "Values: main, dev, optional:<name>, group:<name>. "
-        "Defaults to all groups."
+        "pyproject.toml (or its directory) to read config and project name "
+        "from. Defaults to the target's location."
     ),
 )
 @click.version_option(package_name="license-audit")
@@ -43,13 +42,13 @@ def cli(
     ctx: click.Context,
     target: Path | None,
     policy: str | None,
-    dependency_groups: tuple[str, ...],
+    config: Path | None,
 ) -> None:
     """license-audit: Analyze dependency licenses for Python projects."""
     ctx.ensure_object(dict)
     ctx.obj["target"] = target
     ctx.obj["policy"] = policy
-    ctx.obj["dependency_groups"] = dependency_groups
+    ctx.obj["config"] = config
 
 
 cli.add_command(analyze_cmd, "analyze")

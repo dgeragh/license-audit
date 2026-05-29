@@ -9,7 +9,12 @@ from license_audit.reports._format import (
     IncompatiblePairFormatter,
     SummaryStats,
     attribution_footer,
+    category_label,
+    deemed_constraint_packages,
+    fenced_code_block,
     generated_metadata_block,
+    license_label,
+    markdown_license_cell,
 )
 
 
@@ -30,6 +35,7 @@ class MarkdownRenderer:
             self._compatibility_analysis(report),
             self._recommendations(report),
             self._action_items(report),
+            self._licenses_requiring_review(report),
             self._footer(),
         ]
         return "\n".join(s for s in sections if s)
@@ -68,12 +74,10 @@ class MarkdownRenderer:
         ]
         for pkg in sorted(report.packages, key=lambda p: p.name):
             parent = pkg.parent if pkg.parent != pkg.name else "(direct)"
-            category = (
-                f"{pkg.category.value} (ignored)" if pkg.ignored else pkg.category.value
-            )
             lines.append(
-                f"| {pkg.name} | {pkg.version} | {pkg.license_expression} "
-                f"| {category} | {pkg.license_source.value} | {parent} |"
+                f"| {pkg.name} | {pkg.version} "
+                f"| {markdown_license_cell(pkg.display_license)} "
+                f"| {category_label(pkg)} | {pkg.license_source.value} | {parent} |"
             )
         return "\n".join(lines) + "\n"
 
@@ -91,7 +95,8 @@ class MarkdownRenderer:
         for pkg in sorted(ignored, key=lambda p: p.name):
             reason = pkg.ignore_reason or "(no reason given)"
             lines.append(
-                f"| {pkg.name} | {pkg.version} | {pkg.license_expression} | {reason} |"
+                f"| {pkg.name} | {pkg.version} "
+                f"| {markdown_license_cell(pkg.display_license)} | {reason} |"
             )
         return "\n".join(lines) + "\n"
 
@@ -133,6 +138,7 @@ class MarkdownRenderer:
                 for p in report.packages
                 if not p.ignored and p.category == LicenseCategory.UNKNOWN
             ]
+            deemed = deemed_constraint_packages(report)
             lines = ["\n## Recommended Licenses\n"]
             if unknown:
                 names = ", ".join(f"`{p.name}`" for p in unknown)
@@ -140,6 +146,15 @@ class MarkdownRenderer:
                     f"Cannot recommend a license: {len(unknown)} dependency(ies) "
                     f"have an unrecognized license ({names}). "
                     "Resolve them via `[tool.license-audit.overrides]` and re-run."
+                )
+            elif deemed:
+                names = ", ".join(f"`{p.name}`" for p in deemed)
+                lines.append(
+                    f"Cannot recommend a license: {len(deemed)} dependency(ies) "
+                    f"are classified as a non-permissive license with no SPDX id "
+                    f"({names}), so outbound compatibility can't be computed. Map "
+                    "them to an SPDX id via `[tool.license-audit.overrides]` if you "
+                    "need recommendations."
                 )
             else:
                 lines.append("No compatible outbound license found.")
@@ -188,6 +203,49 @@ class MarkdownRenderer:
         lines = ["\n## Action Items\n"]
         for item in report.action_items:
             lines.append(ActionItemFormatter.markdown(item))
+        return "\n".join(lines) + "\n"
+
+    def _licenses_requiring_review(self, report: AnalysisReport) -> str:
+        """Full license texts for packages whose license couldn't be classified.
+
+        Surfaces the declared identifier (when one exists) alongside the
+        bundled license text so the reviewer can read the actual terms and
+        decide how to handle the package.
+        """
+        review = [
+            p
+            for p in report.packages
+            if not p.ignored and p.category == LicenseCategory.UNKNOWN
+        ]
+        if not review:
+            return ""
+
+        lines = [
+            "\n## Licenses Requiring Review\n",
+            "These packages have a license that could not be mapped to a known "
+            "SPDX identifier. The full license text is included below so you can "
+            "review the terms and, if appropriate, record the correct license "
+            "via `[tool.license-audit.overrides]`.\n",
+        ]
+        for pkg in sorted(review, key=lambda p: p.name):
+            lines.append(f"\n### {pkg.name} {pkg.version}\n")
+            if pkg.declared_license:
+                lines.append(
+                    f"- **Declared license:** {license_label(pkg.declared_license)}"
+                )
+            else:
+                lines.append("- **License:** not detected")
+            lines.append(f"- **Source:** {pkg.license_source.value}")
+            # Prefer a bundled LICENSE file; fall back to the declared string
+            # itself, since some packages put the full text in the metadata.
+            text = pkg.license_text or pkg.declared_license
+            if text:
+                lines.append(f"\n{fenced_code_block(text)}\n")
+            else:
+                lines.append(
+                    "\n*License text not available. Refer to the package "
+                    "distribution for the full license.*\n"
+                )
         return "\n".join(lines) + "\n"
 
     def _footer(self) -> str:

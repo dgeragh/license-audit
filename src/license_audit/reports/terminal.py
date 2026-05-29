@@ -12,6 +12,9 @@ from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
     SummaryStats,
+    category_label,
+    deemed_constraint_packages,
+    license_label,
 )
 
 
@@ -58,16 +61,15 @@ class TerminalRenderer:
 
         for pkg in sorted(report.packages, key=lambda p: p.name):
             color = self.CATEGORY_COLORS.get(pkg.category, "white")
-            category_label = (
-                f"{pkg.category.value} (ignored)" if pkg.ignored else pkg.category.value
+            category_text = Text(
+                category_label(pkg), style="dim" if pkg.ignored else color
             )
-            category_text = Text(category_label, style="dim" if pkg.ignored else color)
             parent = pkg.parent if pkg.parent != pkg.name else "(direct)"
             row_style = "dim" if pkg.ignored else ""
             table.add_row(
                 pkg.name,
                 pkg.version,
-                Text(pkg.license_expression),
+                Text(license_label(pkg.display_license)),
                 category_text,
                 pkg.license_source.value,
                 parent,
@@ -103,11 +105,21 @@ class TerminalRenderer:
                 for p in report.packages
                 if not p.ignored and p.category == LicenseCategory.UNKNOWN
             ]
+            deemed = deemed_constraint_packages(report)
             if unknown:
                 names = ", ".join(p.name for p in unknown)
                 self._console.print(
                     "[bold yellow]Cannot recommend a license[/bold yellow] until "
                     f"{len(unknown)} unrecognized license(s) are resolved: {names}",
+                )
+            elif deemed:
+                names = ", ".join(p.name for p in deemed)
+                self._console.print(
+                    "[bold yellow]Cannot recommend a license[/bold yellow]: "
+                    f"{len(deemed)} dependency(ies) are classified as a "
+                    "non-permissive license with no SPDX id, so outbound "
+                    f"compatibility can't be computed: {names}. Map them to an "
+                    "SPDX id via [tool.license-audit.overrides] for recommendations.",
                 )
             else:
                 self._console.print(

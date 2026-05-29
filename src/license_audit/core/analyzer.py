@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,61 +10,59 @@ from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import (
     UNKNOWN_LICENSE,
+    ActionItem,
     AnalysisReport,
-    DependencyNode,
     LicenseCategory,
     PackageLicense,
 )
 from license_audit.core.policy import PolicyEngine
 from license_audit.core.recommender import LicenseRecommender
-from license_audit.environment.analyze import (
-    analyze_environment,
-    analyze_installed_packages,
+from license_audit.environment.analyze import analyze_environment
+from license_audit.environment.venv import (
+    current_reader,
+    is_venv_dir,
+    reader_for_venv,
 )
-from license_audit.environment.provision import EnvironmentProvisioner, ProvisionedEnv
-from license_audit.licenses.expression import ExpressionEvaluator
+from license_audit.licenses.expression import ExpressionEvaluator, normalize_license_key
 from license_audit.licenses.spdx import SpdxNormalizer
-from license_audit.sources.base import PackageSpec, Source
-from license_audit.sources.factory import SourceFactory
-from license_audit.util import canonicalize
+from license_audit.util import MetadataReader, canonicalize
 
 
 @dataclass
 class TargetInfo:
-    """Resolved --target: which source file and/or venv to audit."""
+    """Resolved --target: which virtualenv to audit and where config lives."""
 
-    source_path: Path | None = None
     site_packages: Path | None = None
     config_dir: Path | None = None
 
 
 class TargetResolver:
-    """Classifies a --target path as source file, venv, or project dir."""
-
-    def __init__(
-        self,
-        source_factory: SourceFactory | None = None,
-        provisioner: EnvironmentProvisioner | None = None,
-    ) -> None:
-        self._sources = source_factory or SourceFactory()
-        self._provisioner = provisioner or EnvironmentProvisioner()
+    """Classifies a --target path as a virtualenv or a project directory."""
 
     def resolve(self, target: Path | None) -> TargetInfo:
         """Resolve `target` into a TargetInfo.
 
-        Raises FileNotFoundError if `target` points nowhere, or ValueError
-        if it's a file we don't know how to parse.
+        Raises FileNotFoundError if `target` points nowhere or to a
+        project without a virtualenv, or ValueError for a file target.
         """
         if target is None:
-            return TargetInfo(config_dir=Path.cwd())
+            cwd = Path.cwd()
+            venv = cwd / ".venv"
+            if is_venv_dir(venv):
+                return TargetInfo(site_packages=venv, config_dir=cwd)
+            return TargetInfo(config_dir=cwd)
 
         resolved = target.resolve()
 
         if resolved.is_file():
-            self._sources.validate(resolved)
-            return TargetInfo(source_path=resolved, config_dir=resolved.parent)
+            msg = (
+                f"{resolved} is a file. license-audit reads an installed "
+                "environment: pass a project directory or a virtualenv, or "
+                "run inside your provisioned environment."
+            )
+            raise ValueError(msg)
 
-        if self._provisioner.is_venv_dir(resolved):
+        if is_venv_dir(resolved):
             return TargetInfo(site_packages=resolved, config_dir=resolved.parent)
 
         if resolved.is_dir():
@@ -74,18 +71,15 @@ class TargetResolver:
         msg = f"Target not found: {resolved}"
         raise FileNotFoundError(msg)
 
-    def _detect_in_project_dir(self, project_dir: Path) -> TargetInfo:
-        found = self._sources.detect_in_project_dir(project_dir)
-        if found is not None:
-            return TargetInfo(source_path=found, config_dir=project_dir)
-
+    @staticmethod
+    def _detect_in_project_dir(project_dir: Path) -> TargetInfo:
         venv = project_dir / ".venv"
-        if venv.is_dir():
+        if is_venv_dir(venv):
             return TargetInfo(site_packages=venv, config_dir=project_dir)
 
         msg = (
-            f"No dependency source found in {project_dir}. "
-            "Expected uv.lock, requirements.txt, pyproject.toml, or .venv"
+            f"No virtualenv found in {project_dir}. Provision one first "
+            "(e.g. `uv sync`) and re-run, or pass --target <venv>."
         )
         raise FileNotFoundError(msg)
 
@@ -100,8 +94,6 @@ class LicenseAuditor:
     def __init__(
         self,
         resolver: TargetResolver | None = None,
-        source_factory: SourceFactory | None = None,
-        provisioner: EnvironmentProvisioner | None = None,
         classifier: LicenseClassifier | None = None,
         matrix: CompatibilityMatrix | None = None,
         normalizer: SpdxNormalizer | None = None,
@@ -126,63 +118,76 @@ class LicenseAuditor:
             normalizer=self._normalizer,
             expression=self._expression,
         )
-        self._sources = source_factory or SourceFactory()
-        self._provisioner = provisioner or EnvironmentProvisioner()
-        self._resolver = resolver or TargetResolver(
-            source_factory=self._sources,
-            provisioner=self._provisioner,
-        )
+        self._resolver = resolver or TargetResolver()
 
     def run(
         self,
         target: Path | None = None,
         config: LicenseAuditConfig | None = None,
+        config_dir: Path | None = None,
     ) -> AnalysisReport:
-        """Run the audit pipeline against `target` and return the report."""
+        """Run the audit pipeline against `target` and return the report.
+
+        `config_dir` overrides where config and the project name are read
+        from; it defaults to the target's location.
+        """
         info = self._resolver.resolve(target)
+        effective_dir = config_dir or info.config_dir
 
         if config is None:
-            config = load_config(info.config_dir)
+            config = load_config(effective_dir)
+        project_name = get_project_name(effective_dir)
 
-        project_name = get_project_name(info.config_dir)
-        self._warn_if_groups_ignored(info, config)
+        reader = self._reader_for(info)
+        tree = analyze_environment(project_name, reader, dict(config.overrides))
+        packages = tree.flatten()
+        self._classify_packages(packages)
+        unmatched_classifications = self._apply_classifications(
+            packages, config.license_classifications
+        )
+        self._collect_license_text(packages, reader)
+        self._apply_ignores(packages, config.ignored_packages)
 
-        source = self._build_source(info, config)
-        specs, env = self._provision(info, source)
+        dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
+        active_packages = [p for p in dep_packages if not p.ignored]
+        deemed_keys = {
+            normalize_license_key(name) for name in config.license_classifications
+        }
+        # Compatibility considers every active package but drops deemed ids
+        # (even inside a compound), so a deemed license raises no conflicts.
+        dep_spdx_ids = self._extract_spdx_ids(
+            [p.license_expression for p in active_packages], deemed_keys
+        )
+        # Recommendations skip reclassified packages: a deemed-permissive one
+        # imposes no constraint, and a deemed-restrictive one is handled by the
+        # `has_deemed_constraint` gate below.
+        dep_licenses = [
+            p.license_expression for p in active_packages if not p.category_overridden
+        ]
 
-        with env:
-            tree = self._build_tree(
-                project_name,
-                env,
-                specs,
-                dict(config.overrides),
-            )
-            packages = tree.flatten()
-            self._classify_packages(packages)
-            self._collect_license_text(packages, env)
-            self._apply_ignores(packages, config.ignored_packages)
-
-            dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
-            active_packages = [p for p in dep_packages if not p.ignored]
-            dep_licenses = [p.license_expression for p in active_packages]
-            dep_spdx_ids = self._extract_spdx_ids(dep_licenses)
-
-            has_unknown = any(
-                p.category == LicenseCategory.UNKNOWN for p in active_packages
-            )
-            recommended = (
-                [] if has_unknown else self._recommender.recommend(dep_licenses)
-            )
-            incompatible = self._matrix.find_incompatible_pairs(dep_spdx_ids)
-            action_items = self._policy.build_action_items(
-                dep_packages,
-                incompatible,
-                config,
-            )
-            policy_passed = self._policy.check(
-                dep_packages,
-                self._policy.build_policy(config),
-            )
+        has_unknown = any(
+            p.category == LicenseCategory.UNKNOWN for p in active_packages
+        )
+        has_deemed_constraint = any(
+            p.category_overridden and p.category != LicenseCategory.PERMISSIVE
+            for p in active_packages
+        )
+        recommended = (
+            []
+            if has_unknown or has_deemed_constraint
+            else self._recommender.recommend(dep_licenses)
+        )
+        incompatible = self._matrix.find_incompatible_pairs(dep_spdx_ids)
+        action_items = self._policy.build_action_items(
+            dep_packages,
+            incompatible,
+            config,
+        )
+        action_items.extend(self._classification_warnings(unmatched_classifications))
+        policy_passed = self._policy.check(
+            dep_packages,
+            self._policy.build_policy(config),
+        )
 
         return AnalysisReport(
             project_name=project_name,
@@ -195,69 +200,16 @@ class LicenseAuditor:
         )
 
     @staticmethod
+    def _reader_for(info: TargetInfo) -> MetadataReader:
+        if info.site_packages is not None:
+            return reader_for_venv(info.site_packages)
+        return current_reader()
+
+    @staticmethod
     def _describe_source(info: TargetInfo) -> str:
-        if info.source_path is not None:
-            return str(info.source_path)
         if info.site_packages is not None:
             return str(info.site_packages)
         return "active environment"
-
-    def _warn_if_groups_ignored(
-        self,
-        info: TargetInfo,
-        config: LicenseAuditConfig,
-    ) -> None:
-        if (
-            config.dependency_groups
-            and info.source_path is None
-            and info.site_packages is None
-        ):
-            warnings.warn(
-                "dependency-groups is configured but no target was resolved. "
-                'Pass --target . on the CLI, or add `target = "."` to '
-                "[tool.license-audit] in your pyproject.toml.",
-                UserWarning,
-                stacklevel=3,
-            )
-
-    def _build_source(
-        self,
-        info: TargetInfo,
-        config: LicenseAuditConfig,
-    ) -> Source | None:
-        if info.source_path is None:
-            return None
-        return self._sources.create(info.source_path, config.dependency_groups)
-
-    def _provision(
-        self,
-        info: TargetInfo,
-        source: Source | None,
-    ) -> tuple[list[PackageSpec] | None, ProvisionedEnv]:
-        if info.site_packages is not None:
-            return None, self._provisioner.from_venv(info.site_packages)
-        if source is not None:
-            specs = source.parse()
-            return specs, self._provisioner.temp(specs)
-        return None, self._provisioner.current()
-
-    def _build_tree(
-        self,
-        project_name: str,
-        env: ProvisionedEnv,
-        specs: list[PackageSpec] | None,
-        overrides: dict[str, str],
-    ) -> DependencyNode:
-        if specs is not None:
-            pkg_extras = {s.name: s.extras for s in specs if s.extras}
-            return analyze_installed_packages(
-                project_name,
-                env.reader,
-                [s.name for s in specs],
-                overrides,
-                pkg_extras,
-            )
-        return analyze_environment(project_name, env.reader, overrides)
 
     def _classify_packages(self, packages: list[PackageLicense]) -> None:
         for pkg in packages:
@@ -267,13 +219,87 @@ class LicenseAuditor:
     def _classify_package(self, pkg: PackageLicense) -> None:
         pkg.category = self._expression.classify(pkg.license_expression)
 
-    def _collect_license_text(
+    def _apply_classifications(
         self,
         packages: list[PackageLicense],
-        env: ProvisionedEnv,
+        classifications: dict[str, str],
+    ) -> list[str]:
+        """Assign user-deemed categories to packages by their license string.
+
+        Two ways a configured key takes effect:
+
+        1. Whole-string match against a package's displayed license (its SPDX
+           expression, or the raw declared string when unrecognized). This
+           covers simple licenses, declared-but-unrecognized strings, and a key
+           written as a full compound expression.
+        2. Component match inside an AND/OR expression. The deemed category is
+           substituted for that component and the expression is re-evaluated, so
+           deeming ``MPL-2.0`` permissive makes ``MPL-2.0 AND MIT`` permissive,
+           while deeming it proprietary makes the whole expression proprietary.
+
+        Matching is case- and whitespace-insensitive. Returns the configured
+        strings that matched no package, so the caller can warn about typos.
+        """
+        if not classifications:
+            return []
+        deemed = {
+            normalize_license_key(name): LicenseCategory(category)
+            for name, category in classifications.items()
+        }
+        original = {normalize_license_key(name): name for name in classifications}
+        matched: set[str] = set()
+        for pkg in packages:
+            matched |= self._classify_one(pkg, deemed)
+        return [name for key, name in original.items() if key not in matched]
+
+    def _classify_one(
+        self, pkg: PackageLicense, deemed: dict[str, LicenseCategory]
+    ) -> set[str]:
+        """Apply classifications to one package; return the deemed keys it used."""
+        if pkg.display_license == UNKNOWN_LICENSE:
+            return set()
+        whole_key = normalize_license_key(pkg.display_license)
+        if whole_key in deemed:
+            pkg.category = deemed[whole_key]
+            pkg.category_overridden = True
+            return {whole_key}
+        if pkg.license_expression == UNKNOWN_LICENSE:
+            return set()
+        component_keys = {
+            normalize_license_key(lic)
+            for alt in self._expression.alternatives(pkg.license_expression)
+            for lic in alt
+        }
+        present = component_keys & set(deemed)
+        if present:
+            pkg.category = self._expression.classify(
+                pkg.license_expression, overrides=deemed
+            )
+            pkg.category_overridden = True
+        return present
+
+    @staticmethod
+    def _classification_warnings(unmatched: list[str]) -> list[ActionItem]:
+        """Warn about classification entries that matched no package."""
+        return [
+            ActionItem(
+                severity="warning",
+                message=(
+                    f"License classification '{name}' matched no package. "
+                    "Check for a typo; it must match a package's license "
+                    "string or one component of an AND/OR expression."
+                ),
+            )
+            for name in unmatched
+        ]
+
+    @staticmethod
+    def _collect_license_text(
+        packages: list[PackageLicense],
+        reader: MetadataReader,
     ) -> None:
         for pkg in packages:
-            pkg.license_text = env.reader.read_license_text(pkg.name)
+            pkg.license_text = reader.read_license_text(pkg.name)
 
     def _apply_ignores(
         self,
@@ -292,10 +318,21 @@ class LicenseAuditor:
                 pkg.ignored = True
                 pkg.ignore_reason = reason
 
-    def _extract_spdx_ids(self, expressions: list[str]) -> list[str]:
+    def _extract_spdx_ids(
+        self, expressions: list[str], deemed: set[str] | None = None
+    ) -> list[str]:
+        """SPDX ids that drive pairwise compatibility.
+
+        Ids the user classified (``deemed``, normalized) are dropped, even when
+        they appear as one component of a compound expression: the user has
+        asserted that license's category directly, so its real SPDX identity
+        should not raise compatibility conflicts.
+        """
+        deemed = deemed or set()
         ids: set[str] = set()
         for expr in expressions:
             if expr != UNKNOWN_LICENSE:
                 for lic in self._expression.required_ids(expr):
-                    ids.add(lic)
+                    if normalize_license_key(lic) not in deemed:
+                        ids.add(lic)
         return list(ids)

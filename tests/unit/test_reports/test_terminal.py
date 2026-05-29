@@ -9,6 +9,9 @@ from rich.console import Console
 from license_audit.core.models import (
     AnalysisReport,
     CompatibilityResult,
+    LicenseCategory,
+    LicenseSource,
+    PackageLicense,
     Verdict,
 )
 from license_audit.reports.terminal import TerminalRenderer
@@ -27,6 +30,25 @@ class TestTerminalRenderer:
         output = buf.getvalue()
         assert "test-project" in output
         assert "test-pkg" in output
+
+    def test_classified_category_annotated(self) -> None:
+        console, buf = _make_console()
+        report = AnalysisReport(
+            project_name="p",
+            packages=[
+                PackageLicense(
+                    name="proprietary-package",
+                    version="12.0.0",
+                    license_expression="UNKNOWN",
+                    declared_license="Proprietary License",
+                    license_source=LicenseSource.METADATA,
+                    category=LicenseCategory.PERMISSIVE,
+                    category_overridden=True,
+                )
+            ],
+        )
+        TerminalRenderer(console=console).render(report)
+        assert "classified" in buf.getvalue()
 
     def test_empty_report(self) -> None:
         console, buf = _make_console(force_terminal=True)
@@ -85,10 +107,10 @@ class TestTerminalRenderer:
     def test_source_in_header(self) -> None:
         console, buf = _make_console()
         TerminalRenderer(console=console).render(
-            AnalysisReport(project_name="p", source="/abs/uv.lock"),
+            AnalysisReport(project_name="p", source="/abs/.venv"),
         )
         assert "Source:" in buf.getvalue()
-        assert "/abs/uv.lock" in buf.getvalue()
+        assert "/abs/.venv" in buf.getvalue()
 
 
 class TestCategoryColors:

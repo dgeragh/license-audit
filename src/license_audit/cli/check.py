@@ -9,12 +9,8 @@ from rich.console import Console
 
 from license_audit.cli._common import resolve_config, run_audit
 from license_audit.config import LicenseAuditConfig
-from license_audit.core.models import (
-    UNKNOWN_LICENSE,
-    AnalysisReport,
-    LicenseCategory,
-    PackageLicense,
-)
+from license_audit.core.models import AnalysisReport, PackageLicense
+from license_audit.core.policy import PolicyEngine
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
@@ -91,22 +87,16 @@ def check_cmd(ctx: click.Context, fail_on_unknown: bool | None) -> None:
       2 = unknown licenses found (when --fail-on-unknown)
     """
     console = Console(stderr=True)
-    target, config = resolve_config(ctx)
+    target, config, config_dir = resolve_config(ctx)
     if fail_on_unknown is not None:
         config.fail_on_unknown = fail_on_unknown
 
-    report = run_audit(target, config)
+    report = run_audit(target, config, config_dir)
 
     # Ignored packages are exempted from all policy evaluation, including
     # the unknown-license check that drives exit code 2.
     unknown_pkgs = [
-        p
-        for p in report.packages
-        if not p.ignored
-        and (
-            p.license_expression == UNKNOWN_LICENSE
-            or p.category == LicenseCategory.UNKNOWN
-        )
+        p for p in report.packages if not p.ignored and PolicyEngine.is_unknown(p)
     ]
 
     if report.source:

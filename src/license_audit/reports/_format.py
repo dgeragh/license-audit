@@ -12,6 +12,7 @@ from license_audit.core.models import (
     AnalysisReport,
     CompatibilityResult,
     LicenseCategory,
+    PackageLicense,
 )
 
 _ATTRIBUTION_LINK = "[license_audit](https://github.com/dgeragh/license-audit)"
@@ -54,6 +55,53 @@ class SummaryStats:
             unknown=unknown,
             ignored=ignored,
         )
+
+
+def category_label(pkg: PackageLicense) -> str:
+    """Category value, annotated when it was ignored or user-classified."""
+    if pkg.ignored:
+        return f"{pkg.category.value} (ignored)"
+    if pkg.category_overridden:
+        return f"{pkg.category.value} (classified)"
+    return pkg.category.value
+
+
+def deemed_constraint_packages(report: AnalysisReport) -> list[PackageLicense]:
+    """Active packages the user classified as a non-permissive category."""
+    return [
+        p
+        for p in report.packages
+        if not p.ignored
+        and p.category_overridden
+        and p.category != LicenseCategory.PERMISSIVE
+    ]
+
+
+def license_label(value: str, limit: int = 120) -> str:
+    """Collapse whitespace and bound length so a license fits one table cell."""
+    collapsed = " ".join(value.split())
+    if len(collapsed) > limit:
+        return collapsed[: limit - 3].rstrip() + "..."
+    return collapsed
+
+
+def markdown_license_cell(value: str) -> str:
+    """`license_label` plus pipe-escaping for safe markdown-table inclusion."""
+    return license_label(value).replace("|", "\\|")
+
+
+def fenced_code_block(text: str) -> str:
+    """Wrap `text` in a backtick fence long enough to contain it intact."""
+    longest = 0
+    run = 0
+    for char in text:
+        if char == "`":
+            run += 1
+            longest = max(longest, run)
+        else:
+            run = 0
+    fence = "`" * max(3, longest + 1)
+    return f"{fence}\n{text.rstrip()}\n{fence}"
 
 
 def generated_metadata_block(report: AnalysisReport) -> str:
