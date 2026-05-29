@@ -174,27 +174,47 @@ class TestConfigPropagation:
         tmp_path: Path,
         make_venv: VenvBuilder,
     ) -> None:
-        """A classification keyed on a component of a compound expression
-        matches nothing (matching is whole-string) and surfaces a warning."""
+        """A classification key that matches neither a whole license nor any
+        component (a typo) surfaces a warning."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"Typo License" = "permissive"\n',
+        )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        report = LicenseAuditor().run(target=tmp_path)
+        warnings = [
+            i.message
+            for i in report.action_items
+            if i.severity == "warning" and "matched no package" in i.message
+        ]
+        assert any("Typo License" in m for m in warnings)
+
+    def test_component_classification_reclassifies_compound(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming a component permissive re-evaluates the whole AND, and the
+        component's id is dropped from compatibility."""
         _write_pyproject(
             tmp_path / "pyproject.toml",
             '[project]\nname = "x"\nversion = "0.0.1"\n'
             "[tool.license-audit.license-classifications]\n"
             '"MPL-2.0" = "permissive"\n',
         )
-        # The MPL only appears inside a compound, never standalone.
         make_venv(tmp_path / ".venv", {"compound_pkg": "MPL-2.0 AND MIT"})
         report = LicenseAuditor().run(target=tmp_path)
         compound = next(p for p in report.packages if p.name == "compound_pkg")
-        # Compound keeps its computed category; the component is not reclassified.
-        assert compound.category == LicenseCategory.WEAK_COPYLEFT
-        assert compound.category_overridden is False
-        warnings = [
-            i.message
-            for i in report.action_items
-            if i.severity == "warning" and "matched no package" in i.message
-        ]
-        assert any("MPL-2.0" in m for m in warnings)
+        assert compound.category == LicenseCategory.PERMISSIVE
+        assert compound.category_overridden is True
+        # MPL waived even though it was only a component.
+        assert all(
+            "MPL-2.0" not in (p.inbound, p.outbound) for p in report.incompatible_pairs
+        )
+        # No spurious no-match warning (the component matched).
+        assert not any("matched no package" in i.message for i in report.action_items)
 
     def test_classified_and_ignored_package(
         self,

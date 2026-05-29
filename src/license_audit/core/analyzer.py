@@ -23,19 +23,9 @@ from license_audit.environment.venv import (
     is_venv_dir,
     reader_for_venv,
 )
-from license_audit.licenses.expression import ExpressionEvaluator
+from license_audit.licenses.expression import ExpressionEvaluator, normalize_license_key
 from license_audit.licenses.spdx import SpdxNormalizer
 from license_audit.util import MetadataReader, canonicalize
-
-
-def _normalize_license_key(value: str) -> str:
-    """Canonical form for matching a declared license against config keys.
-
-    Collapses internal whitespace and lowercases, so a config entry matches
-    regardless of casing or irregular spacing in package metadata (and matches
-    the whitespace-collapsed form shown in reports).
-    """
-    return " ".join(value.split()).lower()
 
 
 @dataclass
@@ -160,9 +150,20 @@ class LicenseAuditor:
 
         dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
         active_packages = [p for p in dep_packages if not p.ignored]
-        spdx_packages = [p for p in active_packages if not p.category_overridden]
-        dep_licenses = [p.license_expression for p in spdx_packages]
-        dep_spdx_ids = self._extract_spdx_ids(dep_licenses)
+        deemed_keys = {
+            normalize_license_key(name) for name in config.license_classifications
+        }
+        # Compatibility considers every active package but drops deemed ids
+        # (even inside a compound), so a deemed license raises no conflicts.
+        dep_spdx_ids = self._extract_spdx_ids(
+            [p.license_expression for p in active_packages], deemed_keys
+        )
+        # Recommendations skip reclassified packages: a deemed-permissive one
+        # imposes no constraint, and a deemed-restrictive one is handled by the
+        # `has_deemed_constraint` gate below.
+        dep_licenses = [
+            p.license_expression for p in active_packages if not p.category_overridden
+        ]
 
         has_unknown = any(
             p.category == LicenseCategory.UNKNOWN for p in active_packages
@@ -218,38 +219,64 @@ class LicenseAuditor:
     def _classify_package(self, pkg: PackageLicense) -> None:
         pkg.category = self._expression.classify(pkg.license_expression)
 
-    @staticmethod
     def _apply_classifications(
+        self,
         packages: list[PackageLicense],
         classifications: dict[str, str],
     ) -> list[str]:
         """Assign user-deemed categories to packages by their license string.
 
-        Matches a package's whole displayed license (its SPDX expression, or
-        the raw declared string when unrecognized) case- and
-        whitespace-insensitively. Matching does not descend into the components
-        of an AND/OR expression, so a config key only takes effect when it
-        equals a package's full license string. Returns the configured strings
-        that matched no package, so the caller can warn about typos or
-        component-only keys.
+        Two ways a configured key takes effect:
+
+        1. Whole-string match against a package's displayed license (its SPDX
+           expression, or the raw declared string when unrecognized). This
+           covers simple licenses, declared-but-unrecognized strings, and a key
+           written as a full compound expression.
+        2. Component match inside an AND/OR expression. The deemed category is
+           substituted for that component and the expression is re-evaluated, so
+           deeming ``MPL-2.0`` permissive makes ``MPL-2.0 AND MIT`` permissive,
+           while deeming it proprietary makes the whole expression proprietary.
+
+        Matching is case- and whitespace-insensitive. Returns the configured
+        strings that matched no package, so the caller can warn about typos.
         """
         if not classifications:
             return []
-        lookup = {
-            _normalize_license_key(name): (name, LicenseCategory(category))
+        deemed = {
+            normalize_license_key(name): LicenseCategory(category)
             for name, category in classifications.items()
         }
+        original = {normalize_license_key(name): name for name in classifications}
         matched: set[str] = set()
         for pkg in packages:
-            if pkg.display_license == UNKNOWN_LICENSE:
-                continue
-            key = _normalize_license_key(pkg.display_license)
-            entry = lookup.get(key)
-            if entry is not None:
-                pkg.category = entry[1]
-                pkg.category_overridden = True
-                matched.add(key)
-        return [name for key, (name, _) in lookup.items() if key not in matched]
+            matched |= self._classify_one(pkg, deemed)
+        return [name for key, name in original.items() if key not in matched]
+
+    def _classify_one(
+        self, pkg: PackageLicense, deemed: dict[str, LicenseCategory]
+    ) -> set[str]:
+        """Apply classifications to one package; return the deemed keys it used."""
+        if pkg.display_license == UNKNOWN_LICENSE:
+            return set()
+        whole_key = normalize_license_key(pkg.display_license)
+        if whole_key in deemed:
+            pkg.category = deemed[whole_key]
+            pkg.category_overridden = True
+            return {whole_key}
+        if pkg.license_expression == UNKNOWN_LICENSE:
+            return set()
+        component_keys = {
+            normalize_license_key(lic)
+            for alt in self._expression.alternatives(pkg.license_expression)
+            for lic in alt
+        }
+        present = component_keys & set(deemed)
+        if present:
+            pkg.category = self._expression.classify(
+                pkg.license_expression, overrides=deemed
+            )
+            pkg.category_overridden = True
+        return present
 
     @staticmethod
     def _classification_warnings(unmatched: list[str]) -> list[ActionItem]:
@@ -258,9 +285,9 @@ class LicenseAuditor:
             ActionItem(
                 severity="warning",
                 message=(
-                    f"License classification '{name}' matched no package. It "
-                    "must equal a package's full license string; it does not "
-                    "apply to individual components of an AND/OR expression."
+                    f"License classification '{name}' matched no package. "
+                    "Check for a typo; it must match a package's license "
+                    "string or one component of an AND/OR expression."
                 ),
             )
             for name in unmatched
@@ -291,10 +318,21 @@ class LicenseAuditor:
                 pkg.ignored = True
                 pkg.ignore_reason = reason
 
-    def _extract_spdx_ids(self, expressions: list[str]) -> list[str]:
+    def _extract_spdx_ids(
+        self, expressions: list[str], deemed: set[str] | None = None
+    ) -> list[str]:
+        """SPDX ids that drive pairwise compatibility.
+
+        Ids the user classified (``deemed``, normalized) are dropped, even when
+        they appear as one component of a compound expression: the user has
+        asserted that license's category directly, so its real SPDX identity
+        should not raise compatibility conflicts.
+        """
+        deemed = deemed or set()
         ids: set[str] = set()
         for expr in expressions:
             if expr != UNKNOWN_LICENSE:
                 for lic in self._expression.required_ids(expr):
-                    ids.add(lic)
+                    if normalize_license_key(lic) not in deemed:
+                        ids.add(lic)
         return list(ids)

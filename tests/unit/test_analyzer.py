@@ -104,6 +104,9 @@ class TestClassifyPackage:
 
 
 class TestApplyClassifications:
+    def _apply(self, packages: list[PackageLicense], cfg: dict[str, str]) -> list[str]:
+        return LicenseAuditor()._apply_classifications(packages, cfg)
+
     def _unrecognized(self, name: str = "gpu") -> PackageLicense:
         return PackageLicense(
             name=name,
@@ -115,9 +118,7 @@ class TestApplyClassifications:
 
     def test_assigns_category_and_marks_overridden(self) -> None:
         pkg = self._unrecognized()
-        LicenseAuditor._apply_classifications(
-            [pkg], {"Proprietary License": "permissive"}
-        )
+        self._apply([pkg], {"Proprietary License": "permissive"})
         assert pkg.category == LicenseCategory.PERMISSIVE
         assert pkg.category_overridden is True
         # The expression stays the sentinel so SPDX-based steps skip it.
@@ -125,29 +126,23 @@ class TestApplyClassifications:
 
     def test_matches_case_insensitively(self) -> None:
         pkg = self._unrecognized()
-        LicenseAuditor._apply_classifications(
-            [pkg], {"proprietary license": "permissive"}
-        )
+        self._apply([pkg], {"proprietary license": "permissive"})
         assert pkg.category == LicenseCategory.PERMISSIVE
 
     def test_one_entry_covers_all_occurrences(self) -> None:
         pkgs = [self._unrecognized("a"), self._unrecognized("b")]
-        LicenseAuditor._apply_classifications(
-            pkgs, {"Proprietary License": "permissive"}
-        )
+        self._apply(pkgs, {"Proprietary License": "permissive"})
         assert all(p.category == LicenseCategory.PERMISSIVE for p in pkgs)
 
     def test_non_matching_package_untouched(self) -> None:
         pkg = self._unrecognized()
-        LicenseAuditor._apply_classifications(
-            [pkg], {"Some Other License": "permissive"}
-        )
+        self._apply([pkg], {"Some Other License": "permissive"})
         assert pkg.category == LicenseCategory.UNKNOWN
         assert pkg.category_overridden is False
 
     def test_empty_config_is_noop(self) -> None:
         pkg = self._unrecognized()
-        LicenseAuditor._apply_classifications([pkg], {})
+        self._apply([pkg], {})
         assert pkg.category == LicenseCategory.UNKNOWN
 
     def test_matches_whitespace_insensitively(self) -> None:
@@ -158,9 +153,7 @@ class TestApplyClassifications:
             declared_license="  Proprietary\tLicense",
             category=LicenseCategory.UNKNOWN,
         )
-        LicenseAuditor._apply_classifications(
-            [pkg], {"Proprietary License": "permissive"}
-        )
+        self._apply([pkg], {"Proprietary License": "permissive"})
         assert pkg.category == LicenseCategory.PERMISSIVE
 
     def test_recognized_license_is_reclassified_by_its_spdx_id(self) -> None:
@@ -170,7 +163,7 @@ class TestApplyClassifications:
             license_expression="MPL-2.0",
             category=LicenseCategory.WEAK_COPYLEFT,
         )
-        LicenseAuditor._apply_classifications([pkg], {"MPL-2.0": "permissive"})
+        self._apply([pkg], {"MPL-2.0": "permissive"})
         assert pkg.category == LicenseCategory.PERMISSIVE
         assert pkg.category_overridden is True
         assert pkg.license_expression == "MPL-2.0"
@@ -182,37 +175,70 @@ class TestApplyClassifications:
             license_expression=UNKNOWN_LICENSE,
             category=LicenseCategory.UNKNOWN,
         )
-        LicenseAuditor._apply_classifications([pkg], {"UNKNOWN": "permissive"})
+        self._apply([pkg], {"UNKNOWN": "permissive"})
         assert pkg.category == LicenseCategory.UNKNOWN
         assert pkg.category_overridden is False
 
-    def test_component_of_compound_expression_is_not_matched(self) -> None:
-        # Matching is on the whole license string, not AND/OR components.
-        pkg = PackageLicense(
-            name="x",
-            version="1.0",
-            license_expression="GPL-2.0-only AND MIT",
-            category=LicenseCategory.STRONG_COPYLEFT,
+    def _compound(self, expr: str, cat: LicenseCategory) -> PackageLicense:
+        return PackageLicense(
+            name="x", version="1.0", license_expression=expr, category=cat
         )
-        unmatched = LicenseAuditor._apply_classifications(
-            [pkg], {"GPL-2.0-only": "permissive"}
+
+    def test_and_drops_deemed_permissive_component(self) -> None:
+        # Deeming MPL permissive makes "MPL-2.0 AND MIT" permissive (both parts
+        # are now permissive), and the key counts as matched (no warning).
+        pkg = self._compound("MPL-2.0 AND MIT", LicenseCategory.WEAK_COPYLEFT)
+        unmatched = self._apply([pkg], {"MPL-2.0": "permissive"})
+        assert pkg.category == LicenseCategory.PERMISSIVE
+        assert pkg.category_overridden is True
+        assert pkg.license_expression == "MPL-2.0 AND MIT"  # expression untouched
+        assert unmatched == []
+
+    def test_and_preserves_deemed_restrictive_component(self) -> None:
+        # Deeming a component proprietary makes the whole AND proprietary.
+        pkg = self._compound("MPL-2.0 AND MIT", LicenseCategory.WEAK_COPYLEFT)
+        self._apply([pkg], {"MPL-2.0": "proprietary"})
+        assert pkg.category == LicenseCategory.PROPRIETARY
+        assert pkg.category_overridden is True
+
+    def test_and_keeps_other_real_constraint(self) -> None:
+        # Deeming MPL permissive leaves the real GPL constraint intact.
+        pkg = self._compound(
+            "MPL-2.0 AND GPL-3.0-only", LicenseCategory.STRONG_COPYLEFT
         )
+        self._apply([pkg], {"MPL-2.0": "permissive"})
         assert pkg.category == LicenseCategory.STRONG_COPYLEFT
-        assert pkg.category_overridden is False
-        assert unmatched == ["GPL-2.0-only"]
+
+    def test_or_reevaluates_not_drops(self) -> None:
+        # "drop" would wrongly leave LGPL; substitution makes the OR permissive
+        # because the deemed-permissive branch becomes selectable.
+        pkg = self._compound(
+            "GPL-2.0-only OR LGPL-2.1-only", LicenseCategory.WEAK_COPYLEFT
+        )
+        self._apply([pkg], {"GPL-2.0-only": "permissive"})
+        assert pkg.category == LicenseCategory.PERMISSIVE
+
+    def test_whole_compound_key_matches_directly(self) -> None:
+        pkg = self._compound("MPL-2.0 AND MIT", LicenseCategory.WEAK_COPYLEFT)
+        self._apply([pkg], {"MPL-2.0 AND MIT": "proprietary"})
+        assert pkg.category == LicenseCategory.PROPRIETARY
 
     def test_returns_unmatched_keys(self) -> None:
         pkg = self._unrecognized()  # declares "Proprietary License"
-        unmatched = LicenseAuditor._apply_classifications(
+        unmatched = self._apply(
             [pkg], {"Proprietary License": "permissive", "Typo License": "permissive"}
         )
         assert unmatched == ["Typo License"]
 
+    def test_component_only_key_with_no_compound_warns(self) -> None:
+        # A key that is neither a whole license nor a present component.
+        pkg = self._compound("MIT AND Apache-2.0", LicenseCategory.PERMISSIVE)
+        unmatched = self._apply([pkg], {"GPL-2.0-only": "permissive"})
+        assert unmatched == ["GPL-2.0-only"]
+
     def test_no_unmatched_when_all_match(self) -> None:
         pkg = self._unrecognized()
-        unmatched = LicenseAuditor._apply_classifications(
-            [pkg], {"Proprietary License": "permissive"}
-        )
+        unmatched = self._apply([pkg], {"Proprietary License": "permissive"})
         assert unmatched == []
 
     def test_classification_warnings_built_for_unmatched(self) -> None:
