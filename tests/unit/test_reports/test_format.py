@@ -57,6 +57,46 @@ class TestSummaryStats:
         assert stats.copyleft == 1
         assert stats.unknown == 0
 
+    def test_ignored_package_not_double_counted(self) -> None:
+        report = AnalysisReport(
+            packages=[
+                PackageLicense(
+                    name="gpl",
+                    version="1.0",
+                    license_expression="GPL-3.0-only",
+                    category=LicenseCategory.STRONG_COPYLEFT,
+                    ignored=True,
+                ),
+                PackageLicense(
+                    name="mit",
+                    version="1.0",
+                    license_expression="MIT",
+                    category=LicenseCategory.PERMISSIVE,
+                ),
+            ],
+        )
+        stats = SummaryStats.from_report(report)
+        assert stats.ignored == 1
+        assert stats.copyleft == 0  # the ignored GPL package is not also copyleft
+        assert stats.permissive == 1
+
+    def test_proprietary_counted_separately(self) -> None:
+        report = AnalysisReport(
+            packages=[
+                PackageLicense(
+                    name="x",
+                    version="1.0",
+                    license_expression="UNKNOWN",
+                    declared_license="Proprietary License",
+                    category=LicenseCategory.PROPRIETARY,
+                    category_overridden=True,
+                )
+            ],
+        )
+        stats = SummaryStats.from_report(report)
+        assert stats.proprietary == 1
+        assert stats.unknown == 0
+
 
 class TestCategoryLabel:
     def _pkg(self, **kw: object) -> PackageLicense:

@@ -4,10 +4,11 @@ license-audit provides the five commands detailed below. All accept the global f
 
 ## `analyze`
 
-Default analysis output: a per-package table with version, license expression, category, source, and parent, plus recommended outbound licenses, action items, and a summary.
+Default analysis output: a per-package table with version, license expression, category, source, and parent, plus recommended outbound licenses, action items, and a summary. Pass `--format json` for the same analysis as machine-readable JSON.
 
 ```bash
 license-audit analyze
+license-audit analyze --format json
 license-audit --target /path/to/project analyze
 license-audit --target /path/to/.venv analyze
 ```

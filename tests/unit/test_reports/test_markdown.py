@@ -106,6 +106,37 @@ class TestMarkdownRenderer:
         result = MarkdownRenderer().render(AnalysisReport(project_name="p"))
         assert "Source:" not in result
 
+    def test_pipe_in_ignore_reason_does_not_break_table(self) -> None:
+        pkg = PackageLicense(
+            name="vendored-pkg",
+            version="1.0.0",
+            license_expression="MIT",
+            license_source=LicenseSource.PEP639,
+            category=LicenseCategory.PERMISSIVE,
+            ignored=True,
+            ignore_reason="vendored | internal use only",
+        )
+        result = MarkdownRenderer().render(
+            AnalysisReport(project_name="p", packages=[pkg])
+        )
+        section = result.split("## Ignored Packages")[1]
+        row = next(
+            line for line in section.splitlines() if line.startswith("| vendored-pkg")
+        )
+        assert "vendored \\| internal use only" in row
+        assert row.replace("\\|", "").count("|") == 5  # 4 columns
+
+    def test_policy_check_omitted_when_not_evaluated(self) -> None:
+        result = MarkdownRenderer().render(AnalysisReport(project_name="p"))
+        assert "Policy check" not in result
+        assert "FAILED" not in result
+
+    def test_policy_check_shown_when_evaluated(self) -> None:
+        result = MarkdownRenderer().render(
+            AnalysisReport(project_name="p", policy_passed=False)
+        )
+        assert "| Policy check | FAILED |" in result
+
 
 def _unrecognized_pkg(
     *,

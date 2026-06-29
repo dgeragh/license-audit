@@ -7,7 +7,7 @@ from email.message import Message
 
 from license_audit.core.models import UNKNOWN_LICENSE, LicenseSource
 from license_audit.licenses.spdx import SpdxNormalizer
-from license_audit.util import MetadataReader
+from license_audit.util import MetadataReader, canonicalize
 
 _normalizer = SpdxNormalizer()
 
@@ -54,8 +54,12 @@ def detect_license(
     string is preserved on the result's ``declared_license`` field rather than
     being discarded.
     """
-    if overrides and package_name in overrides:
-        return DetectionResult(overrides[package_name], LicenseSource.OVERRIDE)
+    # Override keys are matched against the canonical (PEP 503) package name.
+    if overrides:
+        deemed = {canonicalize(name): spdx for name, spdx in overrides.items()}
+        spdx = deemed.get(canonicalize(package_name))
+        if spdx is not None:
+            return DetectionResult(spdx, LicenseSource.OVERRIDE)
 
     meta = reader.read_metadata(package_name)
     if meta is None:

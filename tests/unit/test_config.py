@@ -64,6 +64,23 @@ class TestLoadConfig:
     def test_license_classifications_default_empty(self, tmp_path: Path) -> None:
         assert load_config(tmp_path).license_classifications == {}
 
+    def test_malformed_toml_raises(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("this is = = not valid [[[\n")
+        with pytest.raises(ValueError, match="Could not parse"):
+            load_config(tmp_path)
+
+    def test_unknown_key_rejected(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.license-audit]\nfail-on-unkown = false\n"
+        )
+        with pytest.raises(ValidationError, match="Extra inputs"):
+            load_config(tmp_path)
+
+    def test_non_table_section_rejected(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text('[tool]\n"license-audit" = "oops"\n')
+        with pytest.raises(ValueError, match="must be a table"):
+            load_config(tmp_path)
+
 
 class TestLicenseClassificationsValidation:
     def test_valid_category_accepted(self) -> None:

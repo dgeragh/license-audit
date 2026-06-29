@@ -31,6 +31,7 @@ class SummaryStats:
     permissive: int
     copyleft: int
     unknown: int
+    proprietary: int
     ignored: int
 
     @classmethod
@@ -38,21 +39,25 @@ class SummaryStats:
         permissive = 0
         copyleft = 0
         unknown = 0
+        proprietary = 0
         ignored = 0
         for pkg in report.packages:
-            if pkg.category == LicenseCategory.PERMISSIVE:
+            if pkg.ignored:
+                ignored += 1
+            elif pkg.category == LicenseCategory.PERMISSIVE:
                 permissive += 1
             elif pkg.category in _COPYLEFT_CATEGORIES:
                 copyleft += 1
-            elif pkg.category == LicenseCategory.UNKNOWN:
+            elif pkg.category == LicenseCategory.PROPRIETARY:
+                proprietary += 1
+            else:
                 unknown += 1
-            if pkg.ignored:
-                ignored += 1
         return cls(
             total=len(report.packages),
             permissive=permissive,
             copyleft=copyleft,
             unknown=unknown,
+            proprietary=proprietary,
             ignored=ignored,
         )
 

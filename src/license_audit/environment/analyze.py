@@ -72,6 +72,11 @@ def _resolve_package(
         if req.marker and not _marker_matches(req.marker, extras):
             continue
 
+        # Audit only what is installed; a declared-but-absent dependency would
+        # otherwise show up as a phantom node with an unknown license.
+        if not reader.is_installed(req.name):
+            continue
+
         dep_extras = frozenset(req.extras) if req.extras else frozenset()
         dep_node = _resolve_package(req.name, reader, overrides, visited, dep_extras)
         deps.append(dep_node)

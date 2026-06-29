@@ -5,13 +5,15 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from license_audit.core.models import LicenseCategory, PolicyLevel
 
 
 class LicenseAuditConfig(BaseModel):
     """Parsed [tool.license-audit] section."""
+
+    model_config = ConfigDict(extra="forbid")
 
     fail_on_unknown: bool = True
     policy: PolicyLevel = PolicyLevel.PERMISSIVE
@@ -83,10 +85,17 @@ def load_config(config_dir: Path | None = None) -> LicenseAuditConfig:
     if not pyproject_path.exists():
         return LicenseAuditConfig()
 
-    with open(pyproject_path, "rb") as f:
-        data = tomllib.load(f)
+    try:
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError as exc:
+        msg = f"Could not parse {pyproject_path}: {exc}"
+        raise ValueError(msg) from exc
 
     tool_config = data.get("tool", {}).get("license-audit", {})
+    if not isinstance(tool_config, dict):
+        msg = "[tool.license-audit] must be a table"
+        raise ValueError(msg)  # noqa: TRY004
     if not tool_config:
         return LicenseAuditConfig()
 
