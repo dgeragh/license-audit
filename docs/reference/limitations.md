@@ -2,7 +2,7 @@
 
 ## Detection is package-level
 
-license-audit reads what's declared in package metadata: PEP 639 fields, the legacy `License` field, trove classifiers. It does not scan `LICENSE` or `NOTICE` files inside dependencies, and it can't detect bundled or vendored code whose license differs from the package's declaration. For file-level scanning, use [ScanCode](https://github.com/nexB/scancode-toolkit).
+license-audit reads what's declared in package metadata: PEP 639 fields, the legacy `License` field, trove classifiers. It does not scan the contents of `LICENSE` or `NOTICE` files to identify a license, and it can't detect bundled or vendored code whose license differs from the package's declaration. For file-level scanning, use [ScanCode](https://github.com/nexB/scancode-toolkit).
 
 ## OSADL coverage is finite
 

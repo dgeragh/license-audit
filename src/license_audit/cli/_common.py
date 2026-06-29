@@ -26,7 +26,10 @@ def resolve_config(
     config_override: Path | None = ctx.obj.get("config")
 
     config_dir = _config_dir(target, config_override)
-    config = load_config(config_dir)
+    try:
+        config = load_config(config_dir)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     if policy is not None:
         config.policy = PolicyLevel(policy)
     if target is None and config.target is not None:

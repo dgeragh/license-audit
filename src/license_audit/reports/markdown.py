@@ -96,7 +96,8 @@ class MarkdownRenderer:
             reason = pkg.ignore_reason or "(no reason given)"
             lines.append(
                 f"| {pkg.name} | {pkg.version} "
-                f"| {markdown_license_cell(pkg.display_license)} | {reason} |"
+                f"| {markdown_license_cell(pkg.display_license)} "
+                f"| {markdown_license_cell(reason)} |"
             )
         return "\n".join(lines) + "\n"
 

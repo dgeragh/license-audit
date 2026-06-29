@@ -50,7 +50,9 @@ class OSADLRefresher:
             raise RuntimeError(msg)
         # Parse before writing so malformed data never lands in the cache.
         json.loads(data)
-        dest.write_bytes(data)
+        tmp = dest.with_name(dest.name + ".tmp")
+        tmp.write_bytes(data)
+        tmp.replace(dest)
 
 
 @click.command("refresh")

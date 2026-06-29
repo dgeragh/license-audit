@@ -479,6 +479,18 @@ class TestBuildActionItems:
         errors = [i for i in items if i.severity == "error" and "violates" in i.message]
         assert len(errors) == 1
 
+    def test_allowed_license_violation_error(self) -> None:
+        config = LicenseAuditConfig(allowed_licenses=["Apache-2.0"])
+        items = PolicyEngine().build_action_items([_MIT], [], config)
+        errors = [i for i in items if i.severity == "error" and i.package == "a"]
+        assert len(errors) == 1
+        assert "not in the allowed" in errors[0].message
+
+    def test_allowed_license_on_list_produces_no_error(self) -> None:
+        config = LicenseAuditConfig(allowed_licenses=["MIT"])
+        items = PolicyEngine().build_action_items([_MIT], [], config)
+        assert not [i for i in items if i.severity == "error"]
+
 
 class TestBuildPolicy:
     def test_promotes_config_fields(self) -> None:

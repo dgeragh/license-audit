@@ -105,6 +105,21 @@ class TestDownload:
         ):
             OSADLRefresher().download("https://example.com/test.json", dest)
 
+    def test_failed_download_preserves_existing_file(self, tmp_path: Path) -> None:
+        dest = tmp_path / "test.json"
+        dest.write_bytes(b'{"old": true}')
+        with (
+            patch(
+                "license_audit.cli.refresh.urlopen",
+                return_value=self._make_response(b"not json at all"),
+            ),
+            pytest.raises(json.JSONDecodeError),
+        ):
+            OSADLRefresher().download("https://example.com/test.json", dest)
+
+        assert json.loads(dest.read_text()) == {"old": True}
+        assert not (tmp_path / "test.json.tmp").exists()
+
 
 class TestRefreshReloadsStore:
     def test_refresh_invokes_store_reload(self, tmp_path: Path) -> None:

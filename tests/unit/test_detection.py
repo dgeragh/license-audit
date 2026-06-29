@@ -55,6 +55,18 @@ class TestDetectLicense:
         assert result.source == LicenseSource.OVERRIDE
         assert result.declared_license is None
 
+    def test_override_key_matches_canonical_name(self, tmp_path: Path) -> None:
+        # Overrides are written PyPI-style (hyphens), but the lookup name is
+        # canonicalized, so the two must still match.
+        reader = MetadataReader.from_site_packages(tmp_path)
+        result = detect_license(
+            "my_internal_package",
+            reader,
+            overrides={"my-internal-package": "MIT"},
+        )
+        assert result.expression == "MIT"
+        assert result.source == LicenseSource.OVERRIDE
+
     def test_reads_from_dist_info(self, tmp_path: Path) -> None:
         _write_dist_info(
             tmp_path,

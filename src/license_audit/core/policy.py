@@ -141,6 +141,8 @@ class PolicyEngine:
 
         if config.denied_licenses:
             items.extend(self.denied_license_items(packages, config.denied_licenses))
+        if config.allowed_licenses:
+            items.extend(self.allowed_license_items(packages, config.allowed_licenses))
 
         max_rank = self.max_rank(config.policy)
         for pkg in packages:
@@ -208,6 +210,40 @@ class PolicyEngine:
                         f"Package '{pkg.name}' uses denied license "
                         f"'{denied_used}'. Find an alternative or request "
                         f"an exemption."
+                    ),
+                ),
+            )
+        return items
+
+    def allowed_license_items(
+        self,
+        packages: list[PackageLicense],
+        allowed_licenses: list[str],
+    ) -> list[ActionItem]:
+        """Action items for packages whose license is not on the allowlist.
+
+        Skips packages where at least one OR-alternative fits the allowlist,
+        since the project can pick that branch instead.
+        """
+        items: list[ActionItem] = []
+        allowed_set = {a.lower() for a in allowed_licenses}
+        for pkg in packages:
+            if pkg.license_expression == UNKNOWN_LICENSE:
+                continue
+            if self._expression.passes_denied_allowed(
+                pkg.license_expression,
+                set(),
+                allowed_set,
+            ):
+                continue
+            items.append(
+                ActionItem(
+                    severity="error",
+                    package=pkg.name,
+                    message=(
+                        f"Package '{pkg.name}' uses license "
+                        f"'{pkg.display_license}', which is not in the allowed "
+                        f"list. Add it to allowed-licenses or request an exemption."
                     ),
                 ),
             )
