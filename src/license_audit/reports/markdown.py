@@ -48,7 +48,6 @@ class MarkdownRenderer:
 
     def _summary(self, report: AnalysisReport) -> str:
         stats = SummaryStats.from_report(report)
-        status = "PASSED" if report.policy_passed else "FAILED"
 
         rows = [
             f"| Total dependencies | {stats.total} |",
@@ -56,9 +55,13 @@ class MarkdownRenderer:
             f"| Copyleft licenses | {stats.copyleft} |",
             f"| Unknown licenses | {stats.unknown} |",
         ]
+        if stats.proprietary:
+            rows.append(f"| Proprietary | {stats.proprietary} |")
         if stats.ignored:
             rows.append(f"| Ignored packages | {stats.ignored} |")
-        rows.append(f"| Policy check | {status} |")
+        if report.policy_passed is not None:
+            status = "PASSED" if report.policy_passed else "FAILED"
+            rows.append(f"| Policy check | {status} |")
 
         return (
             "\n## Summary\n\n"

@@ -6,6 +6,7 @@ import sys
 
 import click
 from rich.console import Console
+from rich.markup import escape
 
 from license_audit.cli._common import resolve_config, run_audit
 from license_audit.config import LicenseAuditConfig
@@ -100,7 +101,7 @@ def check_cmd(ctx: click.Context, fail_on_unknown: bool | None) -> None:
     ]
 
     if report.source:
-        console.print(f"[dim]Source:[/dim] {report.source}")
+        console.print(f"[dim]Source:[/dim] {escape(report.source)}")
     exit_code = _determine_exit_code(report, unknown_pkgs, config)
     _print_result(console, report, unknown_pkgs, exit_code)
     sys.exit(exit_code)

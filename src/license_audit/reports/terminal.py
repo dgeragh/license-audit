@@ -47,7 +47,7 @@ class TerminalRenderer:
         self._console.print()
         self._console.rule(f"[bold]License Analysis: {report.project_name}[/bold]")
         if report.source:
-            self._console.print(f"[dim]Source:[/dim] {report.source}")
+            self._console.print(f"[dim]Source:[/dim] {escape(report.source)}")
         self._console.print()
 
     def _render_package_table(self, report: AnalysisReport) -> None:
@@ -165,6 +165,8 @@ class TerminalRenderer:
         self._console.print(f"  Total dependencies: {stats.total}")
         self._console.print(f"  Unknown licenses:   {stats.unknown}")
         self._console.print(f"  Copyleft licenses:  {stats.copyleft}")
+        if stats.proprietary:
+            self._console.print(f"  Proprietary:        {stats.proprietary}")
         if stats.ignored:
             self._console.print(f"  Ignored packages:   {stats.ignored}")
 

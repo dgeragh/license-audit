@@ -48,6 +48,16 @@ class TestReportCli:
         assert result.exit_code == 0
         assert '"project_name"' in result.output
 
+    def test_json_file_ends_with_newline(self, tmp_path) -> None:
+        report = _make_report(packages=[_MIT_PKG])
+        out = tmp_path / "report.json"
+        with patch("license_audit.cli.report.run_audit", return_value=report):
+            result = CliRunner().invoke(
+                cli, ["report", "--format", "json", "--output", str(out)]
+            )
+        assert result.exit_code == 0
+        assert out.read_text().endswith("}\n")
+
     def test_output_to_file(self, tmp_path) -> None:
         report = _make_report(packages=[_MIT_PKG])
         out = tmp_path / "report.md"

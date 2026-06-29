@@ -48,6 +48,8 @@ def report_cmd(
     content = renderer.render(report)
 
     if output_path:
+        if not content.endswith("\n"):
+            content += "\n"
         output_path.write_text(content, encoding="utf-8")
         click.echo(f"Report written to {output_path}")
     else:

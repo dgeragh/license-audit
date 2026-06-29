@@ -126,6 +126,17 @@ class TestMarkdownRenderer:
         assert "vendored \\| internal use only" in row
         assert row.replace("\\|", "").count("|") == 5  # 4 columns
 
+    def test_policy_check_omitted_when_not_evaluated(self) -> None:
+        result = MarkdownRenderer().render(AnalysisReport(project_name="p"))
+        assert "Policy check" not in result
+        assert "FAILED" not in result
+
+    def test_policy_check_shown_when_evaluated(self) -> None:
+        result = MarkdownRenderer().render(
+            AnalysisReport(project_name="p", policy_passed=False)
+        )
+        assert "| Policy check | FAILED |" in result
+
 
 def _unrecognized_pkg(
     *,

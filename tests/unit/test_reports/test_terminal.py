@@ -183,3 +183,9 @@ class TestTerminalRendererMarkupSafety:
         TerminalRenderer(console=console).render(report)
         output = buf.getvalue()
         assert "[internal use only]" in output
+
+    def test_source_with_brackets_preserved(self) -> None:
+        console, buf = _make_console()
+        report = AnalysisReport(project_name="p", source="/home/[user]/.venv")
+        TerminalRenderer(console=console).render(report)
+        assert "/home/[user]/.venv" in buf.getvalue()
