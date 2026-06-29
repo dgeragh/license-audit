@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.10.0 (2026-06-29)
+
+### Fixed
+
+- License `overrides` keyed by a PyPI-style name with hyphens or dots now apply
+- Dependencies declared in metadata but absent from the audited environment are no longer reported as phantom unknown packages
+- Packages installed as `.egg-info` (legacy `setup.py` installs), and dist-info directories whose name part contains hyphens, are now detected
+- `check` now reports the package and license that fall outside `allowed-licenses`
+- Ignore reasons containing `|` or a newline no longer break the Markdown Ignored Packages table
+- A malformed `pyproject.toml` now reports a clear error instead of a traceback
+- `refresh` writes cache files atomically so an interrupted download can't leave a half-written file behind
+- Report summaries count each package once: ignored packages are no longer also tallied as copyleft or unknown, and proprietary packages have their own count
+- The Markdown report omits the policy line when no policy was evaluated instead of showing a misleading `FAILED`
+- `Source` paths containing square brackets now render correctly in terminal output
+- JSON reports written with `--output` end with a trailing newline
+
+### Changed
+
+- Unknown keys in `[tool.license-audit]` are now rejected rather than silently ignored
+
 ## 0.9.0 (2026-05-28)
 
 ### Added
