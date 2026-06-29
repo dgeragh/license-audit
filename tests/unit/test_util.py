@@ -243,3 +243,29 @@ class TestMetadataReader:
     def test_describe_source_returns_path(self, tmp_path: Path) -> None:
         reader = MetadataReader.from_site_packages(tmp_path)
         assert reader.describe_source() == str(tmp_path)
+
+    def test_hyphenated_dist_info_name_resolved(self, tmp_path: Path) -> None:
+        # Some installers leave hyphens in the dist-info name; it must resolve to
+        # the full canonical name, not get truncated at the first hyphen.
+        _make_dist_info(tmp_path, "ruamel-yaml-clib", "0.2.7")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        assert "ruamel_yaml_clib" in set(reader.iter_package_names())
+        assert reader.read_metadata("ruamel.yaml.clib") is not None
+
+    def test_egg_info_package_discovered(self, tmp_path: Path) -> None:
+        egg = tmp_path / "legacy_pkg-1.0-py3.12.egg-info"
+        egg.mkdir()
+        (egg / "PKG-INFO").write_text(
+            "Metadata-Version: 1.0\nName: legacy-pkg\nVersion: 1.0\n"
+        )
+        reader = MetadataReader.from_site_packages(tmp_path)
+        assert "legacy_pkg" in set(reader.iter_package_names())
+        meta = reader.read_metadata("legacy-pkg")
+        assert meta is not None
+        assert meta.get("Version") == "1.0"
+
+    def test_is_installed(self, tmp_path: Path) -> None:
+        _make_dist_info(tmp_path, "present_pkg", "1.0.0")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        assert reader.is_installed("present-pkg") is True
+        assert reader.is_installed("absent-pkg") is False

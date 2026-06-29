@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from email.message import Message
@@ -73,22 +74,29 @@ class _SitePackagesSource(_Source):
         self._path = path
 
     def find_dist_info(self, canonical_name: str) -> _DistInfo | None:
-        for dist_info in self._path.glob("*.dist-info"):
+        for dist_info in self._metadata_dirs():
             if self._dist_info_name(dist_info.name) == canonical_name:
                 return _DistInfoDir(dist_info)
         return None
 
     def iter_package_names(self) -> Iterator[str]:
-        for dist_info in self._path.glob("*.dist-info"):
+        for dist_info in self._metadata_dirs():
             yield self._dist_info_name(dist_info.name)
 
     def describe(self) -> str:
         return str(self._path)
 
+    def _metadata_dirs(self) -> Iterator[Path]:
+        for pattern in ("*.dist-info", "*.egg-info"):
+            for path in self._path.glob(pattern):
+                if path.is_dir():
+                    yield path
+
     @staticmethod
     def _dist_info_name(dir_name: str) -> str:
-        stem = dir_name.rsplit(".dist-info", 1)[0]
-        return canonicalize(stem.split("-", 1)[0])
+        stem = dir_name.removesuffix(".dist-info").removesuffix(".egg-info")
+        name = re.split(r"-(?=\d)", stem, maxsplit=1)[0]
+        return canonicalize(name)
 
 
 class MetadataReader:
@@ -120,6 +128,10 @@ class MetadataReader:
             return None
         return self._parse_metadata(dist_info)
 
+    def is_installed(self, package_name: str) -> bool:
+        """True if `package_name` has installed metadata in the source."""
+        return self._source.find_dist_info(canonicalize(package_name)) is not None
+
     def read_license_text(self, package_name: str) -> str | None:
         """Concatenated license-file text for `package_name`.
 
@@ -145,6 +157,8 @@ class MetadataReader:
 
     def _parse_metadata(self, dist_info: _DistInfo) -> Message | None:
         text = dist_info.read_text("METADATA")
+        if text is None:
+            text = dist_info.read_text("PKG-INFO")
         if text is None:
             return None
         return self._parser.parsestr(text)

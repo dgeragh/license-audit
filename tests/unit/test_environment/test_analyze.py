@@ -143,3 +143,19 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         tree = analyze_environment("synth_root", reader)
         names = {p.name for p in tree.flatten()}
         assert names == {"synth_root", "leaf_a", "leaf_b"}
+
+    def test_declared_but_uninstalled_dep_is_skipped(self, tmp_path: Path) -> None:
+        _make_dist_info(
+            tmp_path,
+            "rootpkg",
+            "1.0",
+            license_expression="MIT",
+            requires=["installed_dep>=1.0", "ghost>=1.0"],
+        )
+        _make_dist_info(
+            tmp_path, "installed_dep", "1.0", license_expression="Apache-2.0"
+        )
+        reader = MetadataReader.from_site_packages(tmp_path)
+        names = {p.name for p in analyze_environment("rootpkg", reader).flatten()}
+        assert "installed_dep" in names
+        assert "ghost" not in names
