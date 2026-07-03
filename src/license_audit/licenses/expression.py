@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from license_expression import AND, OR, LicenseSymbol
+from license_expression import AND, OR, LicenseSymbol, LicenseWithExceptionSymbol
 
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import CATEGORY_RANK, LicenseCategory
@@ -53,16 +53,19 @@ class ExpressionEvaluator:
             return [[]]
         return self._walk_alternatives(parsed)
 
-    def required_ids(self, expr: str) -> list[str]:
+    def required_ids(
+        self, expr: str, overrides: CategoryOverrides | None = None
+    ) -> list[str]:
         """Ids the project must comply with after resolving every OR.
 
         Picks the alternative whose worst-case license has the lowest
-        permissiveness rank.
+        permissiveness rank. `overrides` is honored the same way as in
+        `classify`, so both resolve to the same alternative.
         """
         non_empty = [alt for alt in self.alternatives(expr) if alt]
         if not non_empty:
             return []
-        best = min(non_empty, key=self._alt_rank)
+        best = min(non_empty, key=lambda alt: self._alt_rank(alt, overrides))
         return list(dict.fromkeys(best))
 
     def unknown_components(self, expr: str) -> list[str]:
@@ -106,13 +109,19 @@ class ExpressionEvaluator:
         """True if at least one alternative avoids `denied` and fits `allowed`.
 
         `denied` and `allowed` must be lower-cased SPDX ids. An empty
-        `allowed` set means no allowlist constraint.
+        `allowed` set means no allowlist constraint. A denied base license
+        also blocks its `WITH exception` forms. An expression that can't be
+        parsed is matched whole against both lists.
         """
-        for alt in self.alternatives(expr):
-            if not alt:
-                continue
+        non_empty = [alt for alt in self.alternatives(expr) if alt]
+        if not non_empty:
+            key = expr.lower()
+            return key not in denied and (not allowed or key in allowed)
+        for alt in non_empty:
             lowered = [lic.lower() for lic in alt]
-            if any(lic in denied for lic in lowered):
+            if any(
+                lic in denied or lic.split(" with ", 1)[0] in denied for lic in lowered
+            ):
                 continue
             if allowed and any(lic not in allowed for lic in lowered):
                 continue
@@ -141,6 +150,9 @@ class ExpressionEvaluator:
         return self._classifier.classify(lic)
 
     def _walk_alternatives(self, node: Any) -> list[list[str]]:
+        # A "X WITH Y" clause is one opaque component, keyed by its full text.
+        if isinstance(node, LicenseWithExceptionSymbol):
+            return [[str(node)]]
         if isinstance(node, LicenseSymbol):
             return [[self._normalize_key(str(node.key))]]
         if isinstance(node, OR):

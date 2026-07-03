@@ -106,11 +106,17 @@ class DependencyNode(BaseModel):
         if self.package.name not in seen:
             seen.add(self.package.name)
             result.append(self.package)
-        # Each direct dependency becomes the "top-level parent" for itself
-        # and all of its transitive deps
+        # Attribute every direct dependency first, so one that another
+        # direct dependency also requires still reads as direct.
         for dep in self.dependencies:
-            top_level = dep.package.name
-            dep._flatten_inner(seen, result, top_level)
+            if dep.package.name not in seen:
+                seen.add(dep.package.name)
+                dep.package.parent = dep.package.name
+                result.append(dep.package)
+        # Each direct dependency becomes the "top-level parent" for all
+        # of its transitive deps
+        for dep in self.dependencies:
+            dep._flatten_inner(seen, result, dep.package.name)
         return result
 
     def _flatten_inner(

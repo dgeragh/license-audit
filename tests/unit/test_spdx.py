@@ -52,6 +52,32 @@ class TestNormalize:
     def test_none_value(self) -> None:
         assert SpdxNormalizer().normalize("NONE") == "UNKNOWN"
 
+    def test_spdx_id_outside_matrix(self) -> None:
+        n = SpdxNormalizer()
+        assert n.normalize("CNRI-Python") == "CNRI-Python"
+        assert n.normalize("Apache-2.0 AND CNRI-Python") == "Apache-2.0 AND CNRI-Python"
+
+    def test_compound_case_canonicalized(self) -> None:
+        assert SpdxNormalizer().normalize("mit and apache-2.0") == "MIT AND Apache-2.0"
+
+    def test_deprecated_id_inside_compound(self) -> None:
+        assert SpdxNormalizer().normalize("GPL-2.0+ AND MIT") == (
+            "GPL-2.0-or-later AND MIT"
+        )
+
+    def test_matrix_id_outside_spdx_list(self) -> None:
+        assert SpdxNormalizer().normalize("MPL-2.0-no-copyleft-exception") == (
+            "MPL-2.0-no-copyleft-exception"
+        )
+
+    def test_with_exception(self) -> None:
+        assert SpdxNormalizer().normalize("Apache-2.0 WITH LLVM-exception") == (
+            "Apache-2.0 WITH LLVM-exception"
+        )
+
+    def test_truncated_expression_returns_unknown(self) -> None:
+        assert SpdxNormalizer().normalize("MIT AND") == "UNKNOWN"
+
 
 class TestNormalizeClassifier:
     def test_mit(self) -> None:

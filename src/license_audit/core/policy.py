@@ -199,7 +199,12 @@ class PolicyEngine:
                 continue
             required = self._expression.required_ids(pkg.license_expression)
             denied_used = next(
-                (lic for lic in required if lic.lower() in denied_set),
+                (
+                    lic
+                    for lic in required
+                    if lic.lower() in denied_set
+                    or lic.lower().split(" with ", 1)[0] in denied_set
+                ),
                 pkg.license_expression,
             )
             items.append(
@@ -257,6 +262,10 @@ class PolicyEngine:
     def unknown_message(self, pkg: PackageLicense) -> str:
         """User-facing explanation for why a package's license is unknown."""
         suffix = "Add an override in [tool.license-audit.overrides] or check manually."
+        classify = (
+            "Record a category in [tool.license-audit.license-classifications] "
+            "or check manually."
+        )
 
         if pkg.declared_license:
             return (
@@ -274,13 +283,13 @@ class PolicyEngine:
             len(components) == 1 and components[0] == pkg.license_expression
         ):
             return (
-                f"License '{pkg.license_expression}' for '{pkg.name}' "
-                f"is not a recognized SPDX expression. {suffix}"
+                f"License '{pkg.license_expression}' for '{pkg.name}' has no "
+                f"classification data. {classify}"
             )
 
         label = "component" if len(components) == 1 else "components"
         ids = ", ".join(f"'{c}'" for c in components)
         return (
             f"Could not classify license {label} {ids} in "
-            f"'{pkg.license_expression}' for '{pkg.name}'. {suffix}"
+            f"'{pkg.license_expression}' for '{pkg.name}'. {classify}"
         )

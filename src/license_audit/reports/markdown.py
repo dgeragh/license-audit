@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from license_audit.core.classifier import LicenseClassifier
-from license_audit.core.models import AnalysisReport, LicenseCategory
+from license_audit.core.models import UNKNOWN_LICENSE, AnalysisReport, LicenseCategory
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
@@ -148,17 +148,19 @@ class MarkdownRenderer:
                 names = ", ".join(f"`{p.name}`" for p in unknown)
                 lines.append(
                     f"Cannot recommend a license: {len(unknown)} dependency(ies) "
-                    f"have an unrecognized license ({names}). "
-                    "Resolve them via `[tool.license-audit.overrides]` and re-run."
+                    f"have an unclassified license ({names}). Resolve them via "
+                    "`[tool.license-audit.license-classifications]` or "
+                    "`[tool.license-audit.overrides]` and re-run."
                 )
             elif deemed:
                 names = ", ".join(f"`{p.name}`" for p in deemed)
                 lines.append(
                     f"Cannot recommend a license: {len(deemed)} dependency(ies) "
-                    f"are classified as a non-permissive license with no SPDX id "
-                    f"({names}), so outbound compatibility can't be computed. Map "
-                    "them to an SPDX id via `[tool.license-audit.overrides]` if you "
-                    "need recommendations."
+                    f"are classified as non-permissive ({names}). A classified "
+                    "license is excluded from compatibility analysis, so outbound "
+                    "compatibility can't be computed. Remove the classification, "
+                    "or assert a genuine SPDX license via "
+                    "`[tool.license-audit.overrides]`, if you need recommendations."
                 )
             else:
                 lines.append("No compatible outbound license found.")
@@ -226,10 +228,11 @@ class MarkdownRenderer:
 
         lines = [
             "\n## Licenses Requiring Review\n",
-            "These packages have a license that could not be mapped to a known "
-            "SPDX identifier. The full license text is included below so you can "
-            "review the terms and, if appropriate, record the correct license "
-            "via `[tool.license-audit.overrides]`.\n",
+            "These packages have a license that could not be classified. The "
+            "full license text is included below so you can review the terms "
+            "and, if appropriate, record your judgement via "
+            "`[tool.license-audit.license-classifications]` or the correct "
+            "license via `[tool.license-audit.overrides]`.\n",
         ]
         for pkg in sorted(review, key=lambda p: p.name):
             lines.append(f"\n### {pkg.name} {pkg.version}\n")
@@ -237,6 +240,8 @@ class MarkdownRenderer:
                 lines.append(
                     f"- **Declared license:** {license_label(pkg.declared_license)}"
                 )
+            elif pkg.license_expression != UNKNOWN_LICENSE:
+                lines.append(f"- **License:** {license_label(pkg.license_expression)}")
             else:
                 lines.append("- **License:** not detected")
             lines.append(f"- **Source:** {pkg.license_source.value}")

@@ -216,6 +216,101 @@ class TestConfigPropagation:
         # No spurious no-match warning (the component matched).
         assert not any("matched no package" in i.message for i in report.action_items)
 
+    def test_component_classification_with_unclassified_spdx_id(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming a valid SPDX component that has no classification data
+        (CNRI-Python) resolves a compound expression instead of being
+        dismissed as a typo."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"CNRI-Python" = "permissive"\n',
+        )
+        make_venv(tmp_path / ".venv", {"legacy_pkg": "Apache-2.0 AND CNRI-Python"})
+        report = LicenseAuditor().run(target=tmp_path)
+        pkg = next(p for p in report.packages if p.name == "legacy_pkg")
+        assert pkg.license_expression == "Apache-2.0 AND CNRI-Python"
+        assert pkg.category == LicenseCategory.PERMISSIVE
+        assert pkg.category_overridden is True
+        assert report.policy_passed is True
+        assert not any("matched no package" in i.message for i in report.action_items)
+        assert all(
+            "CNRI-Python" not in (p.inbound, p.outbound)
+            for p in report.incompatible_pairs
+        )
+
+    def test_unclassified_spdx_component_stays_unknown(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Without a classification, a valid SPDX component that has no
+        classification data leaves the package unknown and is named in the
+        action item."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(tmp_path / ".venv", {"legacy_pkg": "Apache-2.0 AND CNRI-Python"})
+        report = LicenseAuditor().run(target=tmp_path)
+        pkg = next(p for p in report.packages if p.name == "legacy_pkg")
+        assert pkg.license_expression == "Apache-2.0 AND CNRI-Python"
+        assert pkg.category == LicenseCategory.UNKNOWN
+        assert report.policy_passed is False
+        assert any("'CNRI-Python'" in i.message for i in report.action_items)
+
+    def test_deemed_or_branch_keeps_conflicts_visible(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming one OR branch steers compatibility to the same branch as
+        classification, so conflicts on the chosen branch still surface."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit]\n"
+            'policy = "network-copyleft"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"MIT" = "proprietary"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"pkga": "GPL-3.0-only OR MIT", "pkgb": "GPL-2.0-only"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        pkga = next(p for p in report.packages if p.name == "pkga")
+        assert pkga.category == LicenseCategory.STRONG_COPYLEFT
+        assert any(
+            {pair.inbound, pair.outbound} == {"GPL-2.0-only", "GPL-3.0-only"}
+            for pair in report.incompatible_pairs
+        )
+
+    def test_whole_expression_classification_waives_compatibility(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A classification keyed by the full expression drops its components
+        from compatibility analysis, the same as a component key."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"GPL-2.0-only AND GPL-3.0-only" = "permissive"\n',
+        )
+        make_venv(tmp_path / ".venv", {"dualgpl": "GPL-2.0-only AND GPL-3.0-only"})
+        report = LicenseAuditor().run(target=tmp_path)
+        pkg = next(p for p in report.packages if p.name == "dualgpl")
+        assert pkg.category == LicenseCategory.PERMISSIVE
+        assert pkg.category_overridden is True
+        assert report.incompatible_pairs == []
+        assert report.policy_passed is True
+
     def test_classified_and_ignored_package(
         self,
         tmp_path: Path,

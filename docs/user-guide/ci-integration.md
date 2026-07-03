@@ -96,7 +96,7 @@ ec=$?
 case $ec in
   0) ;;
   1) echo "::error::License policy violation"; exit 1 ;;
-  2) echo "::warning::Unknown licenses - add overrides in pyproject.toml"; exit 0 ;;
+  2) echo "::warning::Unknown licenses - resolve in pyproject.toml"; exit 0 ;;
 esac
 ```
 
@@ -122,10 +122,13 @@ Typical flow when introducing a new package:
 2. Run `uv run license-audit check` locally.
 3. Handle the outcome:
    - **Exit 0**: commit and push.
-   - **Exit 2 (unknown)**: the tool couldn't pin down an SPDX identifier. Once you've confirmed the license, add an override:
+   - **Exit 2 (unknown)**: the license couldn't be classified. When detection found no SPDX identifier, confirm the license and add an override; for a valid SPDX license the OSADL data doesn't cover, record your judgement instead:
      ```toml
      [tool.license-audit.overrides]
      new-package = "MIT"
+
+     [tool.license-audit.license-classifications]
+     "CNRI-Python" = "permissive"
      ```
    - **Exit 1 (policy violation)**: swap the dependency for a differently-licensed alternative, add the license to `allowed-licenses`, relax `policy` (e.g. `permissive` to `weak-copyleft`), or, if you've reviewed the package manually and confirmed it's safe for your case, exempt it:
      ```toml

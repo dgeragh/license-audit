@@ -110,16 +110,17 @@ class TerminalRenderer:
                 names = ", ".join(p.name for p in unknown)
                 self._console.print(
                     "[bold yellow]Cannot recommend a license[/bold yellow] until "
-                    f"{len(unknown)} unrecognized license(s) are resolved: {names}",
+                    f"{len(unknown)} unclassified license(s) are resolved: {names}",
                 )
             elif deemed:
                 names = ", ".join(p.name for p in deemed)
                 self._console.print(
                     "[bold yellow]Cannot recommend a license[/bold yellow]: "
-                    f"{len(deemed)} dependency(ies) are classified as a "
-                    "non-permissive license with no SPDX id, so outbound "
-                    f"compatibility can't be computed: {names}. Map them to an "
-                    "SPDX id via [tool.license-audit.overrides] for recommendations.",
+                    f"{len(deemed)} dependency(ies) are classified as "
+                    "non-permissive and excluded from compatibility analysis, so "
+                    f"outbound compatibility can't be computed: {names}. Remove "
+                    "the classification or use [tool.license-audit.overrides] "
+                    "for recommendations.",
                 )
             else:
                 self._console.print(

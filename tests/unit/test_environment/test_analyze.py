@@ -95,8 +95,8 @@ class TestAnalyzeEnvironmentFakeSitePackages:
     def test_walks_arbitrarily_deep_transitive_chain(self, tmp_path: Path) -> None:
         """A 5-level chain (root -> a -> b -> c -> d -> e) must surface every level.
 
-        Pins the contract that `_resolve_package` recurses without depth limit
-        — only cycles are broken via the visited set.
+        Pins the contract that `_resolve_package` recurses without depth limit;
+        only cycles are broken via the visited set.
         """
         chain = ["root", "a", "b", "c", "d", "e"]
         for current, nxt in pairwise(chain):
@@ -143,6 +143,27 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         tree = analyze_environment("synth_root", reader)
         names = {p.name for p in tree.flatten()}
         assert names == {"synth_root", "leaf_a", "leaf_b"}
+
+    def test_direct_dep_required_transitively_stays_direct(
+        self, tmp_path: Path
+    ) -> None:
+        """A direct dependency that another direct dependency also requires
+        is still attributed as direct."""
+        _make_dist_info(
+            tmp_path,
+            "rootpkg",
+            "1.0",
+            license_expression="MIT",
+            requires=["liba>=1.0", "libb>=1.0"],
+        )
+        _make_dist_info(
+            tmp_path, "liba", "1.0", license_expression="MIT", requires=["libb>=1.0"]
+        )
+        _make_dist_info(tmp_path, "libb", "1.0", license_expression="MIT")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        tree = analyze_environment("rootpkg", reader)
+        parents = {p.name: p.parent for p in tree.flatten()}
+        assert parents["libb"] == "libb"
 
     def test_declared_but_uninstalled_dep_is_skipped(self, tmp_path: Path) -> None:
         _make_dist_info(

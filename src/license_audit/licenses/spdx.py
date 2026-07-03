@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from license_expression import ExpressionError, Licensing
+from license_expression import ExpressionError, Licensing, get_spdx_licensing
 
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import UNKNOWN_LICENSE
@@ -142,6 +142,7 @@ class SpdxNormalizer:
         self._matrix = matrix or CompatibilityMatrix()
         self._licensing = Licensing()
         self._known_ids: frozenset[str] | None = None
+        self._spdx_licensing: Any = None
 
     def known_spdx_ids(self) -> frozenset[str]:
         """SPDX ids recognized as valid.
@@ -158,11 +159,17 @@ class SpdxNormalizer:
             self._known_ids = frozenset(ids)
         return self._known_ids
 
+    def _spdx(self) -> Any:
+        if self._spdx_licensing is None:
+            self._spdx_licensing = get_spdx_licensing()
+        return self._spdx_licensing
+
     def normalize(self, license_string: str) -> str:
         """Normalize a license string to an SPDX expression, or UNKNOWN.
 
-        Tries the alias table first (case-insensitive), then falls back to
-        direct SPDX parsing.
+        Tries the alias table first (case-insensitive), then validation
+        against the full SPDX license list, then falls back to parsing
+        with the ids from ``known_spdx_ids()``.
         """
         stripped = license_string.strip()
         if not stripped or stripped.upper() in (UNKNOWN_LICENSE, "NONE", ""):
@@ -171,6 +178,14 @@ class SpdxNormalizer:
         alias_result = self.COMMON_ALIASES.get(stripped.lower())
         if alias_result:
             return alias_result
+
+        # validate() raises AttributeError on truncated input like "MIT AND".
+        try:
+            info = self._spdx().validate(stripped)
+        except (AttributeError, ExpressionError):
+            info = None
+        if info is not None and not info.errors and info.normalized_expression:
+            return str(info.normalized_expression)
 
         try:
             parsed: Any = self._licensing.parse(stripped)

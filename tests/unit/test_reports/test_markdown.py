@@ -239,6 +239,19 @@ class TestLicensesRequiringReview:
         assert "**License:** not detected" in result
         assert "Some bundled LICENSE file contents" in result
 
+    def test_unclassified_spdx_package_shows_expression(self) -> None:
+        pkg = PackageLicense(
+            name="legacy-pkg",
+            version="1.0.0",
+            license_expression="CNRI-Python",
+            license_source=LicenseSource.PEP639,
+            category=LicenseCategory.UNKNOWN,
+        )
+        report = AnalysisReport(project_name="p", packages=[pkg])
+        result = MarkdownRenderer().render(report)
+        assert "**License:** CNRI-Python" in result
+        assert "not detected" not in result
+
     def test_no_section_when_all_recognized(
         self, sample_report: AnalysisReport
     ) -> None:

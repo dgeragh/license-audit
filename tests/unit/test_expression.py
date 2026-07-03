@@ -49,6 +49,16 @@ class TestAlternatives:
         result = ExpressionEvaluator().alternatives("GPL-2.0")
         assert result == [["GPL-2.0-only"]]
 
+    def test_with_exception_is_single_component(self) -> None:
+        result = ExpressionEvaluator().alternatives(
+            "GPL-2.0-only WITH Classpath-exception-2.0 AND MIT",
+        )
+        assert len(result) == 1
+        assert sorted(result[0]) == [
+            "GPL-2.0-only WITH Classpath-exception-2.0",
+            "MIT",
+        ]
+
 
 class TestRequiredIds:
     def test_single_license(self) -> None:
@@ -84,6 +94,14 @@ class TestRequiredIds:
 
     def test_deprecated_id(self) -> None:
         assert ExpressionEvaluator().required_ids("GPL-2.0") == ["GPL-2.0-only"]
+
+    def test_overrides_steer_branch_choice(self) -> None:
+        # With MIT deemed proprietary, the GPL branch is now the most
+        # permissive alternative, matching what classify() would pick.
+        overrides = {"mit": LicenseCategory.PROPRIETARY}
+        assert ExpressionEvaluator().required_ids(
+            "GPL-3.0-only OR MIT", overrides=overrides
+        ) == ["GPL-3.0-only"]
 
 
 class TestClassify:
@@ -138,6 +156,46 @@ class TestClassify:
         assert (
             ExpressionEvaluator().classify("MPL-2.0 AND MIT")
             == LicenseCategory.WEAK_COPYLEFT
+        )
+
+    def test_unclassified_component_makes_and_unknown(self) -> None:
+        assert (
+            ExpressionEvaluator().classify("Apache-2.0 AND CNRI-Python")
+            == LicenseCategory.UNKNOWN
+        )
+
+    def test_override_resolves_unclassified_component(self) -> None:
+        assert (
+            ExpressionEvaluator().classify(
+                "Apache-2.0 AND CNRI-Python",
+                overrides={"cnri-python": LicenseCategory.PERMISSIVE},
+            )
+            == LicenseCategory.PERMISSIVE
+        )
+
+    def test_with_exception_uses_matrix_data(self) -> None:
+        # The OSADL matrix carries this WITH string as its own entry.
+        assert (
+            ExpressionEvaluator().classify(
+                "GPL-2.0-only WITH Classpath-exception-2.0 AND MIT",
+            )
+            == LicenseCategory.WEAK_COPYLEFT
+        )
+
+    def test_unclassified_with_exception_is_unknown(self) -> None:
+        assert (
+            ExpressionEvaluator().classify("Apache-2.0 WITH LLVM-exception AND MIT")
+            == LicenseCategory.UNKNOWN
+        )
+
+    def test_deemed_with_exception(self) -> None:
+        overrides = {"apache-2.0 with llvm-exception": LicenseCategory.PERMISSIVE}
+        assert (
+            ExpressionEvaluator().classify(
+                "Apache-2.0 WITH LLVM-exception AND MIT",
+                overrides=overrides,
+            )
+            == LicenseCategory.PERMISSIVE
         )
 
 
@@ -216,6 +274,36 @@ class TestPassesDeniedAllowed:
                 "garbage!!!",
                 set(),
                 {"mit"},
+            )
+            is False
+        )
+
+    def test_denied_base_license_blocks_with_exception(self) -> None:
+        assert (
+            ExpressionEvaluator().passes_denied_allowed(
+                "GPL-2.0-only WITH Classpath-exception-2.0",
+                {"gpl-2.0-only"},
+                set(),
+            )
+            is False
+        )
+
+    def test_unparseable_unrelated_to_denylist_passes(self) -> None:
+        assert (
+            ExpressionEvaluator().passes_denied_allowed(
+                "Custom EULA v2 (internal)",
+                {"gpl-3.0-only"},
+                set(),
+            )
+            is True
+        )
+
+    def test_unparseable_matched_whole_against_denylist(self) -> None:
+        assert (
+            ExpressionEvaluator().passes_denied_allowed(
+                "Custom EULA v2 (internal)",
+                {"custom eula v2 (internal)"},
+                set(),
             )
             is False
         )
