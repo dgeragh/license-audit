@@ -23,7 +23,11 @@ from license_audit.environment.venv import (
     is_venv_dir,
     reader_for_venv,
 )
-from license_audit.licenses.expression import ExpressionEvaluator, normalize_license_key
+from license_audit.licenses.expression import (
+    CategoryOverrides,
+    ExpressionEvaluator,
+    normalize_license_key,
+)
 from license_audit.licenses.spdx import SpdxNormalizer
 from license_audit.util import MetadataReader, canonicalize
 
@@ -150,13 +154,15 @@ class LicenseAuditor:
 
         dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
         active_packages = [p for p in dep_packages if not p.ignored]
-        deemed_keys = {
-            normalize_license_key(name) for name in config.license_classifications
+        deemed = {
+            normalize_license_key(name): LicenseCategory(category)
+            for name, category in config.license_classifications.items()
         }
         # Compatibility considers every active package but drops deemed ids
-        # (even inside a compound), so a deemed license raises no conflicts.
+        # (keyed by a whole expression or a component), so a deemed license
+        # raises no conflicts.
         dep_spdx_ids = self._extract_spdx_ids(
-            [p.license_expression for p in active_packages], deemed_keys
+            [p.license_expression for p in active_packages], deemed
         )
         # Recommendations skip reclassified packages: a deemed-permissive one
         # imposes no constraint, and a deemed-restrictive one is handled by the
@@ -319,20 +325,25 @@ class LicenseAuditor:
                 pkg.ignore_reason = reason
 
     def _extract_spdx_ids(
-        self, expressions: list[str], deemed: set[str] | None = None
+        self, expressions: list[str], deemed: CategoryOverrides | None = None
     ) -> list[str]:
         """SPDX ids that drive pairwise compatibility.
 
-        Ids the user classified (``deemed``, normalized) are dropped, even when
-        they appear as one component of a compound expression: the user has
-        asserted that license's category directly, so its real SPDX identity
-        should not raise compatibility conflicts.
+        Licenses the user classified (``deemed``, normalized) are dropped,
+        whether keyed by a whole expression or by one component of a compound:
+        the user has asserted that license's category directly, so its real
+        SPDX identity should not raise compatibility conflicts. The deemed
+        map is passed to ``required_ids`` so OR resolution picks the same
+        alternative as classification.
         """
-        deemed = deemed or set()
+        deemed = deemed or {}
         ids: set[str] = set()
         for expr in expressions:
-            if expr != UNKNOWN_LICENSE:
-                for lic in self._expression.required_ids(expr):
-                    if normalize_license_key(lic) not in deemed:
-                        ids.add(lic)
+            if expr == UNKNOWN_LICENSE:
+                continue
+            if normalize_license_key(expr) in deemed:
+                continue
+            for lic in self._expression.required_ids(expr, overrides=deemed):
+                if normalize_license_key(lic) not in deemed:
+                    ids.add(lic)
         return list(ids)

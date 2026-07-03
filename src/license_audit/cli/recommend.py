@@ -168,19 +168,20 @@ def _render_recommendations(console: Console, report: AnalysisReport) -> None:
             names = ", ".join(p.name for p in unknown)
             console.print(
                 "[bold yellow]Cannot recommend a license:[/bold yellow] "
-                f"{len(unknown)} dependency(ies) have an unrecognized license "
+                f"{len(unknown)} dependency(ies) have an unclassified license "
                 f"({names}).\n"
-                r"Resolve them via `\[tool.license-audit.overrides]` and re-run."
+                r"Resolve them via `\[tool.license-audit.license-classifications]` "
+                r"or `\[tool.license-audit.overrides]` and re-run."
             )
         elif deemed:
             names = ", ".join(p.name for p in deemed)
             console.print(
                 "[bold yellow]Cannot recommend a license:[/bold yellow] "
-                f"{len(deemed)} dependency(ies) are classified as a non-permissive "
-                f"license with no SPDX id ({names}), so outbound compatibility "
-                "can't be computed.\n"
-                r"Map them to an SPDX id via `\[tool.license-audit.overrides]` "
-                "if you need recommendations."
+                f"{len(deemed)} dependency(ies) are classified as non-permissive "
+                f"({names}) and excluded from compatibility analysis, so outbound "
+                "compatibility can't be computed.\n"
+                "Remove the classification, or assert a genuine SPDX license via "
+                r"`\[tool.license-audit.overrides]`, if you need recommendations."
             )
         else:
             console.print(
