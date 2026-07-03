@@ -400,7 +400,7 @@ class TestBuildActionItems:
             [],
             LicenseAuditConfig(),
         )
-        warnings = [i for i in items if "not a recognized SPDX" in i.message]
+        warnings = [i for i in items if "has no classification data" in i.message]
         assert len(warnings) == 1
 
     def test_whitelisted_permissive_produces_no_unknown_warning(self) -> None:
@@ -464,6 +464,26 @@ class TestBuildActionItems:
         assert "'CC0-1.0'" in msg
         assert "BSD-3-Clause" not in msg.split("in '")[0]  # Only in the expr echo
         assert "not a recognized SPDX" not in msg
+
+    def test_denied_base_license_flags_with_exception_form(self) -> None:
+        pkg = PackageLicense(
+            name="jdk-lib",
+            version="1.0",
+            license_expression="GPL-2.0-only WITH Classpath-exception-2.0",
+            category=LicenseCategory.WEAK_COPYLEFT,
+        )
+        items = PolicyEngine().denied_license_items([pkg], ["GPL-2.0-only"])
+        assert len(items) == 1
+        assert "GPL-2.0-only WITH Classpath-exception-2.0" in items[0].message
+
+    def test_unparseable_expression_ignores_unrelated_denylist(self) -> None:
+        pkg = PackageLicense(
+            name="internal-tool",
+            version="1.0",
+            license_expression="Custom EULA v2 (internal)",
+            category=LicenseCategory.UNKNOWN,
+        )
+        assert PolicyEngine().denied_license_items([pkg], ["GPL-3.0-only"]) == []
 
     def test_copyleft_warning_for_strong(self) -> None:
         config = LicenseAuditConfig(policy=PolicyLevel.NETWORK_COPYLEFT)
