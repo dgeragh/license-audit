@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.11.0 (2026-07-02)
+
+### Fixed
+
+- License classifications now apply to components of an expression containing a license outside the OSADL data (classifying `CNRI-Python` in `Apache-2.0 AND CNRI-Python` was ignored and warned as a typo)
+- Deprecated SPDX ids inside compound expressions now map to their modern forms (`GPL-2.0+ AND MIT` reads `GPL-2.0-or-later AND MIT`)
+- The Markdown report's Licenses Requiring Review section shows the SPDX expression for an unclassified license instead of "not detected"
+- A denied base license now also blocks its `WITH exception` forms (denying `GPL-2.0-only` catches `GPL-2.0-only WITH Classpath-exception-2.0`)
+- Compatibility analysis resolves `OR` expressions to the same branch as classification when a component is deemed by `license-classifications`, so conflicts on the chosen branch are no longer hidden
+- A `license-classifications` key written as a full compound expression now drops its components from compatibility analysis, matching component keys
+- A license string that isn't parseable no longer triggers a false denied-license violation when a denylist is configured; it is matched whole against the lists instead
+- A direct dependency that another direct dependency also requires is reported as direct instead of transitive
+
+### Changed
+
+- License strings are validated against the full SPDX license list: any valid SPDX expression is preserved instead of collapsing to `UNKNOWN`, is checked against allowed/denied lists, and displays in canonical form
+- `WITH` expressions survive normalization; a `X WITH Y` clause classifies as a single component keyed by its full text
+- The action item for a license without classification data now suggests `license-classifications` instead of calling the license unrecognized
+- `check`, `recommend`, and report messages say "unclassified" rather than "undetected" or "unrecognized", and the withheld-recommendation explanation no longer claims a classified license has no SPDX id
+
 ## 0.10.0 (2026-06-29)
 
 ### Fixed
