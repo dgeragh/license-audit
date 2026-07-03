@@ -3,8 +3,8 @@
 The pipeline runs in six steps:
 
 1. **Read**: enumerate the installed packages in the target environment's site-packages and walk each package's `Requires-Dist` to build the dependency tree.
-2. **Detect**: read each package's installed `*.dist-info/METADATA`. Licenses come from PEP 639 `License-Expression`, the legacy `License` field, trove classifiers, or user overrides. A declared license that can't be normalized to SPDX is preserved verbatim (rather than discarded) so the report shows the actual string.
-3. **Classify**: categorize each license as permissive, weak-copyleft, strong-copyleft, or network-copyleft using OSADL copyleft data.
+2. **Detect**: read each package's installed `*.dist-info/METADATA`. Licenses come from user overrides (taken as-is), or from PEP 639 `License-Expression`, the legacy `License` field, and trove classifiers, where the first source with a recognized license wins. Strings are normalized against the full SPDX license list, so any valid SPDX expression is kept intact; a declared license that can't be normalized is preserved verbatim (rather than discarded) so the report shows the actual string.
+3. **Classify**: categorize each license as permissive, weak-copyleft, strong-copyleft, or network-copyleft using OSADL copyleft data. A valid SPDX license that data doesn't cover reports as unknown until you classify it.
 4. **Analyze**: check pairwise compatibility using the OSADL matrix and flag conflicts.
 5. **Recommend**: determine the most permissive outbound license that satisfies every dependency constraint. For OR expressions (e.g. `MIT OR GPL-2.0`), the most permissive alternative is selected before constraint solving.
 6. **Report**: render findings as terminal output, Markdown, JSON, or third-party notices.

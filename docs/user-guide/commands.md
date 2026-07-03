@@ -1,6 +1,6 @@
 # Commands
 
-license-audit provides the five commands detailed below. All accept the global flags `--target`, `--policy`, and `--config`.
+license-audit provides the five commands detailed below. All but `refresh` accept the global flags `--target`, `--policy`, and `--config`.
 
 ## `analyze`
 
@@ -49,7 +49,7 @@ license-audit report --format notices --output NOTICES.md
 
 | Format | Use case |
 |---|---|
-| `markdown` (default) | Human-readable compliance summary. Includes a **Licenses Requiring Review** section with the full license text of any dependency whose license could not be mapped to SPDX. |
+| `markdown` (default) | Human-readable compliance summary. Includes a **Licenses Requiring Review** section with the full license text of any dependency whose license could not be classified. |
 | `json` | Machine-readable, suitable for downstream tooling |
 | `notices` | `THIRD_PARTY_NOTICES.md` with full license texts |
 
@@ -65,7 +65,7 @@ The command writes to a platform-appropriate cache directory (resolved via `plat
 
 ## Global flags
 
-These apply to every command:
+These apply to every command except `refresh`, which takes no input:
 
 | Flag | Purpose |
 |---|---|

@@ -11,7 +11,7 @@ license-audit tells you what license your project can use, flags incompatible co
 - Outbound license recommendations ranked by permissiveness.
 - Compliance reports as Markdown, JSON, or third-party-notices.
 - CI exit codes that distinguish policy violations from undetected licenses.
-- Reads the licenses straight from your installed environment — provision it however you like (`uv`, Poetry, pip), then point license-audit at it.
+- Reads the licenses straight from your installed environment: provision it however you like (`uv`, Poetry, pip), then point license-audit at it.
 
 ## Installation
 
@@ -51,12 +51,14 @@ Dependency Licenses
 
 Recommended Outbound Licenses (most -> least permissive):
   -> MIT
-     BSD-3-Clause
      Apache-2.0
+     BSD-2-Clause
      ...
 
 Summary
   Total dependencies: 3
+  Unknown licenses:   0
+  Copyleft licenses:  0
   Policy check:       PASSED
 ```
 

@@ -78,7 +78,7 @@ pandas-stubs = "Stubs only, not redistributed"
 internal-tool = "Vendored, excluded from dist"
 ```
 
-Ignored packages are skipped by `check`'s policy evaluation (no exit 1 or 2), excluded from incompatible-pair analysis (so they don't constrain recommendations), and still listed in every report (terminal, markdown, JSON, notices) with an `ignored` marker plus the reason.
+Ignored packages are skipped by `check`'s policy evaluation (no exit 1 or 2), excluded from incompatible-pair analysis (so they don't constrain recommendations), and still listed in every report (terminal, markdown, JSON, notices) with an `ignored` marker plus the reason (notices shows the marker only).
 
 The reason is required and must be non-empty; empty reasons are rejected at config load. Package names are canonicalized per PEP 503, so `pandas-stubs`, `pandas_stubs`, and `Pandas.Stubs` all match.
 
@@ -86,7 +86,7 @@ Use `overrides` when you want to re-assert what the license is. Use `ignored-pac
 
 ### `license-classifications`
 
-Record your own judgement about a license and apply it to every package that uses that license. This is useful both for custom strings detection can't map to SPDX and for a recognized license you've reviewed (for example, MPL-2.0 dependencies you distribute unmodified, which you consider permissive). Unlike `overrides` (keyed by package name), one entry here applies to all matching packages.
+Record your own judgement about a license and apply it to every package that uses that license. This is useful for custom strings detection can't map to SPDX, for a valid SPDX license the OSADL data doesn't classify (CNRI-Python, say, which otherwise reports as unknown), and for a recognized license you've reviewed (for example, MPL-2.0 dependencies you distribute unmodified, which you consider permissive). Unlike `overrides` (keyed by package name), one entry here applies to all matching packages.
 
 ```toml
 [tool.license-audit.license-classifications]
@@ -96,11 +96,11 @@ Record your own judgement about a license and apply it to every package that use
 
 The value must be one of `permissive`, `weak-copyleft`, `strong-copyleft`, `network-copyleft`, or `proprietary`. (`unknown` is rejected, since the point is to *resolve* an unknown.) The key is matched case- and whitespace-insensitively against the license string shown in reports: a recognized SPDX expression like `MPL-2.0`, or the raw declared string when the license couldn't be mapped to SPDX. A package with no detectable license at all isn't matched, so `"UNKNOWN"` as a key matches nothing.
 
-A key also matches a component **inside** an AND/OR expression. The deemed category is substituted for that component and the expression is re-evaluated under normal AND/OR rules: deeming `MPL-2.0` permissive makes `MPL-2.0 AND MIT` permissive (both parts are now permissive), while deeming it proprietary makes the whole expression proprietary (an `AND` keeps the most restrictive part). For `OR`, the most permissive alternative still wins, so deeming one branch permissive makes the expression permissive. A matched component is also dropped from compatibility analysis, so the waiver is consistent. When a key matches neither a whole license nor any component, the report adds a warning (a likely typo).
+A key also matches a component **inside** an AND/OR expression. The deemed category is substituted for that component and the expression is re-evaluated under normal AND/OR rules: deeming `MPL-2.0` permissive makes `MPL-2.0 AND MIT` permissive (both parts are now permissive), while deeming it proprietary makes the whole expression proprietary (an `AND` keeps the most restrictive part). For `OR`, the most permissive alternative still wins, so deeming one branch permissive makes the expression permissive. A `WITH` clause is one component, keyed by its full text, so classify `Apache-2.0 WITH LLVM-exception` as a single entry. A matched component is also dropped from compatibility analysis, so the waiver is consistent. When a key matches neither a whole license nor any component, the report adds a warning (a likely typo).
 
 Once classified, the package is governed by the deemed category: it passes `--fail-on-unknown`, is evaluated against your `policy` by that category (so deeming something `strong-copyleft` still fails a `permissive` policy), and no longer blocks outbound recommendations. Reports tag the category with a `(classified)` marker to record that it's your judgement rather than detected from OSADL data.
 
-A classified package is dropped from pairwise compatibility analysis, since you've asserted its category directly. Deeming `MPL-2.0` permissive, for example, also waives any MPL incompatibility warnings. A deemed *permissive* license imposes no outbound constraint, so recommendations proceed normally; deeming something *copyleft/proprietary* leaves a constraint with no SPDX identity to compute against, so recommendations are withheld with an explanation rather than risk suggesting an incompatible outbound license.
+A classified package is dropped from pairwise compatibility analysis, since you've asserted its category directly. Deeming `MPL-2.0` permissive, for example, also waives any MPL incompatibility warnings. A deemed *permissive* license imposes no outbound constraint, so recommendations proceed normally; deeming something *copyleft/proprietary* leaves a constraint that is excluded from compatibility analysis, so recommendations are withheld with an explanation (the JSON report just leaves the list empty) rather than risk suggesting an incompatible outbound license.
 
 Use `license-classifications` to assert a category and have it apply everywhere; use `overrides` when you want a license treated as a genuine SPDX equivalent and kept in full compatibility analysis.
 

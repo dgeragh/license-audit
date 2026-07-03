@@ -6,7 +6,7 @@ license-audit reads what's declared in package metadata: PEP 639 fields, the leg
 
 ## OSADL coverage is finite
 
-The OSADL compatibility matrix covers about 120 well-known open-source licenses. Niche, custom, or proprietary licenses produce "Unknown" verdicts. Use `[tool.license-audit.overrides]` to assign SPDX identifiers manually when detection fails.
+The OSADL compatibility matrix covers about 120 well-known open-source licenses. A valid SPDX license outside that set is detected but classifies as unknown; record your judgement in `[tool.license-audit.license-classifications]` to resolve it. Strings that aren't SPDX at all produce "Unknown" verdicts; use `[tool.license-audit.overrides]` to assign SPDX identifiers manually when detection fails.
 
 ## OSADL is conservative
 
