@@ -67,6 +67,20 @@ class TestDetectLicense:
         assert result.expression == "MIT"
         assert result.source == LicenseSource.OVERRIDE
 
+    def test_override_value_normalized(self, tmp_path: Path) -> None:
+        reader = MetadataReader.from_site_packages(tmp_path)
+        result = detect_license("mypkg", reader, overrides={"mypkg": "apache 2.0"})
+        assert result.expression == "Apache-2.0"
+        assert result.source == LicenseSource.OVERRIDE
+        assert result.declared_license is None
+
+    def test_unrecognized_override_preserved_as_declared(self, tmp_path: Path) -> None:
+        reader = MetadataReader.from_site_packages(tmp_path)
+        result = detect_license("mypkg", reader, overrides={"mypkg": "Custom EULA"})
+        assert result.expression == "UNKNOWN"
+        assert result.source == LicenseSource.OVERRIDE
+        assert result.declared_license == "Custom EULA"
+
     def test_reads_from_dist_info(self, tmp_path: Path) -> None:
         _write_dist_info(
             tmp_path,

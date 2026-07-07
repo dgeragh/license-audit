@@ -18,7 +18,8 @@ from license_audit.core.models import (
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
-    deemed_constraint_packages,
+    NoRecommendationReason,
+    explain_no_recommendation,
 )
 
 _classifier = LicenseClassifier()
@@ -157,41 +158,17 @@ def _render_constraint(
 
 def _render_recommendations(console: Console, report: AnalysisReport) -> None:
     """Print the recommended licenses and guidance panel."""
-    if not report.recommended_licenses:
-        unknown = [
-            p
-            for p in report.packages
-            if not p.ignored and p.category == LicenseCategory.UNKNOWN
-        ]
-        deemed = deemed_constraint_packages(report)
-        if unknown:
-            names = ", ".join(p.name for p in unknown)
-            console.print(
-                "[bold yellow]Cannot recommend a license:[/bold yellow] "
-                f"{len(unknown)} dependency(ies) have an unclassified license "
-                f"({names}).\n"
-                r"Resolve them via `\[tool.license-audit.license-classifications]` "
-                r"or `\[tool.license-audit.overrides]` and re-run."
-            )
-        elif deemed:
-            names = ", ".join(p.name for p in deemed)
-            console.print(
-                "[bold yellow]Cannot recommend a license:[/bold yellow] "
-                f"{len(deemed)} dependency(ies) are classified as non-permissive "
-                f"({names}) and excluded from compatibility analysis, so outbound "
-                "compatibility can't be computed.\n"
-                "Remove the classification, or assert a genuine SPDX license via "
-                r"`\[tool.license-audit.overrides]`, if you need recommendations."
-            )
-        else:
-            console.print(
-                "[bold red]No compatible outbound license found![/bold red]\n"
-                "Your dependencies have conflicting license requirements."
-            )
-            if report.incompatible_pairs:
-                console.print("\n[bold]Conflicting pairs:[/bold]")
-                for pair in report.incompatible_pairs:
-                    console.print(IncompatiblePairFormatter.rich(pair))
+    explanation = explain_no_recommendation(report)
+    if explanation is not None:
+        conflict = explanation.reason is NoRecommendationReason.NO_COMMON_LICENSE
+        style = "bold red" if conflict else "bold yellow"
+        console.print(
+            f"[{style}]{explanation.headline}:[/{style}] {escape(explanation.detail)}"
+        )
+        if conflict and report.incompatible_pairs:
+            console.print("\n[bold]Conflicting pairs:[/bold]")
+            for pair in report.incompatible_pairs:
+                console.print(IncompatiblePairFormatter.rich(pair))
         return
 
     top = report.recommended_licenses[:5]

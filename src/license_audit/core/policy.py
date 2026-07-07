@@ -62,7 +62,6 @@ class PolicyEngine:
             allowed_licenses=config.allowed_licenses,
             denied_licenses=config.denied_licenses,
             fail_on_unknown=config.fail_on_unknown,
-            ignored_packages=config.ignored_packages,
         )
 
     def check(

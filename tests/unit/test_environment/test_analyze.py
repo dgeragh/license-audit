@@ -68,10 +68,10 @@ class TestAnalyzeEnvironmentRealVenv:
         sp = _site_packages_or_skip()
         reader = MetadataReader.from_site_packages(sp)
         tree = analyze_environment(
-            "license_audit", reader, overrides={"click": "custom-license"}
+            "license_audit", reader, overrides={"click": "Apache-2.0"}
         )
         click_pkgs = [p for p in tree.flatten() if p.name == "click"]
-        assert click_pkgs[0].license_expression == "custom-license"
+        assert click_pkgs[0].license_expression == "Apache-2.0"
 
 
 class TestAnalyzeEnvironmentFakeSitePackages:

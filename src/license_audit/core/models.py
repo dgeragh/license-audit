@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -153,7 +152,6 @@ class LicensePolicy(BaseModel):
     allowed_licenses: list[str] = Field(default_factory=list)
     denied_licenses: list[str] = Field(default_factory=list)
     fail_on_unknown: bool = True
-    ignored_packages: dict[str, str] = Field(default_factory=dict)
 
 
 class AnalysisReport(BaseModel):
@@ -162,9 +160,7 @@ class AnalysisReport(BaseModel):
     project_name: str = ""
     source: str = ""
     packages: list[PackageLicense] = Field(default_factory=list)
-    compatibility_results: list[CompatibilityResult] = Field(default_factory=list)
     incompatible_pairs: list[CompatibilityResult] = Field(default_factory=list)
     recommended_licenses: list[str] = Field(default_factory=list)
     action_items: list[ActionItem] = Field(default_factory=list)
     policy_passed: bool | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)

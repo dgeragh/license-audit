@@ -1,5 +1,10 @@
 # license-audit
 
+[![CI](https://github.com/dgeragh/license-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/dgeragh/license-audit/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/license-audit)](https://pypi.org/project/license-audit/)
+[![Python versions](https://img.shields.io/pypi/pyversions/license-audit)](https://pypi.org/project/license-audit/)
+[![License](https://img.shields.io/pypi/l/license-audit)](https://github.com/dgeragh/license-audit/blob/main/LICENSE)
+
 **Analyze dependency licenses for Python projects.**
 
 license-audit tells you what license your project can use, flags incompatible combinations, and generates compliance documents suitable for CI gating.

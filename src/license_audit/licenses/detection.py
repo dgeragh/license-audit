@@ -59,7 +59,12 @@ def detect_license(
         deemed = {canonicalize(name): spdx for name, spdx in overrides.items()}
         spdx = deemed.get(canonicalize(package_name))
         if spdx is not None:
-            return DetectionResult(spdx, LicenseSource.OVERRIDE)
+            normalized = _normalizer.normalize(spdx)
+            if normalized != UNKNOWN_LICENSE:
+                return DetectionResult(normalized, LicenseSource.OVERRIDE)
+            return DetectionResult(
+                UNKNOWN_LICENSE, LicenseSource.OVERRIDE, declared_license=spdx.strip()
+            )
 
     meta = reader.read_metadata(package_name)
     if meta is None:

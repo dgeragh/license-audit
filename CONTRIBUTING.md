@@ -16,7 +16,7 @@ uv sync --all-groups
 
 ```bash
 # Run tests with coverage
-uv run pytest tests/ --cov=license_audit --cov-fail-under=75
+uv run pytest tests/ --cov
 
 # Lint and format
 uv run ruff check

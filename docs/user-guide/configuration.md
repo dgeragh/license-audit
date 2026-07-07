@@ -68,6 +68,8 @@ my-internal-package = "MIT"
 dual-licensed-pkg = "Apache-2.0 OR MIT"
 ```
 
+Values must be valid SPDX license expressions. Common aliases are normalized to their canonical SPDX form (`"apache"` becomes `Apache-2.0`); a value that can't be normalized is rejected at config load. For a license with no SPDX equivalent, use `license-classifications` instead.
+
 ### `ignored-packages`
 
 Exempt specific packages from policy evaluation. Each entry is a reason string that ends up in the audit trail.

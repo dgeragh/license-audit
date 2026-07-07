@@ -11,9 +11,10 @@ from license_audit.core.models import AnalysisReport, LicenseCategory
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
+    NoRecommendationReason,
     SummaryStats,
     category_label,
-    deemed_constraint_packages,
+    explain_no_recommendation,
     license_label,
 )
 
@@ -99,39 +100,17 @@ class TerminalRenderer:
         self._console.print()
 
     def _render_recommendations(self, report: AnalysisReport) -> None:
-        if not report.recommended_licenses:
-            unknown = [
-                p
-                for p in report.packages
-                if not p.ignored and p.category == LicenseCategory.UNKNOWN
-            ]
-            deemed = deemed_constraint_packages(report)
-            if unknown:
-                names = ", ".join(p.name for p in unknown)
-                self._console.print(
-                    "[bold yellow]Cannot recommend a license[/bold yellow] until "
-                    f"{len(unknown)} unclassified license(s) are resolved: {names}",
-                )
-            elif deemed:
-                names = ", ".join(p.name for p in deemed)
-                self._console.print(
-                    "[bold yellow]Cannot recommend a license[/bold yellow]: "
-                    f"{len(deemed)} dependency(ies) are classified as "
-                    "non-permissive and excluded from compatibility analysis, so "
-                    f"outbound compatibility can't be computed: {names}. Remove "
-                    "the classification or use [tool.license-audit.overrides] "
-                    "for recommendations.",
-                )
-            else:
-                self._console.print(
-                    "[bold red]No compatible outbound license found![/bold red]",
-                )
-                if report.incompatible_pairs:
-                    for pair in report.incompatible_pairs:
-                        self._console.print(
-                            f"  [red]\\[x][/red] {pair.inbound} and {pair.outbound} "
-                            "have no common outbound license",
-                        )
+        explanation = explain_no_recommendation(report)
+        if explanation is not None:
+            conflict = explanation.reason is NoRecommendationReason.NO_COMMON_LICENSE
+            style = "bold red" if conflict else "bold yellow"
+            self._console.print(
+                f"[{style}]{explanation.headline}:[/{style}] "
+                f"{escape(explanation.detail)}",
+            )
+            if conflict and report.incompatible_pairs:
+                for pair in report.incompatible_pairs:
+                    self._console.print(IncompatiblePairFormatter.rich(pair))
             self._console.print()
             return
 

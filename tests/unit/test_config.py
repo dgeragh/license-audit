@@ -113,6 +113,31 @@ class TestLicenseClassificationsValidation:
             )
 
 
+class TestOverridesValidation:
+    def test_valid_spdx_accepted(self) -> None:
+        config = LicenseAuditConfig(overrides={"some-pkg": "MIT"})
+        assert config.overrides == {"some-pkg": "MIT"}
+
+    def test_alias_normalized(self) -> None:
+        config = LicenseAuditConfig(overrides={"some-pkg": "apache"})
+        assert config.overrides == {"some-pkg": "Apache-2.0"}
+
+    def test_compound_expression_accepted(self) -> None:
+        config = LicenseAuditConfig(overrides={"some-pkg": "Apache-2.0 OR MIT"})
+        assert config.overrides == {"some-pkg": "Apache-2.0 OR MIT"}
+
+    def test_unrecognized_value_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="not a recognized SPDX"):
+            LicenseAuditConfig(overrides={"some-pkg": "Custom EULA"})
+
+    def test_unrecognized_value_rejected_from_pyproject(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.license-audit.overrides]\nsome-pkg = "Custom EULA"\n'
+        )
+        with pytest.raises(ValidationError, match="not a recognized SPDX"):
+            load_config(tmp_path)
+
+
 class TestGetProjectName:
     def test_reads_name(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
@@ -124,4 +149,8 @@ class TestGetProjectName:
 
     def test_missing_project_section(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text("[tool.other]\nfoo = 1\n")
+        assert get_project_name(tmp_path) == "unknown"
+
+    def test_malformed_toml_returns_unknown(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("this is = = not valid [[[\n")
         assert get_project_name(tmp_path) == "unknown"

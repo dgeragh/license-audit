@@ -133,11 +133,8 @@ class TestExitCodes:
         tmp_path: Path,
         make_venv: VenvBuilder,
     ) -> None:
-        _make_pyproject(
-            tmp_path / "pyproject.toml",
-            overrides={"click": "PROPRIETARY-NOT-A-REAL-SPDX"},
-        )
-        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        _make_pyproject(tmp_path / "pyproject.toml")
+        make_venv(tmp_path / ".venv", {"click": "PROPRIETARY-NOT-A-REAL-SPDX"})
         result = _run(["--target", str(tmp_path), "check", "--fail-on-unknown"])
         assert result.returncode == 2
 
@@ -146,11 +143,8 @@ class TestExitCodes:
         tmp_path: Path,
         make_venv: VenvBuilder,
     ) -> None:
-        _make_pyproject(
-            tmp_path / "pyproject.toml",
-            overrides={"click": "PROPRIETARY-NOT-A-REAL-SPDX"},
-        )
-        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        _make_pyproject(tmp_path / "pyproject.toml")
+        make_venv(tmp_path / ".venv", {"click": "PROPRIETARY-NOT-A-REAL-SPDX"})
         result = _run(["--target", str(tmp_path), "check", "--no-fail-on-unknown"])
         assert result.returncode == 0
 
@@ -185,7 +179,9 @@ class TestJsonOutputs:
         result = _run(["--target", str(tmp_path), "report", "--format", "json"])
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
-        assert {"packages", "policy_passed", "metadata"}.issubset(payload.keys())
+        assert {"packages", "policy_passed"}.issubset(payload.keys())
+        assert "metadata" not in payload
+        assert "compatibility_results" not in payload
 
     def test_report_output_writes_file(
         self,

@@ -14,8 +14,10 @@ from license_audit.core.models import (
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
+    NoRecommendationReason,
     SummaryStats,
     category_label,
+    explain_no_recommendation,
     fenced_code_block,
     license_label,
     markdown_license_cell,
@@ -242,3 +244,96 @@ class TestIncompatiblePairFormatter:
     def test_markdown_row(self) -> None:
         result = IncompatiblePairFormatter.markdown_row(self._pair())
         assert result == "| GPL-2.0-only | Apache-2.0 | incompatible |"
+
+
+class TestExplainNoRecommendation:
+    def test_none_when_recommendations_exist(self) -> None:
+        report = AnalysisReport(recommended_licenses=["MIT"])
+        assert explain_no_recommendation(report) is None
+
+    def test_unknown_branch(self) -> None:
+        report = AnalysisReport(
+            packages=[
+                PackageLicense(
+                    name="mystery",
+                    version="1.0",
+                    category=LicenseCategory.UNKNOWN,
+                )
+            ],
+        )
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.UNKNOWN_LICENSES
+        assert explanation.headline == "Cannot recommend a license"
+        assert "mystery" in explanation.detail
+
+    def test_deemed_branch(self) -> None:
+        report = AnalysisReport(
+            packages=[
+                PackageLicense(
+                    name="vendor-sdk",
+                    version="1.0",
+                    category=LicenseCategory.STRONG_COPYLEFT,
+                    category_overridden=True,
+                )
+            ],
+        )
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.DEEMED_CONSTRAINT
+        assert explanation.headline == "Cannot recommend a license"
+        assert "outbound compatibility can't be computed" in explanation.detail
+        assert "vendor-sdk" in explanation.detail
+
+    def test_conflict_branch(self) -> None:
+        report = AnalysisReport(
+            packages=[
+                PackageLicense(
+                    name="gpl-pkg",
+                    version="1.0",
+                    license_expression="GPL-3.0-only",
+                    category=LicenseCategory.STRONG_COPYLEFT,
+                )
+            ],
+        )
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.NO_COMMON_LICENSE
+        assert explanation.headline == "No compatible outbound license found"
+        assert "override" in explanation.detail
+
+    def test_unknown_wins_over_deemed(self) -> None:
+        report = AnalysisReport(
+            packages=[
+                PackageLicense(
+                    name="mystery",
+                    version="1.0",
+                    category=LicenseCategory.UNKNOWN,
+                ),
+                PackageLicense(
+                    name="vendor-sdk",
+                    version="1.0",
+                    category=LicenseCategory.STRONG_COPYLEFT,
+                    category_overridden=True,
+                ),
+            ],
+        )
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.UNKNOWN_LICENSES
+
+    def test_ignored_unknown_excluded(self) -> None:
+        report = AnalysisReport(
+            packages=[
+                PackageLicense(
+                    name="ignored-unknown",
+                    version="1.0",
+                    category=LicenseCategory.UNKNOWN,
+                    ignored=True,
+                    ignore_reason="reviewed",
+                )
+            ],
+        )
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.NO_COMMON_LICENSE

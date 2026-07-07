@@ -50,7 +50,11 @@ def report_cmd(
     if output_path:
         if not content.endswith("\n"):
             content += "\n"
-        output_path.write_text(content, encoding="utf-8")
+        try:
+            output_path.write_text(content, encoding="utf-8")
+        except OSError as exc:
+            msg = f"Cannot write report to {output_path}: {exc}"
+            raise click.ClickException(msg) from exc
         click.echo(f"Report written to {output_path}")
     else:
         click.echo(content)
