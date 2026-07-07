@@ -73,6 +73,14 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.coverage.run]
+source = ["src/license_audit"]
+omit = ["src/license_audit/_version.py"]
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true
+
 [tool.mypy]
 files = ["src"]
 strict = true

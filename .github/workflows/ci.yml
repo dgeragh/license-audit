@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked --all-groups
-      - run: uv run pytest tests/ --cov=src/license_audit --cov-report=term-missing --cov-fail-under=75
+      - run: uv run pytest tests/ --cov
 
   lint:
     runs-on: ubuntu-latest
