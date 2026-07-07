@@ -179,7 +179,9 @@ class TestJsonOutputs:
         result = _run(["--target", str(tmp_path), "report", "--format", "json"])
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
-        assert {"packages", "policy_passed", "metadata"}.issubset(payload.keys())
+        assert {"packages", "policy_passed"}.issubset(payload.keys())
+        assert "metadata" not in payload
+        assert "compatibility_results" not in payload
 
     def test_report_output_writes_file(
         self,

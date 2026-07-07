@@ -25,6 +25,11 @@ class TestJsonRenderer:
         data = json.loads(result)
         assert data["packages"] == []
 
+    def test_removed_fields_not_serialized(self) -> None:
+        data = json.loads(JsonRenderer().render(AnalysisReport()))
+        assert "compatibility_results" not in data
+        assert "metadata" not in data
+
     def test_declared_license_serialized_for_machine_consumers(self) -> None:
         # The machine-readable contract for distinguishing "declared but
         # unrecognized" from "not detected": declared_license is a field;

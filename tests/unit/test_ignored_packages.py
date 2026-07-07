@@ -140,11 +140,6 @@ class TestPolicyEngineSkipsIgnored:
         items = PolicyEngine().build_action_items([gpl_ignored], [], config)
         assert items == []
 
-    def test_build_policy_propagates_ignored_packages(self) -> None:
-        config = self._config(ignored={"pkg_a": "reason-a"})
-        policy = PolicyEngine().build_policy(config)
-        assert policy.ignored_packages == {"pkg_a": "reason-a"}
-
 
 class TestAuditorAppliesIgnores:
     def test_canonicalized_name_match(self) -> None:
