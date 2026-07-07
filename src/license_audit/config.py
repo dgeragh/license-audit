@@ -7,7 +7,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from license_audit.core.models import LicenseCategory, PolicyLevel
+from license_audit.core.models import UNKNOWN_LICENSE, LicenseCategory, PolicyLevel
+from license_audit.licenses.spdx import SpdxNormalizer
 
 
 class LicenseAuditConfig(BaseModel):
@@ -74,6 +75,27 @@ class LicenseAuditConfig(BaseModel):
                 )
                 raise ValueError(msg)
         return value
+
+    @field_validator("overrides", mode="after")
+    @classmethod
+    def _validate_overrides(cls, value: dict[str, str]) -> dict[str, str]:
+        if not value:
+            return value
+        normalizer = SpdxNormalizer()
+        normalized: dict[str, str] = {}
+        for key, expression in value.items():
+            spdx = normalizer.normalize(expression)
+            if spdx == UNKNOWN_LICENSE:
+                msg = (
+                    f"overrides['{key}'] value '{expression}' is not a "
+                    f"recognized SPDX license expression (e.g. 'MIT', "
+                    f"'Apache-2.0 OR MIT'). To record a judgement about a "
+                    f"non-SPDX license, use "
+                    f"[tool.license-audit.license-classifications] instead."
+                )
+                raise ValueError(msg)
+            normalized[key] = spdx
+        return normalized
 
 
 def load_config(config_dir: Path | None = None) -> LicenseAuditConfig:
