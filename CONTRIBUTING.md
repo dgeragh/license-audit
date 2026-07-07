@@ -32,8 +32,9 @@ All of these must pass before a PR will be merged.
 
 1. Fork the repo and create a branch from `main`.
 2. Make your changes. Add or update tests as appropriate.
-3. Run the full check suite (tests, ruff, mypy) locally.
-4. Open a pull request with a clear description of what you changed and why.
+3. If you change the report models, regenerate `docs/reference/report-schema.json` with `UPDATE_SCHEMA=1 uv run pytest tests/unit/test_reports/test_schema_contract.py` and update `docs/reference/report-schema.md`.
+4. Run the full check suite (tests, ruff, mypy) locally.
+5. Open a pull request with a clear description of what you changed and why.
 
 ## Reporting Bugs
 

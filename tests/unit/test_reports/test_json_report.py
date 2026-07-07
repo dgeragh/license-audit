@@ -2,6 +2,7 @@
 
 import json
 
+from license_audit import __version__
 from license_audit.core.models import (
     AnalysisReport,
     LicenseCategory,
@@ -16,6 +17,8 @@ class TestJsonRenderer:
         renderer = JsonRenderer()
         result = renderer.render(sample_report)
         data = json.loads(result)
+        assert data["schema_version"] == 1
+        assert data["tool_version"] == __version__
         assert data["project_name"] == "test-project"
         assert len(data["packages"]) == 2
 

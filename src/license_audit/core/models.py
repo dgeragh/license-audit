@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Final, Literal
 
 from pydantic import BaseModel, Field
 
+from license_audit import __version__
+
 # Sentinel value used when a package's license cannot be detected.
 UNKNOWN_LICENSE = "UNKNOWN"
+
+# Bumped only on breaking changes to the JSON report; additive changes do not bump.
+SCHEMA_VERSION: Final = 1
 
 
 class LicenseCategory(StrEnum):
@@ -157,6 +163,8 @@ class LicensePolicy(BaseModel):
 class AnalysisReport(BaseModel):
     """Complete analysis output."""
 
+    schema_version: Literal[1] = SCHEMA_VERSION
+    tool_version: str = Field(default_factory=lambda: __version__)
     project_name: str = ""
     source: str = ""
     packages: list[PackageLicense] = Field(default_factory=list)

@@ -46,6 +46,7 @@ class TestAnalyzeCli:
             result = CliRunner().invoke(cli, ["analyze", "--format", "json"])
         assert result.exit_code == 0
         assert '"project_name"' in result.output
+        assert '"schema_version": 1' in result.output
 
     def test_invalid_format_rejected(self) -> None:
         result = CliRunner().invoke(cli, ["analyze", "--format", "csv"])
