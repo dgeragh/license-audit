@@ -138,7 +138,10 @@ def get_project_name(config_dir: Path | None = None) -> str:
     if not pyproject_path.exists():
         return "unknown"
 
-    with open(pyproject_path, "rb") as f:
-        data = tomllib.load(f)
+    try:
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError:
+        return "unknown"
 
     return str(data.get("project", {}).get("name", "unknown"))

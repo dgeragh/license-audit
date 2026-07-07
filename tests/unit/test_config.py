@@ -150,3 +150,7 @@ class TestGetProjectName:
     def test_missing_project_section(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text("[tool.other]\nfoo = 1\n")
         assert get_project_name(tmp_path) == "unknown"
+
+    def test_malformed_toml_returns_unknown(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("this is = = not valid [[[\n")
+        assert get_project_name(tmp_path) == "unknown"

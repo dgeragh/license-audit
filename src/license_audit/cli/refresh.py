@@ -49,7 +49,11 @@ class OSADLRefresher:
             msg = f"Response from {url} exceeds {self.MAX_RESPONSE_BYTES} bytes"
             raise RuntimeError(msg)
         # Parse before writing so malformed data never lands in the cache.
-        json.loads(data)
+        try:
+            json.loads(data)
+        except json.JSONDecodeError as exc:
+            msg = f"Invalid JSON received from {url}: {exc}"
+            raise ValueError(msg) from exc
         tmp = dest.with_name(dest.name + ".tmp")
         tmp.write_bytes(data)
         tmp.replace(dest)
@@ -58,4 +62,7 @@ class OSADLRefresher:
 @click.command("refresh")
 def refresh_cmd() -> None:
     """Download the latest OSADL compatibility data."""
-    OSADLRefresher().refresh(Console())
+    try:
+        OSADLRefresher().refresh(Console())
+    except (OSError, ValueError, RuntimeError) as exc:
+        raise click.ClickException(f"Failed to refresh OSADL data: {exc}") from exc

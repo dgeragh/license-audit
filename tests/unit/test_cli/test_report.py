@@ -67,6 +67,21 @@ class TestReportCli:
         assert out.exists()
         assert "test-project" in out.read_text()
 
+    def test_output_to_missing_directory(self, tmp_path) -> None:
+        report = _make_report(packages=[_MIT_PKG])
+        out = tmp_path / "missing" / "report.md"
+        with patch("license_audit.cli.report.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["report", "--output", str(out)])
+        assert result.exit_code == 1
+        assert "Cannot write report" in result.output
+
+    def test_output_to_directory_path(self, tmp_path) -> None:
+        report = _make_report(packages=[_MIT_PKG])
+        with patch("license_audit.cli.report.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["report", "--output", str(tmp_path)])
+        assert result.exit_code == 1
+        assert "Cannot write report" in result.output
+
     def test_notices_output(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
         with patch("license_audit.cli.report.run_audit", return_value=report) as _m:

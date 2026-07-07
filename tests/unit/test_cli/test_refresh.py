@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from urllib.error import URLError
 
 import pytest
 from click.testing import CliRunner
@@ -45,6 +46,51 @@ class TestRefreshCmd:
 
         assert result.exit_code == 0
         assert cache_dir.is_dir()
+
+
+class TestRefreshCmdErrors:
+    def test_network_error_fails_cleanly(self, tmp_path: Path) -> None:
+        with (
+            patch.object(OSADLDataStore, "cache_dir", return_value=tmp_path),
+            patch.object(
+                OSADLRefresher,
+                "download",
+                side_effect=URLError("connection refused"),
+            ),
+        ):
+            result = CliRunner().invoke(cli, ["refresh"])
+
+        assert result.exit_code == 1
+        assert "Failed to refresh OSADL data" in result.output
+        assert "Traceback" not in result.output
+
+    def test_oversized_response_fails_cleanly(self, tmp_path: Path) -> None:
+        with (
+            patch.object(OSADLDataStore, "cache_dir", return_value=tmp_path),
+            patch.object(
+                OSADLRefresher,
+                "download",
+                side_effect=RuntimeError("response exceeds 10485760 bytes"),
+            ),
+        ):
+            result = CliRunner().invoke(cli, ["refresh"])
+
+        assert result.exit_code == 1
+        assert "Failed to refresh OSADL data" in result.output
+
+    def test_invalid_json_fails_cleanly(self, tmp_path: Path) -> None:
+        with (
+            patch.object(OSADLDataStore, "cache_dir", return_value=tmp_path),
+            patch.object(
+                OSADLRefresher,
+                "download",
+                side_effect=ValueError("Invalid JSON received"),
+            ),
+        ):
+            result = CliRunner().invoke(cli, ["refresh"])
+
+        assert result.exit_code == 1
+        assert "Failed to refresh OSADL data" in result.output
 
 
 class TestDownload:
@@ -88,13 +134,11 @@ class TestDownload:
                 "license_audit.cli.refresh.urlopen",
                 return_value=self._make_response(b"not json at all"),
             ),
-            pytest.raises(json.JSONDecodeError),
+            pytest.raises(ValueError, match="Invalid JSON"),
         ):
             OSADLRefresher().download("https://example.com/test.json", dest)
 
     def test_network_error(self, tmp_path: Path) -> None:
-        from urllib.error import URLError
-
         dest = tmp_path / "test.json"
         with (
             patch(
@@ -113,7 +157,7 @@ class TestDownload:
                 "license_audit.cli.refresh.urlopen",
                 return_value=self._make_response(b"not json at all"),
             ),
-            pytest.raises(json.JSONDecodeError),
+            pytest.raises(ValueError, match="Invalid JSON"),
         ):
             OSADLRefresher().download("https://example.com/test.json", dest)
 
