@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Override values are normalized to canonical SPDX (`apache` reads `Apache-2.0`), and a value that isn't a recognized SPDX expression is rejected at config load instead of silently classifying as unknown
+- `refresh` reports network and parse failures as a clean error instead of a traceback
+- `report --output` reports a failed file write as a clean error instead of a traceback
+- The project-name lookup tolerates a malformed `pyproject.toml` instead of raising
+
+### Changed
+
+- The terminal, Markdown, and `recommend` renderers share one wording for the withheld-recommendation explanation
+- The development status classifier is now Beta
+
+### Removed
+
+- The always-empty `compatibility_results` and `metadata` fields from the JSON report schema
+
+### Added
+
+- `SECURITY.md` and Dependabot version updates
+
 ## 0.11.0 (2026-07-02)
 
 ### Fixed
