@@ -52,6 +52,7 @@ nav:
       - CI Integration: user-guide/ci-integration.md
   - Reference:
       - How it works: reference/how-it-works.md
+      - JSON report schema: reference/report-schema.md
       - Comparison: reference/comparison.md
       - Limitations: reference/limitations.md
   - Changelog: CHANGELOG.md
