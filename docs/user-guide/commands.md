@@ -4,7 +4,7 @@ license-audit provides the five commands detailed below. All commands accept the
 
 ## `analyze`
 
-Default analysis output: a per-package table with version, license expression, category, source, and parent, plus recommended outbound licenses, action items, and a summary. Pass `--format json` for the same analysis as machine-readable JSON.
+Default analysis output: a per-package table with version, license expression, category, source, and parent, plus recommended outbound licenses, action items, and a summary. Pass `--format json` for the same analysis as machine-readable JSON (see the [JSON report schema](../reference/report-schema.md)).
 
 ```bash
 license-audit analyze
@@ -50,7 +50,7 @@ license-audit report --format notices --output NOTICES.md
 | Format | Use case |
 |---|---|
 | `markdown` (default) | Human-readable compliance summary. Includes a **Licenses Requiring Review** section with the full license text of any dependency whose license could not be classified. |
-| `json` | Machine-readable, suitable for downstream tooling |
+| `json` | Machine-readable, suitable for downstream tooling. See the [JSON report schema](../reference/report-schema.md) |
 | `notices` | `THIRD_PARTY_NOTICES.md` with full license texts |
 
 ## `refresh`

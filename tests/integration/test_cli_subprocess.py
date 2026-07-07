@@ -167,6 +167,7 @@ class TestJsonOutputs:
         payload = json.loads(result.stdout)
         assert "packages" in payload
         assert "policy_passed" in payload
+        assert payload["schema_version"] == 1
         assert any(p["name"] == "click" for p in payload["packages"])
 
     def test_report_json_parses(
@@ -179,7 +180,9 @@ class TestJsonOutputs:
         result = _run(["--target", str(tmp_path), "report", "--format", "json"])
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
-        assert {"packages", "policy_passed"}.issubset(payload.keys())
+        assert {"schema_version", "tool_version", "packages", "policy_passed"}.issubset(
+            payload.keys()
+        )
         assert "metadata" not in payload
         assert "compatibility_results" not in payload
 

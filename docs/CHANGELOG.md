@@ -20,6 +20,8 @@
 
 ### Added
 
+- `schema_version` (currently `1`) and `tool_version` fields at the top of the JSON report; `schema_version` bumps only on breaking changes
+- The JSON report is now a documented public contract: a field-by-field reference page and a machine-readable JSON Schema on the docs site
 - `SECURITY.md` and Dependabot version updates
 
 ## 0.11.0 (2026-07-02)
