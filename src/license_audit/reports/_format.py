@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 
 from rich.markup import escape
 
@@ -80,6 +81,74 @@ def deemed_constraint_packages(report: AnalysisReport) -> list[PackageLicense]:
         and p.category_overridden
         and p.category != LicenseCategory.PERMISSIVE
     ]
+
+
+class NoRecommendationReason(StrEnum):
+    """Why a report has no recommended licenses."""
+
+    UNKNOWN_LICENSES = "unknown-licenses"
+    DEEMED_CONSTRAINT = "deemed-constraint"
+    NO_COMMON_LICENSE = "no-common-license"
+
+
+@dataclass(frozen=True)
+class NoRecommendationExplanation:
+    """Renderer-neutral plain-text explanation for withheld recommendations."""
+
+    reason: NoRecommendationReason
+    headline: str
+    detail: str
+
+
+def explain_no_recommendation(
+    report: AnalysisReport,
+) -> NoRecommendationExplanation | None:
+    """Explain why `report` has no recommended licenses, or None if it does."""
+    if report.recommended_licenses:
+        return None
+
+    unknown = [
+        p
+        for p in report.packages
+        if not p.ignored and p.category == LicenseCategory.UNKNOWN
+    ]
+    if unknown:
+        names = ", ".join(p.name for p in unknown)
+        return NoRecommendationExplanation(
+            reason=NoRecommendationReason.UNKNOWN_LICENSES,
+            headline="Cannot recommend a license",
+            detail=(
+                f"{len(unknown)} dependency(ies) have an unclassified license "
+                f"({names}). Resolve them via "
+                "[tool.license-audit.license-classifications] or "
+                "[tool.license-audit.overrides] and re-run."
+            ),
+        )
+
+    deemed = deemed_constraint_packages(report)
+    if deemed:
+        names = ", ".join(p.name for p in deemed)
+        return NoRecommendationExplanation(
+            reason=NoRecommendationReason.DEEMED_CONSTRAINT,
+            headline="Cannot recommend a license",
+            detail=(
+                f"{len(deemed)} dependency(ies) are classified as non-permissive "
+                f"({names}) and excluded from compatibility analysis, so outbound "
+                "compatibility can't be computed. Remove the classification, or "
+                "assert a genuine SPDX license via [tool.license-audit.overrides], "
+                "if you need recommendations."
+            ),
+        )
+
+    return NoRecommendationExplanation(
+        reason=NoRecommendationReason.NO_COMMON_LICENSE,
+        headline="No compatible outbound license found",
+        detail=(
+            "Your dependencies have conflicting license requirements. Add an "
+            "override in [tool.license-audit.overrides] if a detected license "
+            "is incorrect, or replace a conflicting dependency."
+        ),
+    )
 
 
 def license_label(value: str, limit: int = 120) -> str:

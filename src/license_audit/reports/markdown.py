@@ -7,10 +7,11 @@ from license_audit.core.models import UNKNOWN_LICENSE, AnalysisReport, LicenseCa
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
+    NoRecommendationReason,
     SummaryStats,
     attribution_footer,
     category_label,
-    deemed_constraint_packages,
+    explain_no_recommendation,
     fenced_code_block,
     generated_metadata_block,
     license_label,
@@ -136,53 +137,21 @@ class MarkdownRenderer:
         return "\n".join(lines) + "\n"
 
     def _recommendations(self, report: AnalysisReport) -> str:
-        if not report.recommended_licenses:
-            unknown = [
-                p
-                for p in report.packages
-                if not p.ignored and p.category == LicenseCategory.UNKNOWN
+        explanation = explain_no_recommendation(report)
+        if explanation is not None:
+            lines = [
+                "\n## Recommended Licenses\n",
+                f"{explanation.headline}. {explanation.detail}",
             ]
-            deemed = deemed_constraint_packages(report)
-            lines = ["\n## Recommended Licenses\n"]
-            if unknown:
-                names = ", ".join(f"`{p.name}`" for p in unknown)
-                lines.append(
-                    f"Cannot recommend a license: {len(unknown)} dependency(ies) "
-                    f"have an unclassified license ({names}). Resolve them via "
-                    "`[tool.license-audit.license-classifications]` or "
-                    "`[tool.license-audit.overrides]` and re-run."
+            conflict = explanation.reason is NoRecommendationReason.NO_COMMON_LICENSE
+            if conflict and report.incompatible_pairs:
+                pairs = ", ".join(
+                    f"{p.inbound} / {p.outbound}" for p in report.incompatible_pairs
                 )
-            elif deemed:
-                names = ", ".join(f"`{p.name}`" for p in deemed)
                 lines.append(
-                    f"Cannot recommend a license: {len(deemed)} dependency(ies) "
-                    f"are classified as non-permissive ({names}). A classified "
-                    "license is excluded from compatibility analysis, so outbound "
-                    "compatibility can't be computed. Remove the classification, "
-                    "or assert a genuine SPDX license via "
-                    "`[tool.license-audit.overrides]`, if you need recommendations."
+                    f"The following license pairs have no common outbound "
+                    f"license: {pairs}."
                 )
-            else:
-                lines.append("No compatible outbound license found.")
-                if report.incompatible_pairs:
-                    pairs = ", ".join(
-                        f"{p.inbound} / {p.outbound}" for p in report.incompatible_pairs
-                    )
-                    lines.append(
-                        f"The following license pairs have no common outbound "
-                        f"license: {pairs}."
-                    )
-                    lines.append(
-                        "Consider adding an override in "
-                        "`[tool.license-audit.overrides]` if the detected license "
-                        "is incorrect, or replacing the conflicting dependency."
-                    )
-                else:
-                    lines.append(
-                        "Your dependencies have license requirements that could not "
-                        "be reconciled. Check the Compatibility Analysis section for "
-                        "details."
-                    )
             return "\n".join(lines) + "\n"
 
         top = report.recommended_licenses[:10]
