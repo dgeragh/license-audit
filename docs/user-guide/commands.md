@@ -1,6 +1,6 @@
 # Commands
 
-license-audit provides the five commands detailed below. All but `refresh` accept the global flags `--target`, `--policy`, and `--config`.
+license-audit provides the five commands detailed below. All commands accept the global flags `--target`, `--policy`, and `--config`; `refresh` takes no configuration and ignores them.
 
 ## `analyze`
 
