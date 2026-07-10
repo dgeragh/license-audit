@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1 (2026-07-09)
+
+### Fixed
+
+- A `WITH exception` form without its own OSADL entry (`Apache-2.0 WITH LLVM-exception`) now classifies by its base license instead of unknown
+
 ## 0.12.0 (2026-07-06)
 
 ### Fixed
