@@ -27,13 +27,21 @@ class LicenseClassifier:
         self._store = store or OSADLDataStore()
 
     def classify(self, spdx_id: str) -> LicenseCategory:
-        """Classify an SPDX license by its copyleft strength."""
+        """Classify an SPDX license by its copyleft strength.
+
+        A `X WITH exception` form absent from the OSADL data falls back to
+        the base license: exceptions only grant extra permissions, so the
+        base category is a safe upper bound.
+        """
         if self.is_network_copyleft(spdx_id):
             return LicenseCategory.NETWORK_COPYLEFT
 
         raw_value = self._store.copyleft().get(spdx_id)
         if raw_value is not None:
             return self.COPYLEFT_MAP.get(raw_value, LicenseCategory.UNKNOWN)
+
+        if " WITH " in spdx_id:
+            return self.classify(spdx_id.split(" WITH ", 1)[0])
 
         return LicenseCategory.UNKNOWN
 

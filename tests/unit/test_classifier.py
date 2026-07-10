@@ -40,6 +40,26 @@ class TestLicenseClassifier:
     def test_unknown_license(self) -> None:
         assert LicenseClassifier().classify("NONEXISTENT") == LicenseCategory.UNKNOWN
 
+    def test_with_exception_falls_back_to_base(self) -> None:
+        assert (
+            LicenseClassifier().classify("Apache-2.0 WITH LLVM-exception")
+            == LicenseCategory.PERMISSIVE
+        )
+
+    def test_with_exception_prefers_exact_entry(self) -> None:
+        # The OSADL data carries this WITH form as its own entry, which
+        # must win over the strong-copyleft base fallback.
+        assert (
+            LicenseClassifier().classify("GPL-2.0-only WITH Classpath-exception-2.0")
+            == LicenseCategory.WEAK_COPYLEFT
+        )
+
+    def test_with_exception_on_unknown_base_stays_unknown(self) -> None:
+        assert (
+            LicenseClassifier().classify("NONEXISTENT WITH LLVM-exception")
+            == LicenseCategory.UNKNOWN
+        )
+
     def test_is_network_copyleft(self) -> None:
         c = LicenseClassifier()
         assert c.is_network_copyleft("AGPL-3.0-only") is True

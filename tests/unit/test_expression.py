@@ -182,20 +182,30 @@ class TestClassify:
             == LicenseCategory.WEAK_COPYLEFT
         )
 
-    def test_unclassified_with_exception_is_unknown(self) -> None:
+    def test_with_exception_falls_back_to_base_license(self) -> None:
+        # No OSADL entry for this WITH form, so the Apache-2.0 base
+        # sets the category.
         assert (
             ExpressionEvaluator().classify("Apache-2.0 WITH LLVM-exception AND MIT")
-            == LicenseCategory.UNKNOWN
+            == LicenseCategory.PERMISSIVE
+        )
+
+    def test_with_exception_not_flagged_unknown(self) -> None:
+        assert (
+            ExpressionEvaluator().unknown_components(
+                "Apache-2.0 WITH LLVM-exception AND MIT",
+            )
+            == []
         )
 
     def test_deemed_with_exception(self) -> None:
-        overrides = {"apache-2.0 with llvm-exception": LicenseCategory.PERMISSIVE}
+        overrides = {"apache-2.0 with llvm-exception": LicenseCategory.PROPRIETARY}
         assert (
             ExpressionEvaluator().classify(
                 "Apache-2.0 WITH LLVM-exception AND MIT",
                 overrides=overrides,
             )
-            == LicenseCategory.PERMISSIVE
+            == LicenseCategory.PROPRIETARY
         )
 
 
