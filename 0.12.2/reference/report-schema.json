@@ -1,0 +1,229 @@
+{
+  "$defs": {
+    "ActionItem": {
+      "description": "An action the user should take.",
+      "properties": {
+        "severity": {
+          "default": "warning",
+          "title": "Severity",
+          "type": "string"
+        },
+        "package": {
+          "default": "",
+          "title": "Package",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "ActionItem",
+      "type": "object"
+    },
+    "CompatibilityResult": {
+      "description": "Result of checking compatibility between two licenses.",
+      "properties": {
+        "inbound": {
+          "title": "Inbound",
+          "type": "string"
+        },
+        "outbound": {
+          "title": "Outbound",
+          "type": "string"
+        },
+        "verdict": {
+          "$ref": "#/$defs/Verdict"
+        }
+      },
+      "required": [
+        "inbound",
+        "outbound",
+        "verdict"
+      ],
+      "title": "CompatibilityResult",
+      "type": "object"
+    },
+    "LicenseCategory": {
+      "description": "Classification of a license by its copyleft/permissive nature.",
+      "enum": [
+        "permissive",
+        "weak-copyleft",
+        "strong-copyleft",
+        "network-copyleft",
+        "proprietary",
+        "unknown"
+      ],
+      "title": "LicenseCategory",
+      "type": "string"
+    },
+    "LicenseSource": {
+      "description": "How the license was detected.",
+      "enum": [
+        "pep639",
+        "metadata",
+        "classifier",
+        "override",
+        "unknown"
+      ],
+      "title": "LicenseSource",
+      "type": "string"
+    },
+    "PackageLicense": {
+      "description": "License information for a single package.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "license_expression": {
+          "default": "UNKNOWN",
+          "title": "License Expression",
+          "type": "string"
+        },
+        "declared_license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declared License"
+        },
+        "license_source": {
+          "$ref": "#/$defs/LicenseSource",
+          "default": "unknown"
+        },
+        "category": {
+          "$ref": "#/$defs/LicenseCategory",
+          "default": "unknown"
+        },
+        "category_overridden": {
+          "default": false,
+          "title": "Category Overridden",
+          "type": "boolean"
+        },
+        "parent": {
+          "default": "",
+          "title": "Parent",
+          "type": "string"
+        },
+        "license_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License Text"
+        },
+        "ignored": {
+          "default": false,
+          "title": "Ignored",
+          "type": "boolean"
+        },
+        "ignore_reason": {
+          "default": "",
+          "title": "Ignore Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "PackageLicense",
+      "type": "object"
+    },
+    "Verdict": {
+      "description": "Compatibility verdict between two licenses.",
+      "enum": [
+        "compatible",
+        "incompatible",
+        "unknown",
+        "check-dependency",
+        "same"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "description": "Complete analysis output.",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "tool_version": {
+      "title": "Tool Version",
+      "type": "string"
+    },
+    "project_name": {
+      "default": "",
+      "title": "Project Name",
+      "type": "string"
+    },
+    "source": {
+      "default": "",
+      "title": "Source",
+      "type": "string"
+    },
+    "packages": {
+      "items": {
+        "$ref": "#/$defs/PackageLicense"
+      },
+      "title": "Packages",
+      "type": "array"
+    },
+    "incompatible_pairs": {
+      "items": {
+        "$ref": "#/$defs/CompatibilityResult"
+      },
+      "title": "Incompatible Pairs",
+      "type": "array"
+    },
+    "recommended_licenses": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Recommended Licenses",
+      "type": "array"
+    },
+    "action_items": {
+      "items": {
+        "$ref": "#/$defs/ActionItem"
+      },
+      "title": "Action Items",
+      "type": "array"
+    },
+    "policy_passed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Policy Passed"
+    }
+  },
+  "title": "AnalysisReport",
+  "type": "object"
+}
