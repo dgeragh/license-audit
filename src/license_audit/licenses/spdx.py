@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from license_expression import ExpressionError, Licensing, get_spdx_licensing
+from license_expression import (
+    ExpressionError,
+    LicenseWithExceptionSymbol,
+    Licensing,
+    get_spdx_licensing,
+)
 
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import UNKNOWN_LICENSE
@@ -189,7 +194,14 @@ class SpdxNormalizer:
 
         try:
             parsed: Any = self._licensing.parse(stripped)
-            symbols = [str(sym.key) for sym in parsed.symbols]
+            symbols = [
+                str(sym.key)
+                for sym in self._licensing.license_symbols(
+                    parsed,
+                    unique=True,
+                    decompose=True,
+                )
+            ]
             known = self.known_spdx_ids()
             if all(self.DEPRECATED_SPDX.get(s, s) in known for s in symbols):
                 result = str(parsed)
@@ -219,7 +231,10 @@ class SpdxNormalizer:
         parsed = self.parse_expression(expr)
         if parsed is None:
             return [expr]
+
         return [
-            self.DEPRECATED_SPDX.get(str(sym.key), str(sym.key))
+            str(sym)
+            if isinstance(sym, LicenseWithExceptionSymbol)
+            else self.DEPRECATED_SPDX.get(str(sym.key), str(sym.key))
             for sym in parsed.symbols
         ]

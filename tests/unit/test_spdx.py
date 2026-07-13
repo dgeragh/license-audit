@@ -78,6 +78,14 @@ class TestNormalize:
     def test_truncated_expression_returns_unknown(self) -> None:
         assert SpdxNormalizer().normalize("MIT AND") == "UNKNOWN"
 
+    def test_with_clause_rejected_by_validate_returns_unknown(self) -> None:
+        assert (
+            SpdxNormalizer().normalize(
+                "MPL-2.0-no-copyleft-exception WITH LLVM-exception",
+            )
+            == "UNKNOWN"
+        )
+
 
 class TestNormalizeClassifier:
     def test_mit(self) -> None:
@@ -124,6 +132,17 @@ class TestGetSimpleLicenses:
 
     def test_unparseable(self) -> None:
         assert SpdxNormalizer().get_simple_licenses("garbage!!!") == ["garbage!!!"]
+
+    def test_with_clause_kept_intact(self) -> None:
+        result = SpdxNormalizer().get_simple_licenses(
+            "MIT AND Apache-2.0 WITH LLVM-exception",
+        )
+        assert "MIT" in result
+        assert "Apache-2.0 WITH LLVM-exception" in result
+
+    def test_deprecated_id_promoted(self) -> None:
+        result = SpdxNormalizer().get_simple_licenses("GPL-2.0 AND MIT")
+        assert set(result) == {"GPL-2.0-only", "MIT"}
 
 
 class TestKnownSpdxIds:
