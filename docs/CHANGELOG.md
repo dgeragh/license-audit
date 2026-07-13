@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.2 (2026-07-13)
+
+### Fixed
+
+- `AttributeError` for license expressions containing a `WITH` clause
+- Normalizing an expression whose `WITH` clause fails SPDX validation returns unknown instead of raising
+
 ## 0.12.1 (2026-07-09)
 
 ### Fixed
