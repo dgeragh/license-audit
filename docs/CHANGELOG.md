@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.3 (2026-08-01)
+
+### Changed
+
+- Bumped `mkdocs-material`, `platformdirs`, and `ruff` dependencies via Dependabot
+
 ## 0.12.2 (2026-07-13)
 
 ### Fixed
