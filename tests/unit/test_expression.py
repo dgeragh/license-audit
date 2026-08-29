@@ -298,6 +298,26 @@ class TestPassesDeniedAllowed:
             is False
         )
 
+    def test_allowed_base_license_admits_with_exception(self) -> None:
+        assert (
+            ExpressionEvaluator().passes_denied_allowed(
+                "Apache-2.0 WITH LLVM-exception",
+                set(),
+                {"apache-2.0"},
+            )
+            is True
+        )
+
+    def test_allowed_exact_with_form_still_accepted(self) -> None:
+        assert (
+            ExpressionEvaluator().passes_denied_allowed(
+                "GPL-2.0-only WITH Classpath-exception-2.0",
+                set(),
+                {"gpl-2.0-only with classpath-exception-2.0"},
+            )
+            is True
+        )
+
     def test_unparseable_unrelated_to_denylist_passes(self) -> None:
         assert (
             ExpressionEvaluator().passes_denied_allowed(

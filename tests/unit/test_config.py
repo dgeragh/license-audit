@@ -138,6 +138,44 @@ class TestOverridesValidation:
             load_config(tmp_path)
 
 
+class TestLicenseListValidation:
+    def test_valid_entries_kept(self) -> None:
+        config = LicenseAuditConfig(
+            allowed_licenses=["MIT", "Apache-2.0"],
+            denied_licenses=["GPL-3.0-only"],
+        )
+        assert config.allowed_licenses == ["MIT", "Apache-2.0"]
+        assert config.denied_licenses == ["GPL-3.0-only"]
+
+    def test_deprecated_id_normalized(self) -> None:
+        """A deprecated id left as-is would never match a detected component
+        (detection normalizes GPL-2.0 to GPL-2.0-only), making the denylist
+        entry a silent no-op."""
+        config = LicenseAuditConfig(denied_licenses=["GPL-2.0"])
+        assert config.denied_licenses == ["GPL-2.0-only"]
+
+    def test_alias_normalized(self) -> None:
+        config = LicenseAuditConfig(allowed_licenses=["apache"])
+        assert config.allowed_licenses == ["Apache-2.0"]
+
+    def test_unrecognized_entry_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="single SPDX license"):
+            LicenseAuditConfig(denied_licenses=["Custom EULA"])
+
+    def test_compound_expression_rejected(self) -> None:
+        """Matching is per component id, so an expression entry could never
+        match anything."""
+        with pytest.raises(ValidationError, match="single SPDX license"):
+            LicenseAuditConfig(allowed_licenses=["MIT OR Apache-2.0"])
+
+    def test_normalized_from_pyproject(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.license-audit]\ndenied-licenses = ["GPL-2.0"]\n'
+        )
+        config = load_config(tmp_path)
+        assert config.denied_licenses == ["GPL-2.0-only"]
+
+
 class TestGetProjectName:
     def test_reads_name(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
