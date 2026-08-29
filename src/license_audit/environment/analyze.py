@@ -23,7 +23,7 @@ def analyze_environment(
     dependencies of the root.
     """
     overrides = overrides or {}
-    visited: set[str] = set()
+    visited: dict[str, PackageLicense] = {}
     root = _resolve_package(project_name, reader, overrides, visited)
 
     for name in reader.iter_package_names():
@@ -38,11 +38,17 @@ def _resolve_package(
     name: str,
     reader: MetadataReader,
     overrides: dict[str, str],
-    visited: set[str],
+    visited: dict[str, PackageLicense],
     extras: frozenset[str] = frozenset(),
 ) -> DependencyNode:
     """Recursively resolve a package and its dependencies."""
     canonical = canonicalize(name)
+    seen = visited.get(canonical)
+    if seen is not None:
+        # Repeat edge: reuse the first visit's detection in a stub node.
+        # A copy, because flatten() assigns parents on package objects.
+        return DependencyNode(package=seen.model_copy())
+
     version = _get_version(canonical, reader)
     detected = detect_license(canonical, reader, overrides)
 
@@ -54,10 +60,7 @@ def _resolve_package(
         license_source=detected.source,
     )
 
-    if canonical in visited:
-        return DependencyNode(package=pkg)
-
-    visited.add(canonical)
+    visited[canonical] = pkg
     deps: list[DependencyNode] = []
 
     for req_str in _get_requires_dist(canonical, reader):
@@ -86,7 +89,11 @@ def _resolve_package(
 
 def _marker_matches(marker: Any, extras: frozenset[str]) -> bool:
     """True if `marker` evaluates true here, with or without an extra."""
-    if marker.evaluate():
+    # The baseline evaluation supplies an empty `extra`: packaging releases
+    # before ~24.3 raise UndefinedEnvironmentName on a bare evaluate() of
+    # any marker referencing `extra`, and newer ones treat it as False
+    # anyway.
+    if marker.evaluate({"extra": ""}):
         return True
     return any(marker.evaluate({"extra": extra}) for extra in extras)
 
