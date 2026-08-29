@@ -105,7 +105,7 @@ class TestConfigPropagation:
             {"gpu_a": "Proprietary License", "gpu_b": "Proprietary License"},
         )
         report = LicenseAuditor().run(target=tmp_path)
-        gpus = [p for p in report.packages if p.name.startswith("gpu_")]
+        gpus = [p for p in report.packages if p.name.startswith("gpu-")]
         assert len(gpus) == 2
         for gpu in gpus:
             assert gpu.category == LicenseCategory.PERMISSIVE
@@ -131,12 +131,12 @@ class TestConfigPropagation:
         )
         make_venv(tmp_path / ".venv", {"vendor_sdk": "Vendor EULA"})
         report = LicenseAuditor().run(target=tmp_path)
-        sdk = next(p for p in report.packages if p.name == "vendor_sdk")
+        sdk = next(p for p in report.packages if p.name == "vendor-sdk")
         assert sdk.category == LicenseCategory.STRONG_COPYLEFT
         assert report.policy_passed is False
         assert report.incompatible_pairs == []
         assert report.recommended_licenses == []
-        violations = [i for i in report.action_items if i.package == "vendor_sdk"]
+        violations = [i for i in report.action_items if i.package == "vendor-sdk"]
         assert violations
         assert any("Vendor EULA" in i.message for i in violations)
 
@@ -159,7 +159,7 @@ class TestConfigPropagation:
             {"weak_pkg": "MPL-2.0", "py_pkg": "PSF-2.0", "mit_pkg": "MIT"},
         )
         report = LicenseAuditor().run(target=tmp_path)
-        mpl = next(p for p in report.packages if p.name == "weak_pkg")
+        mpl = next(p for p in report.packages if p.name == "weak-pkg")
         assert mpl.category == LicenseCategory.PERMISSIVE
         assert mpl.category_overridden is True
         assert all(
@@ -226,7 +226,7 @@ class TestConfigPropagation:
         )
         make_venv(tmp_path / ".venv", {"compound_pkg": "MPL-2.0 AND MIT"})
         report = LicenseAuditor().run(target=tmp_path)
-        compound = next(p for p in report.packages if p.name == "compound_pkg")
+        compound = next(p for p in report.packages if p.name == "compound-pkg")
         assert compound.category == LicenseCategory.PERMISSIVE
         assert compound.category_overridden is True
         # MPL waived even though it was only a component.
@@ -252,7 +252,7 @@ class TestConfigPropagation:
         )
         make_venv(tmp_path / ".venv", {"legacy_pkg": "Apache-2.0 AND CNRI-Python"})
         report = LicenseAuditor().run(target=tmp_path)
-        pkg = next(p for p in report.packages if p.name == "legacy_pkg")
+        pkg = next(p for p in report.packages if p.name == "legacy-pkg")
         assert pkg.license_expression == "Apache-2.0 AND CNRI-Python"
         assert pkg.category == LicenseCategory.PERMISSIVE
         assert pkg.category_overridden is True
@@ -277,7 +277,7 @@ class TestConfigPropagation:
         )
         make_venv(tmp_path / ".venv", {"legacy_pkg": "Apache-2.0 AND CNRI-Python"})
         report = LicenseAuditor().run(target=tmp_path)
-        pkg = next(p for p in report.packages if p.name == "legacy_pkg")
+        pkg = next(p for p in report.packages if p.name == "legacy-pkg")
         assert pkg.license_expression == "Apache-2.0 AND CNRI-Python"
         assert pkg.category == LicenseCategory.UNKNOWN
         assert report.policy_passed is False
@@ -348,12 +348,12 @@ class TestConfigPropagation:
         )
         make_venv(tmp_path / ".venv", {"vendor_sdk": "Vendor EULA"})
         report = LicenseAuditor().run(target=tmp_path)
-        sdk = next(p for p in report.packages if p.name == "vendor_sdk")
+        sdk = next(p for p in report.packages if p.name == "vendor-sdk")
         assert sdk.category == LicenseCategory.PERMISSIVE
         assert sdk.category_overridden is True
         assert sdk.ignored is True
         # Ignored -> exempt from action items.
-        assert not any(i.package == "vendor_sdk" for i in report.action_items)
+        assert not any(i.package == "vendor-sdk" for i in report.action_items)
 
     def test_ignored_package_marked_in_report(
         self,

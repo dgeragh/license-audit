@@ -142,7 +142,7 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         reader = MetadataReader.from_site_packages(tmp_path)
         tree = analyze_environment("synth_root", reader)
         names = {p.name for p in tree.flatten()}
-        assert names == {"synth_root", "leaf_a", "leaf_b"}
+        assert names == {"synth-root", "leaf-a", "leaf-b"}
 
     def test_direct_dep_required_transitively_stays_direct(
         self, tmp_path: Path
@@ -178,5 +178,5 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         )
         reader = MetadataReader.from_site_packages(tmp_path)
         names = {p.name for p in analyze_environment("rootpkg", reader).flatten()}
-        assert "installed_dep" in names
+        assert "installed-dep" in names
         assert "ghost" not in names

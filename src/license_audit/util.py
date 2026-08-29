@@ -10,14 +10,17 @@ from email.parser import HeaderParser
 from pathlib import Path
 from typing import Self
 
+from packaging.utils import canonicalize_name
+
 
 def canonicalize(name: str) -> str:
     """Canonicalize a package name per PEP 503.
 
-    Lowercases and maps hyphens and dots to underscores so names compare
-    equal regardless of how they were written on PyPI.
+    Lowercases and collapses runs of hyphens, underscores, and dots to a
+    single hyphen, so names compare equal regardless of how they were
+    written on PyPI or in dist-info directory names.
     """
-    return name.lower().replace("-", "_").replace(".", "_")
+    return str(canonicalize_name(name))
 
 
 class _DistInfo(ABC):

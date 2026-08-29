@@ -44,7 +44,14 @@ def _make_dist_info(
 
 class TestCanonicalize:
     def test_lowercases_and_replaces_separators(self) -> None:
-        assert canonicalize("My-Cool.Pkg") == "my_cool_pkg"
+        assert canonicalize("My-Cool.Pkg") == "my-cool-pkg"
+
+    def test_collapses_separator_runs(self) -> None:
+        """PEP 503: runs of hyphens, underscores, and dots collapse to one
+        hyphen, so all spellings of a name compare equal."""
+        assert canonicalize("foo--bar") == "foo-bar"
+        assert canonicalize("foo_bar") == "foo-bar"
+        assert canonicalize("foo.-_bar") == "foo-bar"
 
 
 class TestGetLicenseText:
@@ -238,7 +245,7 @@ class TestMetadataReader:
         _make_dist_info(tmp_path, "first_pkg", "1.0.0")
         _make_dist_info(tmp_path, "second_pkg", "2.0.0")
         reader = MetadataReader.from_site_packages(tmp_path)
-        assert sorted(reader.iter_package_names()) == ["first_pkg", "second_pkg"]
+        assert sorted(reader.iter_package_names()) == ["first-pkg", "second-pkg"]
 
     def test_describe_source_returns_path(self, tmp_path: Path) -> None:
         reader = MetadataReader.from_site_packages(tmp_path)
@@ -249,8 +256,16 @@ class TestMetadataReader:
         # the full canonical name, not get truncated at the first hyphen.
         _make_dist_info(tmp_path, "ruamel-yaml-clib", "0.2.7")
         reader = MetadataReader.from_site_packages(tmp_path)
-        assert "ruamel_yaml_clib" in set(reader.iter_package_names())
+        assert "ruamel-yaml-clib" in set(reader.iter_package_names())
         assert reader.read_metadata("ruamel.yaml.clib") is not None
+
+    def test_separator_run_spellings_resolve(self, tmp_path: Path) -> None:
+        """Any PEP 503 spelling of a name finds the installed dist-info,
+        including separator runs that collapse to a single hyphen."""
+        _make_dist_info(tmp_path, "foo_bar", "1.0.0")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        assert reader.is_installed("foo--bar")
+        assert reader.is_installed("Foo.Bar")
 
     def test_egg_info_package_discovered(self, tmp_path: Path) -> None:
         egg = tmp_path / "legacy_pkg-1.0-py3.12.egg-info"
@@ -259,7 +274,7 @@ class TestMetadataReader:
             "Metadata-Version: 1.0\nName: legacy-pkg\nVersion: 1.0\n"
         )
         reader = MetadataReader.from_site_packages(tmp_path)
-        assert "legacy_pkg" in set(reader.iter_package_names())
+        assert "legacy-pkg" in set(reader.iter_package_names())
         meta = reader.read_metadata("legacy-pkg")
         assert meta is not None
         assert meta.get("Version") == "1.0"

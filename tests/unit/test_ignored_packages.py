@@ -143,13 +143,13 @@ class TestPolicyEngineSkipsIgnored:
 
 class TestAuditorAppliesIgnores:
     def test_canonicalized_name_match(self) -> None:
-        """`pandas-stubs` in config should match package name `pandas_stubs`."""
+        """`pandas_stubs` in config should match canonical name `pandas-stubs`."""
         auditor = LicenseAuditor()
         packages = [
-            _pkg("pandas_stubs", category=LicenseCategory.PERMISSIVE),
+            _pkg("pandas-stubs", category=LicenseCategory.PERMISSIVE),
             _pkg("other", category=LicenseCategory.PERMISSIVE),
         ]
-        auditor._apply_ignores(packages, {"pandas-stubs": "reviewed"})
+        auditor._apply_ignores(packages, {"pandas_stubs": "reviewed"})
         assert packages[0].ignored is True
         assert packages[0].ignore_reason == "reviewed"
         assert packages[1].ignored is False
