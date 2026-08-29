@@ -116,6 +116,7 @@ class LicenseAuditor:
             matrix=self._matrix,
             classifier=self._classifier,
             normalizer=self._normalizer,
+            expression=self._expression,
         )
         self._policy = policy or PolicyEngine(
             classifier=self._classifier,
@@ -146,18 +147,18 @@ class LicenseAuditor:
         tree = analyze_environment(project_name, reader, dict(config.overrides))
         packages = tree.flatten()
         self._classify_packages(packages)
+        deemed = {
+            normalize_license_key(name): LicenseCategory(category)
+            for name, category in config.license_classifications.items()
+        }
         unmatched_classifications = self._apply_classifications(
-            packages, config.license_classifications
+            packages, config.license_classifications, deemed
         )
         self._collect_license_text(packages, reader)
         self._apply_ignores(packages, config.ignored_packages)
 
         dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
         active_packages = [p for p in dep_packages if not p.ignored]
-        deemed = {
-            normalize_license_key(name): LicenseCategory(category)
-            for name, category in config.license_classifications.items()
-        }
         # Compatibility considers every active package but drops deemed ids
         # (keyed by a whole expression or a component), so a deemed license
         # raises no conflicts.
@@ -229,6 +230,7 @@ class LicenseAuditor:
         self,
         packages: list[PackageLicense],
         classifications: dict[str, str],
+        deemed: CategoryOverrides | None = None,
     ) -> list[str]:
         """Assign user-deemed categories to packages by their license string.
 
@@ -248,10 +250,11 @@ class LicenseAuditor:
         """
         if not classifications:
             return []
-        deemed = {
-            normalize_license_key(name): LicenseCategory(category)
-            for name, category in classifications.items()
-        }
+        if deemed is None:
+            deemed = {
+                normalize_license_key(name): LicenseCategory(category)
+                for name, category in classifications.items()
+            }
         original = {normalize_license_key(name): name for name in classifications}
         matched: set[str] = set()
         for pkg in packages:

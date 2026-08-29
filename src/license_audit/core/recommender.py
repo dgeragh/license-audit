@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import math
 
-from license_expression import OR
-
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import CATEGORY_RANK, UNKNOWN_LICENSE, LicenseCategory
+from license_audit.licenses.expression import ExpressionEvaluator
 from license_audit.licenses.spdx import SpdxNormalizer
 
 
@@ -48,10 +47,15 @@ class LicenseRecommender:
         matrix: CompatibilityMatrix | None = None,
         classifier: LicenseClassifier | None = None,
         normalizer: SpdxNormalizer | None = None,
+        expression: ExpressionEvaluator | None = None,
     ) -> None:
         self._matrix = matrix or CompatibilityMatrix()
         self._classifier = classifier or LicenseClassifier()
         self._normalizer = normalizer or SpdxNormalizer(matrix=self._matrix)
+        self._expression = expression or ExpressionEvaluator(
+            classifier=self._classifier,
+            normalizer=self._normalizer,
+        )
         self._preferred_index = {name: i for i, name in enumerate(self.PREFERRED)}
 
     def recommend(self, dependency_licenses: list[str]) -> list[str]:
@@ -85,31 +89,14 @@ class LicenseRecommender:
     def resolve_inbound(self, expressions: list[str]) -> list[str]:
         """Flatten SPDX expressions into a deduplicated list of licenses.
 
-        OR reduces to the most permissive branch, AND keeps every component,
-        and UNKNOWN is dropped. OR/AND is detected via the parsed AST so
-        whitespace and casing in the raw text don't matter.
+        Each expression resolves through ExpressionEvaluator.required_ids —
+        the same OR/AND semantics the compatibility check uses — so the
+        recommendation can't contradict the incompatible-pair results.
+        UNKNOWN is dropped.
         """
         resolved: set[str] = set()
         for expr in expressions:
             if expr == UNKNOWN_LICENSE:
                 continue
-
-            simple = self._normalizer.get_simple_licenses(expr)
-            if len(simple) == 1:
-                resolved.add(simple[0])
-                continue
-
-            parsed = self._normalizer.parse_expression(expr)
-            if isinstance(parsed, OR):
-                best = min(
-                    simple,
-                    key=lambda lic: CATEGORY_RANK.get(
-                        self._classifier.classify(lic),
-                        5,
-                    ),
-                )
-                resolved.add(best)
-            else:
-                resolved.update(simple)
-
+            resolved.update(self._expression.required_ids(expr))
         return list(resolved)

@@ -17,7 +17,12 @@ class CompatibilityMatrix:
         "Same": Verdict.SAME,
     }
 
+    # "Check dependency" counts as compatible for incompatibility detection
+    # (lenient: a reviewable pairing is not a definite conflict) but not for
+    # recommendations, which shouldn't suggest an outbound license OSADL
+    # flags for review.
     COMPATIBLE_VERDICTS: frozenset[str] = frozenset({"Yes", "Same", "Check dependency"})
+    RECOMMEND_VERDICTS: frozenset[str] = frozenset({"Yes", "Same"})
 
     def __init__(self, store: OSADLDataStore | None = None) -> None:
         self._store = store or OSADLDataStore()
@@ -60,7 +65,7 @@ class CompatibilityMatrix:
             outbound
             for outbound in all_outbound
             if all(
-                self.raw_verdict(outbound, inbound) in self.COMPATIBLE_VERDICTS
+                self.raw_verdict(outbound, inbound) in self.RECOMMEND_VERDICTS
                 for inbound in evaluable
             )
         ]
@@ -80,6 +85,9 @@ class CompatibilityMatrix:
                     for outbound in all_outbound
                 )
                 if not has_common:
+                    # Both licenses here are inbound dependency licenses;
+                    # the inbound/outbound field names are a historic misuse
+                    # kept for JSON schema stability (schema_version 1).
                     results.append(
                         CompatibilityResult(
                             inbound=lic_a,

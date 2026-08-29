@@ -26,12 +26,18 @@ def _determine_exit_code(
     # Incompatible pairs always fail the check.
     if report.incompatible_pairs:
         return 1
-    # Unknowns with fail-on-unknown get their own code (2) so CI can
-    # distinguish "we couldn't detect a license" from "policy violated".
+    # A definite policy violation exits 1 even when unknowns are present,
+    # so exit code 2 can't hide a real violation behind "fix your unknowns
+    # first". The policy is re-checked with fail-on-unknown off to separate
+    # the two failure causes.
+    engine = PolicyEngine()
+    policy = engine.build_policy(config).model_copy(update={"fail_on_unknown": False})
+    if not engine.check(report.packages, policy):
+        return 1
+    # Unknowns alone get their own code (2) so CI can distinguish "we
+    # couldn't detect a license" from "policy violated".
     if unknown_pkgs and config.fail_on_unknown:
         return 2
-    if report.policy_passed is False:
-        return 1
     return 0
 
 
@@ -84,8 +90,8 @@ def check_cmd(ctx: click.Context, fail_on_unknown: bool | None) -> None:
 
     Exit codes:
       0 = all clear
-      1 = policy violation
-      2 = unknown licenses found (when --fail-on-unknown)
+      1 = policy violation or incompatible licenses
+      2 = unknown licenses are the only problem (when --fail-on-unknown)
     """
     console = Console(stderr=True)
     target, config, config_dir = resolve_config(ctx)

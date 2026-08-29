@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from license_audit.core.models import LicenseCategory
-from license_audit.licenses.expression import ExpressionEvaluator
+from license_audit.licenses.expression import (
+    ExpressionEvaluator,
+    normalize_license_key,
+)
 
 
 class TestAlternatives:
@@ -58,6 +61,21 @@ class TestAlternatives:
             "GPL-2.0-only WITH Classpath-exception-2.0",
             "MIT",
         ]
+
+
+class TestNormalizeLicenseKey:
+    def test_lowercases(self) -> None:
+        assert normalize_license_key("MIT") == "mit"
+
+    def test_collapses_internal_whitespace(self) -> None:
+        assert normalize_license_key("  Proprietary   License ") == (
+            "proprietary license"
+        )
+
+    def test_matches_across_spellings(self) -> None:
+        assert normalize_license_key("MPL-2.0 AND  MIT") == normalize_license_key(
+            "mpl-2.0 and mit"
+        )
 
 
 class TestRequiredIds:
@@ -296,6 +314,26 @@ class TestPassesDeniedAllowed:
                 set(),
             )
             is False
+        )
+
+    def test_allowed_base_license_admits_with_exception(self) -> None:
+        assert (
+            ExpressionEvaluator().passes_denied_allowed(
+                "Apache-2.0 WITH LLVM-exception",
+                set(),
+                {"apache-2.0"},
+            )
+            is True
+        )
+
+    def test_allowed_exact_with_form_still_accepted(self) -> None:
+        assert (
+            ExpressionEvaluator().passes_denied_allowed(
+                "GPL-2.0-only WITH Classpath-exception-2.0",
+                set(),
+                {"gpl-2.0-only with classpath-exception-2.0"},
+            )
+            is True
         )
 
     def test_unparseable_unrelated_to_denylist_passes(self) -> None:

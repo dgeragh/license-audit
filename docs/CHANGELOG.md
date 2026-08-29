@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Recommendations resolve compound expressions (an OR nested in an AND, and vice versa) the same way the compatibility check does, so a report can no longer recommend a license its own incompatibility scan rules out
+- `check` exits 1 whenever a definite violation exists, even alongside unknown licenses, and prints the violations; exit 2 now reliably means unknown licenses are the only remaining problem
+- `allowed-licenses` and `denied-licenses` entries are normalized to canonical SPDX at config load, so deprecated or alias forms (`GPL-2.0`, `apache`) match detected licenses instead of being silent no-ops; entries that aren't a single recognized SPDX identifier are rejected
+- An allowed base license admits its `WITH exception` forms, mirroring how a denied base license already blocked them
+- Package names are canonicalized per PEP 503: separator runs collapse (`foo--bar` matches `foo_bar`) and report output uses the hyphenated form (`typing-extensions`, previously `typing_extensions`)
+- Dependency markers evaluate with an explicit empty `extra`, avoiding a crash on extra-gated requirements with older `packaging` releases
+- `refresh` names the file it actually writes (`osadl_matrix.json`)
+
+### Changed
+
+- Recommendations require a strict OSADL verdict (`Yes`/`Same`): pairings OSADL marks "Check dependency" are no longer suggested as outbound licenses, though they still don't count as incompatible
+- Bumped `mypy`, `packaging`, `platformdirs`, `pymdown-extensions`, and `ruff` dependencies via Dependabot
+
 ## 0.12.3 (2026-08-01)
 
 ### Changed

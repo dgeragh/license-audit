@@ -142,7 +142,7 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         reader = MetadataReader.from_site_packages(tmp_path)
         tree = analyze_environment("synth_root", reader)
         names = {p.name for p in tree.flatten()}
-        assert names == {"synth_root", "leaf_a", "leaf_b"}
+        assert names == {"synth-root", "leaf-a", "leaf-b"}
 
     def test_direct_dep_required_transitively_stays_direct(
         self, tmp_path: Path
@@ -165,6 +165,69 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         parents = {p.name: p.parent for p in tree.flatten()}
         assert parents["libb"] == "libb"
 
+    def test_extra_gated_dep_included_when_extra_requested(
+        self, tmp_path: Path
+    ) -> None:
+        _make_dist_info(
+            tmp_path,
+            "rootpkg",
+            "1.0",
+            license_expression="MIT",
+            requires=["withextras[fast]>=1.0"],
+        )
+        _make_dist_info(
+            tmp_path,
+            "withextras",
+            "1.0",
+            license_expression="MIT",
+            requires=['speedup>=1.0; extra == "fast"'],
+        )
+        _make_dist_info(tmp_path, "speedup", "1.0", license_expression="MIT")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        tree = analyze_environment("rootpkg", reader)
+        parents = {p.name: p.parent for p in tree.flatten()}
+        assert parents["speedup"] == "withextras"
+
+    def test_extra_gated_dep_rescued_as_direct_without_extra(
+        self, tmp_path: Path
+    ) -> None:
+        """A dep gated behind an unrequested extra isn't walked as a child,
+        but the leftover-append still audits it, attributed as direct. Known
+        limitation: the parent is lost, not the package."""
+        _make_dist_info(
+            tmp_path,
+            "rootpkg",
+            "1.0",
+            license_expression="MIT",
+            requires=["withextras>=1.0"],
+        )
+        _make_dist_info(
+            tmp_path,
+            "withextras",
+            "1.0",
+            license_expression="MIT",
+            requires=['speedup>=1.0; extra == "fast"'],
+        )
+        _make_dist_info(tmp_path, "speedup", "1.0", license_expression="MIT")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        tree = analyze_environment("rootpkg", reader)
+        parents = {p.name: p.parent for p in tree.flatten()}
+        assert parents["speedup"] == "speedup"
+
+    def test_false_marker_dep_rescued_as_direct(self, tmp_path: Path) -> None:
+        _make_dist_info(
+            tmp_path,
+            "rootpkg",
+            "1.0",
+            license_expression="MIT",
+            requires=['legacy>=1.0; python_version < "3.0"'],
+        )
+        _make_dist_info(tmp_path, "legacy", "1.0", license_expression="MIT")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        tree = analyze_environment("rootpkg", reader)
+        parents = {p.name: p.parent for p in tree.flatten()}
+        assert parents["legacy"] == "legacy"
+
     def test_declared_but_uninstalled_dep_is_skipped(self, tmp_path: Path) -> None:
         _make_dist_info(
             tmp_path,
@@ -178,5 +241,5 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         )
         reader = MetadataReader.from_site_packages(tmp_path)
         names = {p.name for p in analyze_environment("rootpkg", reader).flatten()}
-        assert "installed_dep" in names
+        assert "installed-dep" in names
         assert "ghost" not in names

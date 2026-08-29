@@ -109,9 +109,11 @@ class ExpressionEvaluator:
         """True if at least one alternative avoids `denied` and fits `allowed`.
 
         `denied` and `allowed` must be lower-cased SPDX ids. An empty
-        `allowed` set means no allowlist constraint. A denied base license
-        also blocks its `WITH exception` forms. An expression that can't be
-        parsed is matched whole against both lists.
+        `allowed` set means no allowlist constraint. A base license entry
+        covers its `WITH exception` forms on both lists: denied blocks
+        them, allowed admits them (an exception only adds permissions).
+        An expression that can't be parsed is matched whole against both
+        lists.
         """
         non_empty = [alt for alt in self.alternatives(expr) if alt]
         if not non_empty:
@@ -123,7 +125,10 @@ class ExpressionEvaluator:
                 lic in denied or lic.split(" with ", 1)[0] in denied for lic in lowered
             ):
                 continue
-            if allowed and any(lic not in allowed for lic in lowered):
+            if allowed and any(
+                lic not in allowed and lic.split(" with ", 1)[0] not in allowed
+                for lic in lowered
+            ):
                 continue
             return True
         return False

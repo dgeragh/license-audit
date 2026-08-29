@@ -469,10 +469,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mypy", specifier = ">=1.8.0" },
-    { name = "pytest", specifier = ">=7.4.0" },
-    { name = "pytest-cov", specifier = ">=4.1.0" },
-    { name = "ruff", specifier = ">=0.2.0" },
+    { name = "mypy", specifier = ">=2.0.0" },
+    { name = "pytest", specifier = ">=9.0.0" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "ruff", specifier = ">=0.16.0" },
 ]
 docs = [
     { name = "mike", specifier = ">=2.1.0" },

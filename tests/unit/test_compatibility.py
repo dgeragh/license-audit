@@ -79,6 +79,37 @@ class TestFindIncompatiblePairs:
         assert result[0].verdict == Verdict.INCOMPATIBLE
 
 
+class _StubStore(OSADLDataStore):
+    def __init__(self, matrix: dict[str, dict[str, str]]) -> None:
+        super().__init__()
+        self._matrix = matrix
+
+
+class TestCheckDependencyVerdict:
+    """'Check dependency' is lenient for pair detection but excluded from
+    recommendations: the tool must not suggest an outbound license OSADL
+    flags for review."""
+
+    # The only common outbound for A+B goes through a "Check dependency"
+    # cell, so pair detection and recommendation diverge on it.
+    _MATRIX: dict[str, dict[str, str]] = {
+        "Lic-A": {"Lic-A": "Same", "Lic-B": "Check dependency"},
+        "Lic-B": {"Lic-A": "No", "Lic-B": "Same"},
+    }
+
+    def test_excluded_from_recommendations(self) -> None:
+        matrix = CompatibilityMatrix(store=_StubStore(self._MATRIX))
+        assert matrix.find_compatible_outbound(["Lic-A", "Lic-B"]) == []
+
+    def test_still_counts_for_pair_detection(self) -> None:
+        matrix = CompatibilityMatrix(store=_StubStore(self._MATRIX))
+        assert matrix.find_incompatible_pairs(["Lic-A", "Lic-B"]) == []
+
+    def test_clean_cells_still_recommended(self) -> None:
+        matrix = CompatibilityMatrix(store=_StubStore(self._MATRIX))
+        assert matrix.find_compatible_outbound(["Lic-A"]) == ["Lic-A"]
+
+
 class TestInstanceIsolation:
     def test_instances_can_share_a_store(self) -> None:
         store = OSADLDataStore()

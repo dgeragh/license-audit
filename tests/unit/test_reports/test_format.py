@@ -102,7 +102,7 @@ class TestSummaryStats:
 
 class TestCategoryLabel:
     def _pkg(self, **kw: object) -> PackageLicense:
-        base = {
+        base: dict[str, object] = {
             "name": "p",
             "version": "1.0",
             "license_source": LicenseSource.METADATA,

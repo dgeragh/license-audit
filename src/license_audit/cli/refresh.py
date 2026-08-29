@@ -30,11 +30,11 @@ class OSADLRefresher:
 
         console.print("Downloading OSADL compatibility matrix...")
         self.download(self.MATRIX_URL, data_path / self._store.MATRIX_FILE)
-        console.print("[green]\\[/][/green] matrix.json updated")
+        console.print(f"[green]\\[/][/green] {self._store.MATRIX_FILE} updated")
 
         console.print("Downloading OSADL copyleft data...")
         self.download(self.COPYLEFT_URL, data_path / self._store.COPYLEFT_FILE)
-        console.print("[green]\\[/][/green] copyleft.json updated")
+        console.print(f"[green]\\[/][/green] {self._store.COPYLEFT_FILE} updated")
 
         self._store.reload()
 

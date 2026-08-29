@@ -16,12 +16,14 @@ class LicenseClassifier:
         "Questionable": LicenseCategory.UNKNOWN,
     }
 
-    NETWORK_COPYLEFT: frozenset[str] = frozenset({
-        "AGPL-3.0-only",
-        "AGPL-3.0-or-later",
-        "AGPL-1.0-only",
-        "AGPL-1.0-or-later",
-    })
+    NETWORK_COPYLEFT: frozenset[str] = frozenset(
+        {
+            "AGPL-3.0-only",
+            "AGPL-3.0-or-later",
+            "AGPL-1.0-only",
+            "AGPL-1.0-or-later",
+        }
+    )
 
     def __init__(self, store: OSADLDataStore | None = None) -> None:
         self._store = store or OSADLDataStore()

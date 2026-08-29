@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
 from click.testing import CliRunner
@@ -49,7 +50,7 @@ class TestReportCli:
         assert '"project_name"' in result.output
         assert '"schema_version": 1' in result.output
 
-    def test_json_file_ends_with_newline(self, tmp_path) -> None:
+    def test_json_file_ends_with_newline(self, tmp_path: Path) -> None:
         report = _make_report(packages=[_MIT_PKG])
         out = tmp_path / "report.json"
         with patch("license_audit.cli.report.run_audit", return_value=report):
@@ -59,7 +60,7 @@ class TestReportCli:
         assert result.exit_code == 0
         assert out.read_text().endswith("}\n")
 
-    def test_output_to_file(self, tmp_path) -> None:
+    def test_output_to_file(self, tmp_path: Path) -> None:
         report = _make_report(packages=[_MIT_PKG])
         out = tmp_path / "report.md"
         with patch("license_audit.cli.report.run_audit", return_value=report) as _m:
@@ -68,7 +69,7 @@ class TestReportCli:
         assert out.exists()
         assert "test-project" in out.read_text()
 
-    def test_output_to_missing_directory(self, tmp_path) -> None:
+    def test_output_to_missing_directory(self, tmp_path: Path) -> None:
         report = _make_report(packages=[_MIT_PKG])
         out = tmp_path / "missing" / "report.md"
         with patch("license_audit.cli.report.run_audit", return_value=report):
@@ -76,7 +77,7 @@ class TestReportCli:
         assert result.exit_code == 1
         assert "Cannot write report" in result.output
 
-    def test_output_to_directory_path(self, tmp_path) -> None:
+    def test_output_to_directory_path(self, tmp_path: Path) -> None:
         report = _make_report(packages=[_MIT_PKG])
         with patch("license_audit.cli.report.run_audit", return_value=report):
             result = CliRunner().invoke(cli, ["report", "--output", str(tmp_path)])
@@ -91,7 +92,7 @@ class TestReportCli:
         assert "Third-Party Notices" in result.output
         assert "good-pkg" in result.output
 
-    def test_notices_output_to_file(self, tmp_path) -> None:
+    def test_notices_output_to_file(self, tmp_path: Path) -> None:
         pkg = PackageLicense(
             name="licensed-pkg",
             version="2.0.0",

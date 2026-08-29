@@ -340,6 +340,40 @@ class TestCheck:
         assert PolicyEngine().check([pkg], _policy(allowed=["MIT"])) is True
 
 
+class TestConfigListNormalization:
+    """Config-load normalization keeps deprecated/alias entries effective
+    end-to-end: config -> build_policy -> check."""
+
+    def test_deprecated_denied_entry_blocks_normalized_component(self) -> None:
+        pkg = PackageLicense(
+            name="old-gpl",
+            version="1.0",
+            license_expression="GPL-2.0-only",
+            license_source=LicenseSource.METADATA,
+            category=LicenseCategory.STRONG_COPYLEFT,
+        )
+        config = LicenseAuditConfig(
+            policy=PolicyLevel.STRONG_COPYLEFT,
+            denied_licenses=["GPL-2.0"],
+        )
+        engine = PolicyEngine()
+        policy = engine.build_policy(config)
+        assert engine.check([pkg], policy) is False
+
+    def test_alias_allowed_entry_admits_canonical_id(self) -> None:
+        config = LicenseAuditConfig(allowed_licenses=["apache"])
+        engine = PolicyEngine()
+        policy = engine.build_policy(config)
+        apache = PackageLicense(
+            name="apache-pkg",
+            version="1.0",
+            license_expression="Apache-2.0",
+            license_source=LicenseSource.PEP639,
+            category=LicenseCategory.PERMISSIVE,
+        )
+        assert engine.check([apache], policy) is True
+
+
 class TestBuildActionItems:
     def test_denied_licenses_produce_errors(self) -> None:
         config = LicenseAuditConfig(denied_licenses=["MIT"])

@@ -5,7 +5,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from license_audit.core.models import UNKNOWN_LICENSE, LicenseCategory, PolicyLevel
 from license_audit.licenses.spdx import SpdxNormalizer
@@ -75,6 +75,30 @@ class LicenseAuditConfig(BaseModel):
                 )
                 raise ValueError(msg)
         return value
+
+    @field_validator("allowed_licenses", "denied_licenses", mode="after")
+    @classmethod
+    def _validate_license_lists(
+        cls, value: list[str], info: ValidationInfo
+    ) -> list[str]:
+        # Entries are matched against detected components in canonical SPDX
+        # form, so an alias or deprecated id ("GPL-2.0", "gpl") left as-is
+        # would silently never match. Normalize here; reject what can't be.
+        if not value:
+            return value
+        field = str(info.field_name).replace("_", "-")
+        normalizer = SpdxNormalizer()
+        normalized: list[str] = []
+        for entry in value:
+            spdx = normalizer.normalize(entry)
+            if spdx == UNKNOWN_LICENSE or " AND " in spdx or " OR " in spdx:
+                msg = (
+                    f"{field} entry '{entry}' must be a single SPDX license "
+                    f"identifier (e.g. 'MIT', 'GPL-3.0-only')."
+                )
+                raise ValueError(msg)
+            normalized.append(spdx)
+        return normalized
 
     @field_validator("overrides", mode="after")
     @classmethod
