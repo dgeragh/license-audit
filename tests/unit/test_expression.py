@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from license_audit.core.models import LicenseCategory
-from license_audit.licenses.expression import ExpressionEvaluator
+from license_audit.licenses.expression import (
+    ExpressionEvaluator,
+    normalize_license_key,
+)
 
 
 class TestAlternatives:
@@ -58,6 +61,21 @@ class TestAlternatives:
             "GPL-2.0-only WITH Classpath-exception-2.0",
             "MIT",
         ]
+
+
+class TestNormalizeLicenseKey:
+    def test_lowercases(self) -> None:
+        assert normalize_license_key("MIT") == "mit"
+
+    def test_collapses_internal_whitespace(self) -> None:
+        assert normalize_license_key("  Proprietary   License ") == (
+            "proprietary license"
+        )
+
+    def test_matches_across_spellings(self) -> None:
+        assert normalize_license_key("MPL-2.0 AND  MIT") == normalize_license_key(
+            "mpl-2.0 and mit"
+        )
 
 
 class TestRequiredIds:

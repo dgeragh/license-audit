@@ -24,7 +24,7 @@ def canonicalize(name: str) -> str:
 
 
 class _DistInfo(ABC):
-    """One package's dist-info, backed by either a directory or a zip."""
+    """One package's dist-info metadata files."""
 
     @abstractmethod
     def read_text(self, name: str) -> str | None:
