@@ -24,27 +24,23 @@
       "title": "ActionItem",
       "type": "object"
     },
-    "CompatibilityResult": {
-      "description": "Result of checking compatibility between two licenses.",
+    "IncompatiblePair": {
+      "description": "Two dependency licenses with no common outbound license.\n\nThe pair is unordered; `license_a`/`license_b` carry no meaning\nbeyond which was encountered first.",
       "properties": {
-        "inbound": {
-          "title": "Inbound",
+        "license_a": {
+          "title": "License A",
           "type": "string"
         },
-        "outbound": {
-          "title": "Outbound",
+        "license_b": {
+          "title": "License B",
           "type": "string"
-        },
-        "verdict": {
-          "$ref": "#/$defs/Verdict"
         }
       },
       "required": [
-        "inbound",
-        "outbound",
-        "verdict"
+        "license_a",
+        "license_b"
       ],
-      "title": "CompatibilityResult",
+      "title": "IncompatiblePair",
       "type": "object"
     },
     "LicenseCategory": {
@@ -147,25 +143,13 @@
       ],
       "title": "PackageLicense",
       "type": "object"
-    },
-    "Verdict": {
-      "description": "Compatibility verdict between two licenses.",
-      "enum": [
-        "compatible",
-        "incompatible",
-        "unknown",
-        "check-dependency",
-        "same"
-      ],
-      "title": "Verdict",
-      "type": "string"
     }
   },
   "description": "Complete analysis output.",
   "properties": {
     "schema_version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "title": "Schema Version",
       "type": "integer"
     },
@@ -192,7 +176,7 @@
     },
     "incompatible_pairs": {
       "items": {
-        "$ref": "#/$defs/CompatibilityResult"
+        "$ref": "#/$defs/IncompatiblePair"
       },
       "title": "Incompatible Pairs",
       "type": "array"

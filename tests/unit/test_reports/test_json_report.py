@@ -17,7 +17,7 @@ class TestJsonRenderer:
         renderer = JsonRenderer()
         result = renderer.render(sample_report)
         data = json.loads(result)
-        assert data["schema_version"] == 1
+        assert data["schema_version"] == 2
         assert data["tool_version"] == __version__
         assert data["project_name"] == "test-project"
         assert len(data["packages"]) == 2

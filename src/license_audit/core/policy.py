@@ -8,7 +8,7 @@ from license_audit.core.models import (
     CATEGORY_RANK,
     UNKNOWN_LICENSE,
     ActionItem,
-    CompatibilityResult,
+    IncompatiblePair,
     LicenseCategory,
     LicensePolicy,
     PackageLicense,
@@ -105,7 +105,7 @@ class PolicyEngine:
     def build_action_items(
         self,
         packages: list[PackageLicense],
-        incompatible: list[CompatibilityResult],
+        incompatible: list[IncompatiblePair],
         config: LicenseAuditConfig,
     ) -> list[ActionItem]:
         """Produce action items for unknown, incompatible, denied, and copyleft issues.
@@ -132,8 +132,9 @@ class PolicyEngine:
                     severity="error",
                     package="",
                     message=(
-                        f"Licenses '{pair.inbound}' and '{pair.outbound}' are mutually "
-                        f"incompatible. Dependencies using these licenses cannot coexist."
+                        f"Licenses '{pair.license_a}' and '{pair.license_b}' are "
+                        f"mutually incompatible. Dependencies using these licenses "
+                        f"cannot coexist."
                     ),
                 ),
             )

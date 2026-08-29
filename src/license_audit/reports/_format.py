@@ -11,7 +11,7 @@ from rich.markup import escape
 from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
-    CompatibilityResult,
+    IncompatiblePair,
     LicenseCategory,
     PackageLicense,
 )
@@ -222,14 +222,14 @@ class IncompatiblePairFormatter:
     COLOR = "red"
 
     @classmethod
-    def rich(cls, pair: CompatibilityResult) -> str:
+    def rich(cls, pair: IncompatiblePair) -> str:
         """Rich-markup line for `console.print`."""
         return (
             f"  [{cls.COLOR}]{cls.ICON}[/{cls.COLOR}] "
-            f"{pair.inbound} <-> {pair.outbound}"
+            f"{pair.license_a} <-> {pair.license_b}"
         )
 
     @classmethod
-    def markdown_row(cls, pair: CompatibilityResult) -> str:
+    def markdown_row(cls, pair: IncompatiblePair) -> str:
         """Markdown table row for a compatibility table."""
-        return f"| {pair.inbound} | {pair.outbound} | {pair.verdict.value} |"
+        return f"| {pair.license_a} | {pair.license_b} | incompatible |"

@@ -167,7 +167,7 @@ class TestJsonOutputs:
         payload = json.loads(result.stdout)
         assert "packages" in payload
         assert "policy_passed" in payload
-        assert payload["schema_version"] == 1
+        assert payload["schema_version"] == 2
         assert any(p["name"] == "click" for p in payload["packages"])
 
     def test_report_json_parses(

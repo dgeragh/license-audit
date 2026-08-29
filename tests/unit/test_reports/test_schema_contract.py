@@ -24,8 +24,8 @@ class TestSchemaContract:
         )
 
     def test_schema_version_is_frozen(self) -> None:
-        assert SCHEMA_VERSION == 1
-        assert AnalysisReport().schema_version == 1
+        assert SCHEMA_VERSION == 2
+        assert AnalysisReport().schema_version == 2
 
     def test_tool_version_matches_package(self) -> None:
         assert AnalysisReport().tool_version == __version__

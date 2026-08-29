@@ -13,7 +13,7 @@ from license_audit import __version__
 UNKNOWN_LICENSE = "UNKNOWN"
 
 # Bumped only on breaking changes to the JSON report; additive changes do not bump.
-SCHEMA_VERSION: Final = 1
+SCHEMA_VERSION: Final = 2
 
 
 class LicenseCategory(StrEnum):
@@ -143,6 +143,17 @@ class CompatibilityResult(BaseModel):
     verdict: Verdict
 
 
+class IncompatiblePair(BaseModel):
+    """Two dependency licenses with no common outbound license.
+
+    The pair is unordered; `license_a`/`license_b` carry no meaning
+    beyond which was encountered first.
+    """
+
+    license_a: str
+    license_b: str
+
+
 class ActionItem(BaseModel):
     """An action the user should take."""
 
@@ -163,12 +174,12 @@ class LicensePolicy(BaseModel):
 class AnalysisReport(BaseModel):
     """Complete analysis output."""
 
-    schema_version: Literal[1] = SCHEMA_VERSION
+    schema_version: Literal[2] = SCHEMA_VERSION
     tool_version: str = Field(default_factory=lambda: __version__)
     project_name: str = ""
     source: str = ""
     packages: list[PackageLicense] = Field(default_factory=list)
-    incompatible_pairs: list[CompatibilityResult] = Field(default_factory=list)
+    incompatible_pairs: list[IncompatiblePair] = Field(default_factory=list)
     recommended_licenses: list[str] = Field(default_factory=list)
     action_items: list[ActionItem] = Field(default_factory=list)
     policy_passed: bool | None = None

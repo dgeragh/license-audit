@@ -76,7 +76,10 @@ class TestFindIncompatiblePairs:
             ["GPL-2.0-only", "Apache-2.0"],
         )
         assert len(result) > 0
-        assert result[0].verdict == Verdict.INCOMPATIBLE
+        assert {result[0].license_a, result[0].license_b} == {
+            "GPL-2.0-only",
+            "Apache-2.0",
+        }
 
 
 class _StubStore(OSADLDataStore):

@@ -4,7 +4,7 @@
 
 ## Versioning and stability
 
-The document carries a `schema_version` field, currently `1`. It is bumped only on breaking changes:
+The document carries a `schema_version` field, currently `2`. It is bumped only on breaking changes:
 
 - removing or renaming a field
 - changing a field's type, nullability, or meaning
@@ -12,18 +12,23 @@ The document carries a `schema_version` field, currently `1`. It is bumped only 
 
 Additive changes do not bump the version and are announced in the changelog: new fields and new enum values may appear at any release. Consumers should ignore unknown fields and tolerate unrecognized enum values.
 
+Version history:
+
+- **2**: entries in `incompatible_pairs` name their licenses `license_a`/`license_b` instead of `inbound`/`outbound` (both are dependency licenses; the old names wrongly suggested one was an outbound license), and the always-`incompatible` `verdict` field was removed.
+- **1**: initial versioned schema.
+
 `tool_version` is informational and records the license-audit version that produced the report.
 
 ## Top-level fields
 
 | Field | Type | Description |
 |---|---|---|
-| `schema_version` | integer | Always `1` for this schema version |
+| `schema_version` | integer | Always `2` for this schema version |
 | `tool_version` | string | Version of license-audit that produced the report |
 | `project_name` | string | Name of the audited project, the literal string `unknown` when it can't be determined |
 | `source` | string | Human-readable description of the audit target |
 | `packages` | array of [PackageLicense](#packagelicense) | One entry per audited package |
-| `incompatible_pairs` | array of [CompatibilityResult](#compatibilityresult) | License pairs found incompatible |
+| `incompatible_pairs` | array of [IncompatiblePair](#incompatiblepair) | License pairs found incompatible |
 | `recommended_licenses` | array of string | Recommended outbound licenses as SPDX ids, most permissive first |
 | `action_items` | array of [ActionItem](#actionitem) | Follow-ups the user should address |
 | `policy_passed` | boolean or null | Policy gate result, `null` when no policy is configured |
@@ -46,13 +51,14 @@ Additive changes do not bump the version and are announced in the changelog: new
 
 A package whose license could not be mapped to SPDX keeps its raw string in `declared_license` with `license_expression` set to `UNKNOWN`; a package with no license metadata at all has `declared_license` set to `null`.
 
-## CompatibilityResult
+## IncompatiblePair
 
 | Field | Type | Description |
 |---|---|---|
-| `inbound` | string | License of the dependency |
-| `outbound` | string | License it was checked against |
-| `verdict` | string | Compatibility verdict, see [Verdict](#verdict) |
+| `license_a` | string | One dependency license of the conflicting pair |
+| `license_b` | string | The other dependency license |
+
+The pair is unordered: `license_a`/`license_b` carry no meaning beyond which license was encountered first.
 
 ## ActionItem
 
@@ -71,7 +77,3 @@ A package whose license could not be mapped to SPDX keeps its raw string in `dec
 ### LicenseSource
 
 `pep639`, `metadata`, `classifier`, `override`, `unknown`
-
-### Verdict
-
-`compatible`, `incompatible`, `unknown`, `check-dependency`, `same`

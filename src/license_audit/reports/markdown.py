@@ -146,7 +146,7 @@ class MarkdownRenderer:
             conflict = explanation.reason is NoRecommendationReason.NO_COMMON_LICENSE
             if conflict and report.incompatible_pairs:
                 pairs = ", ".join(
-                    f"{p.inbound} / {p.outbound}" for p in report.incompatible_pairs
+                    f"{p.license_a} / {p.license_b}" for p in report.incompatible_pairs
                 )
                 lines.append(
                     f"The following license pairs have no common outbound "

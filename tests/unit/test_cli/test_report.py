@@ -48,7 +48,7 @@ class TestReportCli:
             result = CliRunner().invoke(cli, ["report", "--format", "json"])
         assert result.exit_code == 0
         assert '"project_name"' in result.output
-        assert '"schema_version": 1' in result.output
+        assert '"schema_version": 2' in result.output
 
     def test_json_file_ends_with_newline(self, tmp_path: Path) -> None:
         report = _make_report(packages=[_MIT_PKG])

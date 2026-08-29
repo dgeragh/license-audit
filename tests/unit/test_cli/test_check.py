@@ -12,18 +12,17 @@ from license_audit.config import LicenseAuditConfig
 from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
-    CompatibilityResult,
+    IncompatiblePair,
     LicenseCategory,
     LicenseSource,
     PackageLicense,
     PolicyLevel,
-    Verdict,
 )
 
 
 def _make_report(
     packages: list[PackageLicense] | None = None,
-    incompatible_pairs: list[CompatibilityResult] | None = None,
+    incompatible_pairs: list[IncompatiblePair] | None = None,
     policy_passed: bool | None = True,
     action_items: list[ActionItem] | None = None,
 ) -> AnalysisReport:
@@ -102,10 +101,9 @@ class TestCheckPasses:
 
 class TestCheckFailsPolicyViolation:
     def test_exit_code_1_on_incompatible_pairs(self) -> None:
-        pair = CompatibilityResult(
-            inbound="GPL-3.0-only",
-            outbound="Apache-2.0",
-            verdict=Verdict.INCOMPATIBLE,
+        pair = IncompatiblePair(
+            license_a="GPL-3.0-only",
+            license_b="Apache-2.0",
         )
         report = _make_report(
             packages=[_MIT_PKG, _GPL_PKG],
@@ -191,10 +189,9 @@ class TestExitCodePrecedence:
         assert _determine_exit_code(report, [_UNKNOWN_PKG], config) == 1
 
     def test_incompatible_pairs_beat_everything(self) -> None:
-        pair = CompatibilityResult(
-            inbound="GPL-3.0-only",
-            outbound="Apache-2.0",
-            verdict=Verdict.INCOMPATIBLE,
+        pair = IncompatiblePair(
+            license_a="GPL-3.0-only",
+            license_b="Apache-2.0",
         )
         config = LicenseAuditConfig()
         report = _make_report(
