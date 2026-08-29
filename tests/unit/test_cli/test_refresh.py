@@ -32,7 +32,7 @@ class TestRefreshCmd:
         assert result.exit_code == 0
         assert mock_dl.call_count == 2
         mock_reload.assert_called_once()
-        assert "matrix.json updated" in result.output
+        assert "osadl_matrix.json updated" in result.output
         assert "copyleft.json updated" in result.output
         assert "refreshed successfully" in result.output
 

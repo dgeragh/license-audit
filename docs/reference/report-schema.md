@@ -20,7 +20,7 @@ Additive changes do not bump the version and are announced in the changelog: new
 |---|---|---|
 | `schema_version` | integer | Always `1` for this schema version |
 | `tool_version` | string | Version of license-audit that produced the report |
-| `project_name` | string | Name of the audited project, empty if unknown |
+| `project_name` | string | Name of the audited project, the literal string `unknown` when it can't be determined |
 | `source` | string | Human-readable description of the audit target |
 | `packages` | array of [PackageLicense](#packagelicense) | One entry per audited package |
 | `incompatible_pairs` | array of [CompatibilityResult](#compatibilityresult) | License pairs found incompatible |
@@ -38,8 +38,8 @@ Additive changes do not bump the version and are announced in the changelog: new
 | `declared_license` | string or null | Raw license string as declared by the package, `null` when nothing was declared |
 | `license_source` | string | How the license was detected, see [LicenseSource](#licensesource) |
 | `category` | string | Copyleft classification, see [LicenseCategory](#licensecategory) |
-| `category_overridden` | boolean | Whether the category came from a configuration override |
-| `parent` | string | Top-level dependency that pulls this package in |
+| `category_overridden` | boolean | Whether the category came from a `license-classifications` entry (an `overrides` entry sets `license_source` instead) |
+| `parent` | string | Top-level dependency that pulls this package in; equal to `name` for a direct dependency |
 | `license_text` | string or null | Full license text when available |
 | `ignored` | boolean | Whether the package is excluded from policy evaluation |
 | `ignore_reason` | string | Reason given for ignoring, empty otherwise |

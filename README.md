@@ -46,26 +46,44 @@ license-audit --target .venv analyze
 ```
 
 ```
-License Analysis: my-project
+───────────────────── License Analysis: my-project ─────────────────────
+Source: /path/to/my-project/.venv
 
-Dependency Licenses
-  Package   Version  License        Category    Source  Parent
-  click     8.1.7    BSD-3-Clause   permissive  pep639  (direct)
-  pydantic  2.9.2    MIT            permissive  pep639  (direct)
-  rich      13.9.4   MIT            permissive  pep639  (direct)
+                         Dependency Licenses
+┏━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┓
+┃ Package  ┃ Version ┃ License      ┃ Category   ┃ Source ┃ Parent   ┃
+┡━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━┩
+│ click    │ 8.3.1   │ BSD-3-Clause │ permissive │ pep639 │ (direct) │
+│ pydantic │ 2.12.5  │ MIT          │ permissive │ pep639 │ (direct) │
+│ rich     │ 14.3.0  │ MIT          │ permissive │ pep639 │ (direct) │
+└──────────┴─────────┴──────────────┴────────────┴────────┴──────────┘
 
 Recommended Outbound Licenses (most -> least permissive):
   -> MIT
      Apache-2.0
      BSD-2-Clause
-     ...
+     BSD-3-Clause
+     ISC
+  ... and 111 more
 
-Summary
+──────────────────────────────── Summary ───────────────────────────────
   Total dependencies: 3
   Unknown licenses:   0
   Copyleft licenses:  0
   Policy check:       PASSED
 ```
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `analyze` | Per-package analysis in the terminal, or as JSON with `--format json` |
+| `check` | CI policy gate with distinct exit codes |
+| `report` | Compliance documents: Markdown, JSON, or third-party notices |
+| `recommend` | Outbound license recommendation with guidance |
+| `refresh` | Re-download the OSADL compatibility data |
+
+See the [commands reference](https://dgeragh.github.io/license-audit/latest/user-guide/commands/) for details.
 
 ## CI quickstart
 
@@ -88,7 +106,7 @@ Exit codes:
 |------|---------|
 | `0` | All dependencies pass the policy |
 | `1` | Policy violation (incompatible pairs, denied licenses, or category exceeded) |
-| `2` | Unknown licenses detected (when `fail-on-unknown = true`) |
+| `2` | Unknown licenses detected and no other violation (when `fail-on-unknown = true`) |
 
 For GitLab, pre-commit, handling unknowns, and the new-dependency workflow, see the [CI integration guide](https://dgeragh.github.io/license-audit/latest/user-guide/ci-integration/).
 
@@ -100,10 +118,14 @@ fail-on-unknown = true
 policy = "permissive"  # permissive | weak-copyleft | strong-copyleft | network-copyleft
 allowed-licenses = ["MIT", "Apache-2.0", "BSD-3-Clause"]
 denied-licenses = ["GPL-3.0-only"]
+target = ".venv"  # optional; defaults to the active environment
 
 [tool.license-audit.overrides]
 some-internal-package = "MIT"
 dual-licensed-pkg = "Apache-2.0 OR MIT"
+
+[tool.license-audit.license-classifications]
+"CNRI-Python" = "permissive"  # your judgement for licenses OSADL doesn't cover
 
 [tool.license-audit.ignored-packages]
 pandas-stubs = "Stubs only, not redistributed"

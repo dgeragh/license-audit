@@ -31,11 +31,18 @@ license-audit --policy weak-copyleft check
 
 ### `allowed-licenses`
 
-Explicit list of allowed SPDX identifiers. When set, only these licenses pass the policy check, narrowing whatever `policy` would otherwise allow.
+Explicit list of allowed SPDX identifiers. When set, every recognized license must be on the list to pass the policy check, narrowing whatever `policy` would otherwise allow. An allowed base license also admits its `WITH exception` forms.
 
 ### `denied-licenses`
 
-SPDX identifiers that always fail the policy check, regardless of `policy` or `allowed-licenses`.
+SPDX identifiers that fail the policy check regardless of `policy` or `allowed-licenses`. A denied base license also blocks its `WITH exception` forms.
+
+Two things both lists share:
+
+- Entries are normalized to canonical SPDX at config load — aliases and deprecated ids (`"apache"`, `"GPL-2.0"`) match their canonical forms, and an entry that isn't a single recognized SPDX identifier is rejected.
+- For an `OR` expression, the package passes if at least one alternative satisfies the lists: the license lets your project pick that branch. `MIT OR GPL-3.0-only` passes with `GPL-3.0-only` denied, because you can use the package under MIT. `AND` components must all satisfy the lists.
+
+Packages whose license can't be detected or classified are governed by `fail-on-unknown`, not by these lists — there is no identifier to match.
 
 ### Choosing dependency groups
 
