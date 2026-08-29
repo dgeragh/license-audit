@@ -169,6 +169,26 @@ class TestConfigPropagation:
         assert report.policy_passed is True
         assert report.recommended_licenses
 
+    def test_compound_expression_recommendations_match_compatibility(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """An OR nested inside an AND resolves the same way for the
+        recommendation and the compatibility check: the report must not
+        recommend a license its own incompatibility scan would flag."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"mixed": "MIT AND (GPL-3.0-only OR Apache-2.0)"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs == []
+        assert report.recommended_licenses[0] == "MIT"
+
     def test_classification_matching_nothing_warns(
         self,
         tmp_path: Path,

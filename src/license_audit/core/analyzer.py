@@ -116,6 +116,7 @@ class LicenseAuditor:
             matrix=self._matrix,
             classifier=self._classifier,
             normalizer=self._normalizer,
+            expression=self._expression,
         )
         self._policy = policy or PolicyEngine(
             classifier=self._classifier,
