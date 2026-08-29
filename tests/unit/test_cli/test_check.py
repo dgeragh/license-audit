@@ -6,7 +6,9 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
+from license_audit.cli.check import _determine_exit_code
 from license_audit.cli.main import cli
+from license_audit.config import LicenseAuditConfig
 from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
@@ -155,6 +157,60 @@ class TestCheckFailsPolicyViolation:
         assert result.exit_code == 1
         assert "FAIL" in result.output
         assert "review carefully" in result.output
+
+
+class TestExitCodePrecedence:
+    """A definite violation exits 1 even when unknowns are also present;
+    exit code 2 means unknowns are the only problem."""
+
+    def test_policy_violation_with_unknowns_exits_1(self) -> None:
+        report = _make_report(
+            packages=[_GPL_PKG, _UNKNOWN_PKG],
+            policy_passed=False,
+            action_items=[
+                ActionItem(
+                    severity="error",
+                    package="gpl-pkg",
+                    message="Package 'gpl-pkg' violates the 'permissive' policy.",
+                )
+            ],
+        )
+        with patch("license_audit.cli.check.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["check"])
+        assert result.exit_code == 1
+        assert "FAIL" in result.output
+        assert "gpl-pkg" in result.output
+
+    def test_denied_violation_beats_unknowns(self) -> None:
+        config = LicenseAuditConfig(
+            policy="network-copyleft",
+            denied_licenses=["GPL-3.0-only"],
+        )
+        report = _make_report(packages=[_GPL_PKG, _UNKNOWN_PKG])
+        assert _determine_exit_code(report, [_UNKNOWN_PKG], config) == 1
+
+    def test_incompatible_pairs_beat_everything(self) -> None:
+        pair = CompatibilityResult(
+            inbound="GPL-3.0-only",
+            outbound="Apache-2.0",
+            verdict=Verdict.INCOMPATIBLE,
+        )
+        config = LicenseAuditConfig()
+        report = _make_report(
+            packages=[_UNKNOWN_PKG],
+            incompatible_pairs=[pair],
+        )
+        assert _determine_exit_code(report, [_UNKNOWN_PKG], config) == 1
+
+    def test_unknowns_alone_exit_2(self) -> None:
+        config = LicenseAuditConfig(policy="strong-copyleft")
+        report = _make_report(packages=[_GPL_PKG, _UNKNOWN_PKG])
+        assert _determine_exit_code(report, [_UNKNOWN_PKG], config) == 2
+
+    def test_all_clear_exits_0(self) -> None:
+        config = LicenseAuditConfig()
+        report = _make_report(packages=[_MIT_PKG])
+        assert _determine_exit_code(report, [], config) == 0
 
 
 class TestCheckFailsUnknown:

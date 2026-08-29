@@ -23,7 +23,7 @@ license-audit check --fail-on-unknown      # explicit (default)
 license-audit check --no-fail-on-unknown   # tolerate unknown licenses
 ```
 
-Exit codes: `0` = pass, `1` = policy violation (incompatible pairs, denied licenses, or category exceeded), `2` = unknown licenses (when `--fail-on-unknown`).
+Exit codes: `0` = pass, `1` = policy violation (incompatible pairs, denied licenses, or category exceeded), `2` = unknown licenses and nothing else (when `--fail-on-unknown`). A violation always wins: exit `2` means resolving the unknowns is the only thing left to do. Results print to stderr, so stdout redirection doesn't swallow them.
 
 ## `recommend`
 

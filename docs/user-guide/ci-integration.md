@@ -10,7 +10,9 @@ It audits your installed environment, so install dependencies before running it.
 |------|---------|
 | `0` | All dependencies pass the policy |
 | `1` | Policy violation (incompatible pairs, denied licenses, or category exceeded) |
-| `2` | Unknown licenses detected (when `fail-on-unknown = true`) |
+| `2` | Unknown licenses detected and no other violation (when `fail-on-unknown = true`) |
+
+A definite violation always takes precedence: a run with both a violation and unknown licenses exits `1`, so exit `2` reliably means the unknowns are the only remaining problem. All `check` output goes to stderr; stdout stays clean for redirection.
 
 ## GitHub Actions
 
