@@ -16,6 +16,7 @@ from license_audit.core.models import (
     LicenseCategory,
     LicenseSource,
     PackageLicense,
+    PolicyLevel,
     Verdict,
 )
 
@@ -183,7 +184,7 @@ class TestExitCodePrecedence:
 
     def test_denied_violation_beats_unknowns(self) -> None:
         config = LicenseAuditConfig(
-            policy="network-copyleft",
+            policy=PolicyLevel.NETWORK_COPYLEFT,
             denied_licenses=["GPL-3.0-only"],
         )
         report = _make_report(packages=[_GPL_PKG, _UNKNOWN_PKG])
@@ -203,7 +204,7 @@ class TestExitCodePrecedence:
         assert _determine_exit_code(report, [_UNKNOWN_PKG], config) == 1
 
     def test_unknowns_alone_exit_2(self) -> None:
-        config = LicenseAuditConfig(policy="strong-copyleft")
+        config = LicenseAuditConfig(policy=PolicyLevel.STRONG_COPYLEFT)
         report = _make_report(packages=[_GPL_PKG, _UNKNOWN_PKG])
         assert _determine_exit_code(report, [_UNKNOWN_PKG], config) == 2
 

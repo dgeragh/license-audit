@@ -17,11 +17,13 @@ from license_audit.core.models import (
 )
 
 _ATTRIBUTION_LINK = "[license_audit](https://github.com/dgeragh/license-audit)"
-_COPYLEFT_CATEGORIES: frozenset[LicenseCategory] = frozenset({
-    LicenseCategory.STRONG_COPYLEFT,
-    LicenseCategory.WEAK_COPYLEFT,
-    LicenseCategory.NETWORK_COPYLEFT,
-})
+_COPYLEFT_CATEGORIES: frozenset[LicenseCategory] = frozenset(
+    {
+        LicenseCategory.STRONG_COPYLEFT,
+        LicenseCategory.WEAK_COPYLEFT,
+        LicenseCategory.NETWORK_COPYLEFT,
+    }
+)
 
 
 @dataclass(frozen=True)

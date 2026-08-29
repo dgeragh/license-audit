@@ -194,15 +194,17 @@ class TestJsonOutputs:
         _make_pyproject(tmp_path / "pyproject.toml")
         make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
         out = tmp_path / "out.json"
-        result = _run([
-            "--target",
-            str(tmp_path),
-            "report",
-            "--format",
-            "json",
-            "--output",
-            str(out),
-        ])
+        result = _run(
+            [
+                "--target",
+                str(tmp_path),
+                "report",
+                "--format",
+                "json",
+                "--output",
+                str(out),
+            ]
+        )
         assert result.returncode == 0
         assert out.exists() and out.stat().st_size > 0
         json.loads(out.read_text())  # parses

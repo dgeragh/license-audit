@@ -67,15 +67,15 @@ class TestResolveInboundAstDispatch:
     def test_or_nested_in_and_keeps_required_components(self) -> None:
         """AND components outside the OR stay required; the OR resolves to
         its most permissive branch, matching the compatibility check."""
-        resolved = LicenseRecommender().resolve_inbound([
-            "MIT AND (GPL-3.0-only OR Apache-2.0)"
-        ])
+        resolved = LicenseRecommender().resolve_inbound(
+            ["MIT AND (GPL-3.0-only OR Apache-2.0)"]
+        )
         assert set(resolved) == {"MIT", "Apache-2.0"}
 
     def test_and_nested_in_or_keeps_joint_requirement(self) -> None:
-        resolved = LicenseRecommender().resolve_inbound([
-            "GPL-2.0-only OR (MIT AND Apache-2.0)"
-        ])
+        resolved = LicenseRecommender().resolve_inbound(
+            ["GPL-2.0-only OR (MIT AND Apache-2.0)"]
+        )
         assert set(resolved) == {"MIT", "Apache-2.0"}
 
 
@@ -84,18 +84,18 @@ class TestRecommendCompoundExpressions:
         # Pre-fix, the OR branch was resolved from all symbols at once and
         # GPL-3.0-only led the list with MIT missing entirely. GPL stays
         # valid as a more restrictive outbound, just no longer first.
-        result = LicenseRecommender().recommend([
-            "MIT AND (GPL-3.0-only OR Apache-2.0)"
-        ])
+        result = LicenseRecommender().recommend(
+            ["MIT AND (GPL-3.0-only OR Apache-2.0)"]
+        )
         assert result[0] == "MIT"
         assert result.index("MIT") < result.index("GPL-3.0-only")
 
     def test_and_nested_in_or_excludes_incompatible_outbound(self) -> None:
         # GPL-2.0-only is incompatible with Apache-2.0 per OSADL, so it
         # must not be recommended once the AND branch is chosen.
-        result = LicenseRecommender().recommend([
-            "GPL-2.0-only OR (MIT AND Apache-2.0)"
-        ])
+        result = LicenseRecommender().recommend(
+            ["GPL-2.0-only OR (MIT AND Apache-2.0)"]
+        )
         assert "MIT" in result
         assert "GPL-2.0-only" not in result
 
