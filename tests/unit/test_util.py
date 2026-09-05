@@ -63,6 +63,30 @@ class TestGetLicenseText:
         _make_dist_info(tmp_path, "bare_pkg", "1.0.0")
         assert get_license_text("bare_pkg", tmp_path) is None
 
+    def test_pep639_license_file_outside_dist_info_ignored(
+        self, tmp_path: Path
+    ) -> None:
+        # A crafted wheel must not be able to embed arbitrary files in a report.
+        (tmp_path / "secret.txt").write_text("not a license")
+        _make_dist_info(
+            tmp_path,
+            "sneaky",
+            "1.0.0",
+            metadata_extra="License-File: ../secret.txt\n",
+        )
+        assert get_license_text("sneaky", tmp_path) is None
+
+    def test_pep639_absolute_license_file_ignored(self, tmp_path: Path) -> None:
+        secret = tmp_path / "secret.txt"
+        secret.write_text("not a license")
+        _make_dist_info(
+            tmp_path,
+            "sneaky",
+            "1.0.0",
+            metadata_extra=f"License-File: {secret}\n",
+        )
+        assert get_license_text("sneaky", tmp_path) is None
+
     def test_pep639_license_file_in_root(self, tmp_path: Path) -> None:
         _make_dist_info(
             tmp_path,

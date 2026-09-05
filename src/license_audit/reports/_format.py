@@ -14,6 +14,7 @@ from license_audit.core.models import (
     IncompatiblePair,
     LicenseCategory,
     PackageLicense,
+    license_label,
 )
 
 _ATTRIBUTION_LINK = "[license_audit](https://github.com/dgeragh/license-audit)"
@@ -151,14 +152,6 @@ def explain_no_recommendation(
             "is incorrect, or replace a conflicting dependency."
         ),
     )
-
-
-def license_label(value: str, limit: int = 120) -> str:
-    """Collapse whitespace and bound length so a license fits one table cell."""
-    collapsed = " ".join(value.split())
-    if len(collapsed) > limit:
-        return collapsed[: limit - 3].rstrip() + "..."
-    return collapsed
 
 
 def markdown_license_cell(value: str) -> str:

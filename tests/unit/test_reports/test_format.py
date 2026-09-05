@@ -9,6 +9,7 @@ from license_audit.core.models import (
     LicenseCategory,
     LicenseSource,
     PackageLicense,
+    license_label,
 )
 from license_audit.reports._format import (
     ActionItemFormatter,
@@ -18,7 +19,6 @@ from license_audit.reports._format import (
     category_label,
     explain_no_recommendation,
     fenced_code_block,
-    license_label,
     markdown_license_cell,
 )
 

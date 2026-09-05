@@ -12,6 +12,15 @@ from license_audit import __version__
 # Sentinel value used when a package's license cannot be detected.
 UNKNOWN_LICENSE = "UNKNOWN"
 
+
+def license_label(value: str, limit: int = 120) -> str:
+    """Collapse whitespace and bound length so a license fits one line or cell."""
+    collapsed = " ".join(value.split())
+    if len(collapsed) > limit:
+        return collapsed[: limit - 3].rstrip() + "..."
+    return collapsed
+
+
 # Bumped only on breaking changes to the JSON report; additive changes do not bump.
 SCHEMA_VERSION: Final = 2
 

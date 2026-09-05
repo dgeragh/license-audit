@@ -17,6 +17,8 @@
 - A `License-Expression` field wins over a stale `License` field or classifier even when unrecognized
 - Package, action item, and conflict order in the JSON report no longer depends on the filesystem
 - `--config` rejects a file not named `pyproject.toml`, or a directory without one
+- Action items collapse a multi-line declared license to one bounded line
+- `License-File` entries that point outside a package's dist-info are ignored
 
 ### Changed
 

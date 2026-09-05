@@ -7,7 +7,7 @@ from rich.markup import escape
 from rich.table import Table
 from rich.text import Text
 
-from license_audit.core.models import AnalysisReport, LicenseCategory
+from license_audit.core.models import AnalysisReport, LicenseCategory, license_label
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
@@ -15,7 +15,6 @@ from license_audit.reports._format import (
     SummaryStats,
     category_label,
     explain_no_recommendation,
-    license_label,
 )
 
 

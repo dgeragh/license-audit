@@ -13,6 +13,7 @@ from license_audit.core.models import (
     LicensePolicy,
     PackageLicense,
     PolicyLevel,
+    license_label,
 )
 from license_audit.licenses.expression import ExpressionEvaluator
 from license_audit.licenses.spdx import SpdxNormalizer
@@ -153,8 +154,8 @@ class PolicyEngine:
                         package=pkg.name,
                         message=(
                             f"Package '{pkg.name}' uses {pkg.category.value} license "
-                            f"'{pkg.display_license}', which violates the "
-                            f"'{config.policy}' policy."
+                            f"'{license_label(pkg.display_license)}', which violates "
+                            f"the '{config.policy}' policy."
                         ),
                     ),
                 )
@@ -168,8 +169,9 @@ class PolicyEngine:
                         package=pkg.name,
                         message=(
                             f"Package '{pkg.name}' uses {pkg.category.value} license "
-                            f"'{pkg.display_license}'. This may require your project "
-                            f"to use a compatible copyleft license."
+                            f"'{license_label(pkg.display_license)}'. This may "
+                            f"require your project to use a compatible copyleft "
+                            f"license."
                         ),
                     ),
                 )
@@ -247,8 +249,9 @@ class PolicyEngine:
                     package=pkg.name,
                     message=(
                         f"Package '{pkg.name}' uses license "
-                        f"'{pkg.display_license}', which is not in the allowed "
-                        f"list. Add it to allowed-licenses or request an exemption."
+                        f"'{license_label(pkg.display_license)}', which is not in "
+                        f"the allowed list. Add it to allowed-licenses or request "
+                        f"an exemption."
                     ),
                 ),
             )
@@ -269,10 +272,10 @@ class PolicyEngine:
 
         if pkg.declared_license:
             return (
-                f"Package '{pkg.name}' declares license '{pkg.declared_license}', "
-                f"which is not a recognized SPDX identifier. Review its license "
-                f"text in the report to determine the correct classification. "
-                f"{suffix}"
+                f"Package '{pkg.name}' declares license "
+                f"'{license_label(pkg.declared_license)}', which is not a "
+                f"recognized SPDX identifier. Review its license text in the "
+                f"report to determine the correct classification. {suffix}"
             )
 
         if pkg.license_expression == UNKNOWN_LICENSE:

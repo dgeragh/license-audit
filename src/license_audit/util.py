@@ -45,8 +45,11 @@ class _DistInfoDir(_DistInfo):
         self._path = path
 
     def read_text(self, name: str) -> str | None:
-        target = self._path / name
-        if not target.is_file():
+        # A License-File entry is untrusted metadata; keep it inside the
+        # dist-info so a crafted wheel can't embed arbitrary files in a report.
+        root = self._path.resolve()
+        target = (root / name).resolve()
+        if not target.is_relative_to(root) or not target.is_file():
             return None
         return target.read_text(encoding="utf-8", errors="replace")
 
