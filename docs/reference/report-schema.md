@@ -58,7 +58,7 @@ A package whose license could not be mapped to SPDX keeps its raw string in `dec
 | `license_a` | string | One dependency license of the conflicting pair |
 | `license_b` | string | The other dependency license |
 
-The pair is unordered: `license_a`/`license_b` carry no meaning beyond which license was encountered first.
+The pair is unordered: `license_a`/`license_b` carry no meaning beyond which license was encountered first. A dual-licensed dependency whose every alternative conflicts is named by its full OR expression.
 
 ## ActionItem
 

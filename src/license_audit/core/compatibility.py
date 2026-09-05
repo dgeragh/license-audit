@@ -2,8 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+from dataclasses import dataclass
+
 from license_audit._data import OSADLDataStore
 from license_audit.core.models import CompatibilityResult, IncompatiblePair, Verdict
+
+
+@dataclass(frozen=True)
+class Inbound:
+    """One dependency's constraint: comply with every id of any one alternative."""
+
+    alternatives: tuple[tuple[str, ...], ...]
+
+    @property
+    def label(self) -> str:
+        parts = [" AND ".join(alt) for alt in self.alternatives]
+        if len(parts) == 1:
+            return parts[0]
+        return " OR ".join(f"({p})" if " AND " in p else p for p in parts)
 
 
 class CompatibilityMatrix:
@@ -48,42 +65,40 @@ class CompatibilityMatrix:
         verdict = self.VERDICT_MAP.get(raw, Verdict.UNKNOWN)
         return CompatibilityResult(inbound=inbound, outbound=outbound, verdict=verdict)
 
-    def find_compatible_outbound(self, inbound_licenses: list[str]) -> list[str]:
-        """Outbound licenses compatible with every evaluable inbound license.
+    def outbound_for(self, inbound: Inbound, verdicts: frozenset[str]) -> set[str]:
+        """Outbound licenses whose verdicts for some alternative all fall in `verdicts`.
 
-        Inbounds absent from the matrix are skipped; those surface as UNKNOWN
-        elsewhere so they don't block the recommendation here.
+        Ids absent from the matrix impose nothing here; they surface as
+        UNKNOWN elsewhere.
         """
         matrix = self._store.matrix()
-        all_outbound = list(matrix.keys())
-        evaluable = [lic for lic in inbound_licenses if lic in matrix]
-
-        if not evaluable:
-            return all_outbound
-
-        return [
-            outbound
-            for outbound in all_outbound
-            if all(
-                self.raw_verdict(outbound, inbound) in self.RECOMMEND_VERDICTS
-                for inbound in evaluable
+        result: set[str] = set()
+        for alt in inbound.alternatives:
+            known = [lic for lic in alt if lic in matrix]
+            result.update(
+                outbound
+                for outbound in matrix
+                if all(self.raw_verdict(outbound, lic) in verdicts for lic in known)
             )
-        ]
+        return result
 
-    def find_incompatible_pairs(self, licenses: list[str]) -> list[IncompatiblePair]:
-        """Pairs of licenses with no common outbound license."""
+    def find_compatible_outbound(self, inbound: Iterable[Inbound]) -> list[str]:
+        """Outbound licenses that satisfy every dependency, in matrix order."""
         matrix = self._store.matrix()
-        evaluable = [lic for lic in licenses if lic in matrix]
-        all_outbound = list(matrix.keys())
+        compatible = set(matrix)
+        for unit in inbound:
+            compatible &= self.outbound_for(unit, self.RECOMMEND_VERDICTS)
+        return [lic for lic in matrix if lic in compatible]
 
-        results: list[IncompatiblePair] = []
-        for i, lic_a in enumerate(evaluable):
-            for lic_b in evaluable[i + 1 :]:
-                has_common = any(
-                    self.raw_verdict(outbound, lic_a) in self.COMPATIBLE_VERDICTS
-                    and self.raw_verdict(outbound, lic_b) in self.COMPATIBLE_VERDICTS
-                    for outbound in all_outbound
-                )
-                if not has_common:
-                    results.append(IncompatiblePair(license_a=lic_a, license_b=lic_b))
-        return results
+    def find_incompatible_pairs(
+        self, inbound: Iterable[Inbound]
+    ) -> list[IncompatiblePair]:
+        """Dependencies that share no outbound license, named by their label."""
+        units = list(dict.fromkeys(inbound))
+        outbound = [self.outbound_for(unit, self.COMPATIBLE_VERDICTS) for unit in units]
+        pairs: list[IncompatiblePair] = []
+        for i, a in enumerate(units):
+            for b, outbound_b in zip(units[i + 1 :], outbound[i + 1 :], strict=True):
+                if not outbound[i] & outbound_b:
+                    pairs.append(IncompatiblePair(license_a=a.label, license_b=b.label))
+        return pairs

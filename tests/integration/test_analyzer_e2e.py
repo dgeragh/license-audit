@@ -189,6 +189,50 @@ class TestConfigPropagation:
         assert report.incompatible_pairs == []
         assert report.recommended_licenses[0] == "MIT"
 
+    def test_dual_license_order_does_not_create_conflicts(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A dependency declared Apache-first (packaging, cryptography) next
+        to GPL-2.0-only is satisfiable through its BSD branch."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"dual": "Apache-2.0 OR BSD-2-Clause", "gpl": "GPL-2.0-only"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs == []
+        assert "GPL-2.0-only" in report.recommended_licenses
+
+    def test_classified_component_keeps_sibling_in_recommendations(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """Deeming CNRI-Python permissive waives only that component; the
+        Apache-2.0 sibling still rules out the GPL-2.0-only outbound the
+        incompatibility scan flags."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"CNRI-Python" = "permissive"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"legacy_pkg": "Apache-2.0 AND CNRI-Python", "gpl_pkg": "GPL-2.0-only"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert any(
+            {p.license_a, p.license_b} == {"Apache-2.0", "GPL-2.0-only"}
+            for p in report.incompatible_pairs
+        )
+        assert report.recommended_licenses == []
+
     def test_classification_matching_nothing_warns(
         self,
         tmp_path: Path,

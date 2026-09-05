@@ -5,9 +5,9 @@ from __future__ import annotations
 import math
 
 from license_audit.core.classifier import LicenseClassifier
-from license_audit.core.compatibility import CompatibilityMatrix
-from license_audit.core.models import CATEGORY_RANK, UNKNOWN_LICENSE, LicenseCategory
-from license_audit.licenses.expression import ExpressionEvaluator
+from license_audit.core.compatibility import CompatibilityMatrix, Inbound
+from license_audit.core.models import CATEGORY_RANK, LicenseCategory
+from license_audit.licenses.expression import CategoryOverrides, ExpressionEvaluator
 from license_audit.licenses.spdx import SpdxNormalizer
 
 
@@ -58,13 +58,21 @@ class LicenseRecommender:
         )
         self._preferred_index = {name: i for i, name in enumerate(self.PREFERRED)}
 
-    def recommend(self, dependency_licenses: list[str]) -> list[str]:
-        """Compatible outbound licenses, most permissive first."""
-        resolved = self.resolve_inbound(dependency_licenses)
-        if not resolved:
+    def recommend(
+        self,
+        dependency_licenses: list[str],
+        overrides: CategoryOverrides | None = None,
+    ) -> list[str]:
+        """Compatible outbound licenses, most permissive first.
+
+        `overrides` drops user-classified components, as the compatibility
+        check does.
+        """
+        inbound = self.resolve_inbound(dependency_licenses, overrides)
+        if not inbound:
             return self._default_recommendations()
 
-        compatible = self._matrix.find_compatible_outbound(resolved)
+        compatible = self._matrix.find_compatible_outbound(inbound)
         return sorted(compatible, key=self._sort_key)
 
     def _sort_key(self, lic: str) -> tuple[int, float, str]:
@@ -86,17 +94,19 @@ class LicenseRecommender:
             return None
         return recommended[0]
 
-    def resolve_inbound(self, expressions: list[str]) -> list[str]:
-        """Flatten SPDX expressions into a deduplicated list of licenses.
+    def resolve_inbound(
+        self,
+        expressions: list[str],
+        overrides: CategoryOverrides | None = None,
+    ) -> list[Inbound]:
+        """Constraints the expressions impose.
 
-        Each expression resolves through ExpressionEvaluator.required_ids —
-        the same OR/AND semantics the compatibility check uses — so the
+        Each expression resolves through ExpressionEvaluator.inbound, the
+        same OR/AND semantics the compatibility check uses, so the
         recommendation can't contradict the incompatible-pair results.
-        UNKNOWN is dropped.
         """
-        resolved: set[str] = set()
-        for expr in expressions:
-            if expr == UNKNOWN_LICENSE:
-                continue
-            resolved.update(self._expression.required_ids(expr))
-        return list(resolved)
+        return [
+            unit
+            for expr in expressions
+            for unit in self._expression.inbound(expr, overrides)
+        ]

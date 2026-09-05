@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- Dual-licensed dependencies no longer conflict based on which alternative is written first
+- Recommendations keep a package's other license components when one component is classified
+
 ### Changed
 
 - The JSON report's `schema_version` is now `2`: entries in `incompatible_pairs` name their licenses `license_a`/`license_b` (both are dependency licenses; the old `inbound`/`outbound` names wrongly suggested one was an outbound license), and the always-`incompatible` `verdict` field is removed
