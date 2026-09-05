@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from itertools import pairwise
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
+from packaging.version import InvalidVersion
 
-from license_audit.environment.analyze import analyze_environment
+from license_audit.environment.analyze import _marker_matches, analyze_environment
 from license_audit.util import MetadataReader
 
 
@@ -243,3 +245,32 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         names = {p.name for p in analyze_environment("rootpkg", reader).flatten()}
         assert "installed-dep" in names
         assert "ghost" not in names
+
+    def test_unevaluable_marker_dep_rescued_as_direct(self, tmp_path: Path) -> None:
+        # packaging < 26 raises on platform_release markers against a Linux
+        # kernel string; the dep must still land in the tree, not crash the walk.
+        _make_dist_info(
+            tmp_path,
+            "rootpkg",
+            "1.0",
+            license_expression="MIT",
+            requires=['kernelonly>=1.0; platform_release >= "5"'],
+        )
+        _make_dist_info(tmp_path, "kernelonly", "1.0", license_expression="MIT")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        with patch(
+            "packaging.markers.Marker.evaluate",
+            side_effect=InvalidVersion("Invalid version: '6.5.0-14-generic'"),
+        ):
+            tree = analyze_environment("rootpkg", reader)
+        parents = {p.name: p.parent for p in tree.flatten()}
+        assert parents["kernelonly"] == "kernelonly"
+
+
+class TestMarkerMatches:
+    def test_unevaluable_marker_is_false_for_every_extra(self) -> None:
+        class _Marker:
+            def evaluate(self, environment: dict[str, str]) -> bool:
+                raise InvalidVersion(environment["extra"] or "bare")
+
+        assert _marker_matches(_Marker(), frozenset({"fast"})) is False

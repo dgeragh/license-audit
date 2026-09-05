@@ -12,6 +12,7 @@
 - An unreadable `pyproject.toml` or environment reports a clean error instead of a traceback
 - `refresh` reports an HTTP protocol error cleanly instead of a traceback
 - A corrupt cached OSADL file names itself and suggests `refresh` instead of failing every command
+- Markers comparing `platform_release` no longer crash on Linux with packaging older than 26
 
 ### Changed
 

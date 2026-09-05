@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from packaging.markers import UndefinedComparison
 from packaging.requirements import InvalidRequirement, Requirement
+from packaging.version import InvalidVersion
 
 from license_audit.core.models import DependencyNode, PackageLicense
 from license_audit.licenses.detection import detect_license
@@ -93,9 +95,18 @@ def _marker_matches(marker: Any, extras: frozenset[str]) -> bool:
     # before ~24.3 raise UndefinedEnvironmentName on a bare evaluate() of
     # any marker referencing `extra`, and newer ones treat it as False
     # anyway.
-    if marker.evaluate({"extra": ""}):
+    if _evaluate(marker, ""):
         return True
-    return any(marker.evaluate({"extra": extra}) for extra in extras)
+    return any(_evaluate(marker, extra) for extra in extras)
+
+
+def _evaluate(marker: Any, extra: str) -> bool:
+    # Before packaging 26, comparing platform_release against a Linux kernel
+    # string ("6.5.0-14-generic") raised instead of evaluating false.
+    try:
+        return bool(marker.evaluate({"extra": extra}))
+    except (InvalidVersion, UndefinedComparison):
+        return False
 
 
 def _get_version(package_name: str, reader: MetadataReader) -> str:
