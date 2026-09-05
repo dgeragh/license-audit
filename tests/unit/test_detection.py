@@ -297,6 +297,19 @@ class TestDetectFromMetadata:
         assert result.expression == "UNKNOWN"
         assert result.declared_license == "Some Bespoke License"
 
+    def test_unrecognized_pep639_wins_over_recognized_legacy_fields(self) -> None:
+        # setuptools still emits deprecated classifiers beside License-Expression;
+        # a package that declares itself proprietary must not read as MIT.
+        meta = _make_metadata(
+            License_Expression="LicenseRef-Proprietary",
+            License="MIT",
+            Classifier=["License :: OSI Approved :: MIT License"],
+        )
+        result = _detect_from_metadata(meta)
+        assert result.expression == "UNKNOWN"
+        assert result.declared_license == "LicenseRef-Proprietary"
+        assert result.source == LicenseSource.PEP639
+
     def test_pep639_declared_string_preferred_over_classifier_declared(self) -> None:
         meta = _make_metadata(
             License_Expression="Custom GPU EULA",

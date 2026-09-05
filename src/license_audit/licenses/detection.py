@@ -50,9 +50,10 @@ def detect_license(
     4. Trove classifiers
     5. UNKNOWN
 
-    When a license is declared but cannot be normalized to SPDX, the raw
-    string is preserved on the result's ``declared_license`` field rather than
-    being discarded.
+    A License-Expression is final whether or not it normalizes; the legacy
+    fields are consulted only when it is absent. When a license is declared
+    but cannot be normalized to SPDX, the raw string is preserved on the
+    result's ``declared_license`` field rather than being discarded.
     """
     # Override keys are matched against the canonical (PEP 503) package name.
     if overrides:
@@ -76,17 +77,17 @@ def detect_license(
 def _detect_from_metadata(meta: Message) -> DetectionResult:
     """Extract license from package metadata fields.
 
-    Each source is consulted in priority order. A recognized SPDX result wins
-    immediately; otherwise the first source that declared *something* (even if
-    unrecognized) is surfaced so its raw string isn't lost.
+    PEP 639 makes License-Expression authoritative, so a stale License field
+    or classifier left beside it never overrides it. Among the legacy fields a
+    recognized SPDX result wins; otherwise the first one that declared
+    *something* (even if unrecognized) is surfaced so its raw string isn't lost.
     """
+    pep639 = _try_pep639(meta)
+    if pep639 is not None:
+        return pep639
     candidates = [
         candidate
-        for candidate in (
-            _try_pep639(meta),
-            _try_license_field(meta),
-            _try_classifiers(meta),
-        )
+        for candidate in (_try_license_field(meta), _try_classifiers(meta))
         if candidate is not None
     ]
 
