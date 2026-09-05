@@ -8,6 +8,7 @@ from typing import Any
 
 import click
 
+from license_audit import __version__
 from license_audit.cli.analyze import analyze_cmd
 from license_audit.cli.check import check_cmd
 from license_audit.cli.recommend import recommend_cmd
@@ -75,7 +76,7 @@ def _config_path(
         "from. Defaults to the target's location."
     ),
 )
-@click.version_option(package_name="license-audit")
+@click.version_option(version=__version__)
 @click.pass_context
 def cli(
     ctx: click.Context,

@@ -4,8 +4,16 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from license_audit.core.models import UNKNOWN_LICENSE, LicenseCategory, PolicyLevel
 from license_audit.licenses.spdx import SpdxNormalizer
@@ -99,6 +107,19 @@ class LicenseAuditConfig(BaseModel):
                 raise ValueError(msg)
             normalized.append(spdx)
         return normalized
+
+    @model_validator(mode="after")
+    def _reject_overlapping_lists(self) -> Self:
+        # The policy check and the action items would otherwise disagree on
+        # a license that is both allowed and denied.
+        overlap = sorted(set(self.allowed_licenses) & set(self.denied_licenses))
+        if overlap:
+            msg = (
+                f"{', '.join(overlap)} cannot be in both allowed-licenses and "
+                f"denied-licenses"
+            )
+            raise ValueError(msg)
+        return self
 
     @field_validator("overrides", mode="after")
     @classmethod

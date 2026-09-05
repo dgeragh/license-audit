@@ -133,8 +133,8 @@ class MarkdownRenderer:
         lines = [
             "\n## Compatibility Analysis\n",
             "**WARNING: Incompatible license pairs detected!**\n",
-            "| License A | License B | Verdict |",
-            "|-----------|-----------|---------|",
+            "| License A | License B |",
+            "|-----------|-----------|",
         ]
         for pair in report.incompatible_pairs:
             lines.append(IncompatiblePairFormatter.markdown_row(pair))

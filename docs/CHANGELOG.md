@@ -19,10 +19,15 @@
 - `--config` rejects a file not named `pyproject.toml`, or a directory without one
 - Action items collapse a multi-line declared license to one bounded line
 - `License-File` entries that point outside a package's dist-info are ignored
+- `--version` and the JSON report's `tool_version` read the same version
+- A license in both `allowed-licenses` and `denied-licenses` is rejected at config load
 
 ### Changed
 
-- The JSON report's `schema_version` is now `2`: entries in `incompatible_pairs` name their licenses `license_a`/`license_b` (both are dependency licenses; the old `inbound`/`outbound` names wrongly suggested one was an outbound license), and the always-`incompatible` `verdict` field is removed
+- JSON report `schema_version` is now `2`
+- `incompatible_pairs` entries name `license_a`/`license_b` instead of `inbound`/`outbound`
+- The always-`incompatible` `verdict` field is removed from `incompatible_pairs`
+- The Markdown compatibility table drops its always-`incompatible` Verdict column
 
 ## 0.13.0 (2026-08-29)
 

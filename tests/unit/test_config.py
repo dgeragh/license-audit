@@ -185,6 +185,16 @@ class TestLicenseListValidation:
         config = load_config(tmp_path)
         assert config.denied_licenses == ["GPL-2.0-only"]
 
+    def test_license_in_both_lists_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="both allowed-licenses and denied"):
+            LicenseAuditConfig(allowed_licenses=["MIT"], denied_licenses=["mit"])
+
+    def test_disjoint_lists_accepted(self) -> None:
+        config = LicenseAuditConfig(
+            allowed_licenses=["MIT"], denied_licenses=["GPL-2.0"]
+        )
+        assert config.denied_licenses == ["GPL-2.0-only"]
+
 
 class TestGetProjectName:
     def test_reads_name(self, tmp_path: Path) -> None:

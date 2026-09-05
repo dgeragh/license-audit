@@ -241,7 +241,7 @@ class TestIncompatiblePairFormatter:
 
     def test_markdown_row(self) -> None:
         result = IncompatiblePairFormatter.markdown_row(self._pair())
-        assert result == "| GPL-2.0-only | Apache-2.0 | incompatible |"
+        assert result == "| GPL-2.0-only | Apache-2.0 |"
 
 
 class TestExplainNoRecommendation:

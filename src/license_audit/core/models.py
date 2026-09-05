@@ -112,7 +112,7 @@ class DependencyNode(BaseModel):
         """Return all packages in the tree as a flat list (deduped by name).
 
         Each package's ``parent`` field is set to the top-level dependency
-        that pulls it in (direct deps have parent set to the root project).
+        that pulls it in; a direct dependency is its own parent.
         """
         seen: set[str] = set()
         result: list[PackageLicense] = []

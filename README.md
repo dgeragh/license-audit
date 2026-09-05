@@ -118,7 +118,7 @@ fail-on-unknown = true
 policy = "permissive"  # permissive | weak-copyleft | strong-copyleft | network-copyleft
 allowed-licenses = ["MIT", "Apache-2.0", "BSD-3-Clause"]
 denied-licenses = ["GPL-3.0-only"]
-target = ".venv"  # optional; defaults to the active environment
+target = ".venv"  # optional; defaults to ./.venv, else the active environment
 
 [tool.license-audit.overrides]
 some-internal-package = "MIT"

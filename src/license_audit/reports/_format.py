@@ -225,4 +225,4 @@ class IncompatiblePairFormatter:
     @classmethod
     def markdown_row(cls, pair: IncompatiblePair) -> str:
         """Markdown table row for a compatibility table."""
-        return f"| {pair.license_a} | {pair.license_b} | incompatible |"
+        return f"| {pair.license_a} | {pair.license_b} |"
