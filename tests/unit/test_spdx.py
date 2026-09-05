@@ -38,6 +38,14 @@ class TestNormalize:
         assert n.normalize("GPLv3") == "GPL-3.0-only"
         assert n.normalize("GNU GPL v2") == "GPL-2.0-only"
 
+    def test_bare_family_name_is_not_guessed(self) -> None:
+        # chardet ships "License: LGPL" beside an LGPLv2+ classifier; a guessed
+        # version 3 would land on the wrong OSADL row.
+        n = SpdxNormalizer()
+        assert n.normalize("GPL") == "UNKNOWN"
+        assert n.normalize("GNU GPL") == "UNKNOWN"
+        assert n.normalize("LGPL") == "UNKNOWN"
+
     def test_deprecated_spdx_normalized(self) -> None:
         n = SpdxNormalizer()
         assert n.normalize("GPL-2.0") == "GPL-2.0-only"

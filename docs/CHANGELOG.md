@@ -13,6 +13,7 @@
 - `refresh` reports an HTTP protocol error cleanly instead of a traceback
 - A corrupt cached OSADL file names itself and suggests `refresh` instead of failing every command
 - Markers comparing `platform_release` no longer crash on Linux with packaging older than 26
+- A bare `GPL` or `LGPL` license field no longer reads as version 3; a classifier is used instead
 
 ### Changed
 
