@@ -71,6 +71,17 @@ class TestRecommendCli:
         assert result.exit_code == 0
         assert "No compatible" in result.output
 
+    def test_project_name_with_markup_preserved(self) -> None:
+        report = AnalysisReport(
+            project_name="my[x]proj[/bold]",
+            packages=[_MIT_PKG],
+            recommended_licenses=["MIT"],
+        )
+        with patch("license_audit.cli.recommend.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert result.exit_code == 0
+        assert "my[x]proj[/bold]" in result.output
+
 
 class TestRecommendActionItems:
     def test_action_items_shown(self) -> None:

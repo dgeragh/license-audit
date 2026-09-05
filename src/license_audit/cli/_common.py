@@ -59,8 +59,9 @@ def run_audit(
 ) -> AnalysisReport:
     """Run the audit and convert user-facing errors to clean CLI messages.
 
-    Raises `click.ClickException` on target-resolution errors so Click
-    prints a concise "Error: ..." instead of a full Python traceback.
+    Raises `click.ClickException` on target-resolution, data, and file
+    access errors so Click prints a concise "Error: ..." instead of a
+    full Python traceback.
     """
     try:
         return (auditor or LicenseAuditor()).run(
@@ -68,5 +69,5 @@ def run_audit(
             config=config,
             config_dir=config_dir,
         )
-    except (FileNotFoundError, ValueError) as exc:
+    except (OSError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc

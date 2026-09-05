@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
+import click
 import pytest
 
-from license_audit.cli._common import resolve_config
+from license_audit.cli._common import resolve_config, run_audit
+from license_audit.config import LicenseAuditConfig
+from license_audit.core.analyzer import LicenseAuditor
 from license_audit.core.models import PolicyLevel
 
 
@@ -137,3 +141,12 @@ class TestResolveConfig:
         )
         target, _config, _dir = resolve_config(_ctx(target=project))  # type: ignore[arg-type]
         assert target == project
+
+
+class TestRunAudit:
+    def test_unreadable_environment_is_a_clean_error(self, tmp_path: Path) -> None:
+        with (
+            patch.object(LicenseAuditor, "run", side_effect=PermissionError("denied")),
+            pytest.raises(click.ClickException, match="denied"),
+        ):
+            run_audit(tmp_path, LicenseAuditConfig())

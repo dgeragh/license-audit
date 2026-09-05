@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from license_audit.core.models import LicenseCategory
+from license_audit.core.compatibility import Inbound
+from license_audit.core.models import UNKNOWN_LICENSE, LicenseCategory
 from license_audit.licenses.expression import (
     ExpressionEvaluator,
     normalize_license_key,
@@ -120,6 +121,87 @@ class TestRequiredIds:
         assert ExpressionEvaluator().required_ids(
             "GPL-3.0-only OR MIT", overrides=overrides
         ) == ["GPL-3.0-only"]
+
+
+class TestBestAlternatives:
+    def test_tied_alternatives_all_kept(self) -> None:
+        assert ExpressionEvaluator().best_alternatives("Apache-2.0 OR MIT") == [
+            ["Apache-2.0"],
+            ["MIT"],
+        ]
+
+    def test_higher_rank_alternative_dropped(self) -> None:
+        assert ExpressionEvaluator().best_alternatives(
+            "MIT OR GPL-3.0-only OR Apache-2.0"
+        ) == [["MIT"], ["Apache-2.0"]]
+
+    def test_unparseable_returns_empty(self) -> None:
+        assert ExpressionEvaluator().best_alternatives("garbage!!!") == []
+
+    def test_overrides_change_ranking(self) -> None:
+        overrides = {"mit": LicenseCategory.PROPRIETARY}
+        assert ExpressionEvaluator().best_alternatives(
+            "GPL-3.0-only OR MIT", overrides=overrides
+        ) == [["GPL-3.0-only"]]
+
+
+class TestInbound:
+    def test_single_license(self) -> None:
+        assert ExpressionEvaluator().inbound("MIT") == [Inbound((("MIT",),))]
+
+    def test_and_yields_one_unit_per_component(self) -> None:
+        units = ExpressionEvaluator().inbound("MPL-2.0 AND MIT")
+        assert [u.label for u in units] == ["MPL-2.0", "MIT"]
+
+    def test_tied_or_is_one_unit(self) -> None:
+        assert ExpressionEvaluator().inbound("Apache-2.0 OR MIT") == [
+            Inbound((("Apache-2.0",), ("MIT",))),
+        ]
+
+    def test_or_contributes_only_best_branch(self) -> None:
+        assert ExpressionEvaluator().inbound("GPL-3.0-only OR MIT") == [
+            Inbound((("MIT",),)),
+        ]
+
+    def test_common_component_factored_out(self) -> None:
+        units = ExpressionEvaluator().inbound("MPL-2.0 AND (Apache-2.0 OR MIT)")
+        assert [u.label for u in units] == ["MPL-2.0", "Apache-2.0 OR MIT"]
+
+    def test_and_nested_in_or_keeps_joint_requirement(self) -> None:
+        units = ExpressionEvaluator().inbound("GPL-2.0-only OR (MIT AND Apache-2.0)")
+        assert [u.label for u in units] == ["MIT", "Apache-2.0"]
+
+    def test_unknown_contributes_nothing(self) -> None:
+        assert ExpressionEvaluator().inbound(UNKNOWN_LICENSE) == []
+
+    def test_unparseable_contributes_nothing(self) -> None:
+        assert ExpressionEvaluator().inbound("garbage!!!") == []
+
+    def test_deprecated_id_promoted(self) -> None:
+        assert ExpressionEvaluator().inbound("GPL-2.0")[0].label == "GPL-2.0-only"
+
+    def test_overridden_component_dropped(self) -> None:
+        overrides = {"cnri-python": LicenseCategory.PERMISSIVE}
+        units = ExpressionEvaluator().inbound("Apache-2.0 AND CNRI-Python", overrides)
+        assert [u.label for u in units] == ["Apache-2.0"]
+
+    def test_overridden_whole_expression_contributes_nothing(self) -> None:
+        overrides = {"gpl-2.0-only and gpl-3.0-only": LicenseCategory.PERMISSIVE}
+        assert (
+            ExpressionEvaluator().inbound("GPL-2.0-only AND GPL-3.0-only", overrides)
+            == []
+        )
+
+    def test_override_steers_branch_and_keeps_its_ids(self) -> None:
+        # MIT deemed proprietary leaves GPL as the best branch; its id still counts.
+        overrides = {"mit": LicenseCategory.PROPRIETARY}
+        assert ExpressionEvaluator().inbound("GPL-3.0-only OR MIT", overrides) == [
+            Inbound((("GPL-3.0-only",),)),
+        ]
+
+    def test_override_emptying_a_branch_lifts_the_constraint(self) -> None:
+        overrides = {"foo-1.0": LicenseCategory.PERMISSIVE}
+        assert ExpressionEvaluator().inbound("GPL-3.0-only OR Foo-1.0", overrides) == []
 
 
 class TestClassify:

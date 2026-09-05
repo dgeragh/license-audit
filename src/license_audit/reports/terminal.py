@@ -7,7 +7,7 @@ from rich.markup import escape
 from rich.table import Table
 from rich.text import Text
 
-from license_audit.core.models import AnalysisReport, LicenseCategory
+from license_audit.core.models import AnalysisReport, LicenseCategory, license_label
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
@@ -15,7 +15,6 @@ from license_audit.reports._format import (
     SummaryStats,
     category_label,
     explain_no_recommendation,
-    license_label,
 )
 
 
@@ -46,7 +45,9 @@ class TerminalRenderer:
 
     def _render_header(self, report: AnalysisReport) -> None:
         self._console.print()
-        self._console.rule(f"[bold]License Analysis: {report.project_name}[/bold]")
+        self._console.rule(
+            f"[bold]License Analysis: {escape(report.project_name)}[/bold]"
+        )
         if report.source:
             self._console.print(f"[dim]Source:[/dim] {escape(report.source)}")
         self._console.print()

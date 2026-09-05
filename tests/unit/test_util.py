@@ -63,6 +63,30 @@ class TestGetLicenseText:
         _make_dist_info(tmp_path, "bare_pkg", "1.0.0")
         assert get_license_text("bare_pkg", tmp_path) is None
 
+    def test_pep639_license_file_outside_dist_info_ignored(
+        self, tmp_path: Path
+    ) -> None:
+        # A crafted wheel must not be able to embed arbitrary files in a report.
+        (tmp_path / "secret.txt").write_text("not a license")
+        _make_dist_info(
+            tmp_path,
+            "sneaky",
+            "1.0.0",
+            metadata_extra="License-File: ../secret.txt\n",
+        )
+        assert get_license_text("sneaky", tmp_path) is None
+
+    def test_pep639_absolute_license_file_ignored(self, tmp_path: Path) -> None:
+        secret = tmp_path / "secret.txt"
+        secret.write_text("not a license")
+        _make_dist_info(
+            tmp_path,
+            "sneaky",
+            "1.0.0",
+            metadata_extra=f"License-File: {secret}\n",
+        )
+        assert get_license_text("sneaky", tmp_path) is None
+
     def test_pep639_license_file_in_root(self, tmp_path: Path) -> None:
         _make_dist_info(
             tmp_path,
@@ -246,6 +270,15 @@ class TestMetadataReader:
         _make_dist_info(tmp_path, "second_pkg", "2.0.0")
         reader = MetadataReader.from_site_packages(tmp_path)
         assert sorted(reader.iter_package_names()) == ["first-pkg", "second-pkg"]
+
+    def test_iter_package_names_is_sorted_regardless_of_creation_order(
+        self, tmp_path: Path
+    ) -> None:
+        # Directory order differs between filesystems; reports must not.
+        for name in ("zeta", "alpha", "mid"):
+            _make_dist_info(tmp_path, name, "1.0.0")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        assert list(reader.iter_package_names()) == ["alpha", "mid", "zeta"]
 
     def test_describe_source_returns_path(self, tmp_path: Path) -> None:
         reader = MetadataReader.from_site_packages(tmp_path)

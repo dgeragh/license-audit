@@ -54,6 +54,15 @@ _UNRECOGNIZED = PackageLicense(
     license_source=LicenseSource.METADATA,
     category=LicenseCategory.UNKNOWN,
 )
+# A License field holding the whole license body, as some packages ship.
+_MULTILINE = PackageLicense(
+    name="m",
+    version="1.0",
+    license_expression="UNKNOWN",
+    license_source=LicenseSource.METADATA,
+    declared_license="Vendor License\n\nSection 1.\n```\n" + "x" * 300,
+    category=LicenseCategory.PROPRIETARY,
+)
 # A declared-but-unrecognized license the user classified as permissive via the
 # whitelist: the expression stays UNKNOWN but the category is now authoritative.
 _CLASSIFIED_PERMISSIVE = PackageLicense(
@@ -559,3 +568,27 @@ class TestBuildPolicy:
         assert policy.allowed_licenses == ["MIT"]
         assert policy.denied_licenses == ["GPL-3.0-only"]
         assert policy.fail_on_unknown is False
+
+
+class TestMessagesStayOnOneLine:
+    """A raw license body in metadata must not spill newlines into a message."""
+
+    def test_policy_violation_message(self) -> None:
+        items = PolicyEngine().build_action_items(
+            [_MULTILINE], [], LicenseAuditConfig()
+        )
+        violation = next(i for i in items if i.severity == "error")
+        assert "\n" not in violation.message
+        assert "Vendor License Section 1." in violation.message
+        assert "..." in violation.message
+
+    def test_allowed_list_message(self) -> None:
+        config = LicenseAuditConfig(allowed_licenses=["MIT"])
+        pkg = _MULTILINE.model_copy(update={"license_expression": "GPL-3.0-only"})
+        items = PolicyEngine().allowed_license_items([pkg], config.allowed_licenses)
+        assert items and "\n" not in items[0].message
+
+    def test_unknown_message(self) -> None:
+        message = PolicyEngine().unknown_message(_MULTILINE)
+        assert "\n" not in message
+        assert "Vendor License Section 1." in message

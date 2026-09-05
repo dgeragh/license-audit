@@ -1,10 +1,33 @@
 # Changelog
 
-## Unreleased
+## 0.14.0 (2026-09-05)
+
+### Fixed
+
+- Dual-licensed dependencies no longer conflict based on which alternative is written first
+- Recommendations keep a package's other license components when one component is classified
+- A bad flag or path exits 1 instead of 2, the code `check` reserves for unknown licenses
+- An empty group in a license expression (`MIT AND ()`) reads as unknown instead of crashing
+- Rich markup in the project name no longer crashes `analyze` and `recommend`
+- An unreadable `pyproject.toml` or environment reports a clean error instead of a traceback
+- `refresh` reports an HTTP protocol error cleanly instead of a traceback
+- A corrupt cached OSADL file names itself and suggests `refresh` instead of failing every command
+- Markers comparing `platform_release` no longer crash on Linux with packaging older than 26
+- A bare `GPL` or `LGPL` license field no longer reads as version 3; a classifier is used instead
+- A `License-Expression` field wins over a stale `License` field or classifier even when unrecognized
+- Package, action item, and conflict order in the JSON report no longer depends on the filesystem
+- `--config` rejects a file not named `pyproject.toml`, or a directory without one
+- Action items collapse a multi-line declared license to one bounded line
+- `License-File` entries that point outside a package's dist-info are ignored
+- `--version` and the JSON report's `tool_version` read the same version
+- A license in both `allowed-licenses` and `denied-licenses` is rejected at config load
 
 ### Changed
 
-- The JSON report's `schema_version` is now `2`: entries in `incompatible_pairs` name their licenses `license_a`/`license_b` (both are dependency licenses; the old `inbound`/`outbound` names wrongly suggested one was an outbound license), and the always-`incompatible` `verdict` field is removed
+- JSON report `schema_version` is now `2`
+- `incompatible_pairs` entries name `license_a`/`license_b` instead of `inbound`/`outbound`
+- The always-`incompatible` `verdict` field is removed from `incompatible_pairs`
+- The Markdown compatibility table drops its always-`incompatible` Verdict column
 
 ## 0.13.0 (2026-08-29)
 

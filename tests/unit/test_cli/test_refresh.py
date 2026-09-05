@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from http.client import IncompleteRead
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from urllib.error import URLError
@@ -63,6 +64,22 @@ class TestRefreshCmdErrors:
         assert result.exit_code == 1
         assert "Failed to refresh OSADL data" in result.output
         assert "Traceback" not in result.output
+
+    def test_http_protocol_error_fails_cleanly(self, tmp_path: Path) -> None:
+        # http.client errors are not OSError subclasses.
+        with (
+            patch.object(OSADLDataStore, "cache_dir", return_value=tmp_path),
+            patch.object(
+                OSADLRefresher,
+                "download",
+                side_effect=IncompleteRead(b""),
+            ),
+        ):
+            result = CliRunner().invoke(cli, ["refresh"])
+
+        assert result.exit_code == 1
+        assert "Failed to refresh OSADL data" in result.output
+        assert result.exception is None or isinstance(result.exception, SystemExit)
 
     def test_oversized_response_fails_cleanly(self, tmp_path: Path) -> None:
         with (
@@ -137,6 +154,19 @@ class TestDownload:
             pytest.raises(ValueError, match="Invalid JSON"),
         ):
             OSADLRefresher().download("https://example.com/test.json", dest)
+
+    def test_rejects_non_object_json(self, tmp_path: Path) -> None:
+        dest = tmp_path / "test.json"
+        with (
+            patch(
+                "license_audit.cli.refresh.urlopen",
+                return_value=self._make_response(b"[1, 2]"),
+            ),
+            pytest.raises(ValueError, match="JSON object"),
+        ):
+            OSADLRefresher().download("https://example.com/test.json", dest)
+
+        assert not dest.exists()
 
     def test_network_error(self, tmp_path: Path) -> None:
         dest = tmp_path / "test.json"

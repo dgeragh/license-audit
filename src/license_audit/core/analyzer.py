@@ -159,17 +159,14 @@ class LicenseAuditor:
 
         dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
         active_packages = [p for p in dep_packages if not p.ignored]
-        # Compatibility considers every active package but drops deemed ids
-        # (keyed by a whole expression or a component), so a deemed license
-        # raises no conflicts.
-        dep_spdx_ids = self._extract_spdx_ids(
-            [p.license_expression for p in active_packages], deemed
-        )
-        # Recommendations skip reclassified packages: a deemed-permissive one
-        # imposes no constraint, and a deemed-restrictive one is handled by the
-        # `has_deemed_constraint` gate below.
-        dep_licenses = [
-            p.license_expression for p in active_packages if not p.category_overridden
+        dep_licenses = [p.license_expression for p in active_packages]
+        # Deemed ids (keyed by a whole expression or a component) raise no
+        # conflicts and impose no outbound constraint; a deemed-restrictive
+        # one is handled by the `has_deemed_constraint` gate below.
+        inbound = [
+            unit
+            for expr in dep_licenses
+            for unit in self._expression.inbound(expr, deemed)
         ]
 
         has_unknown = any(
@@ -182,9 +179,9 @@ class LicenseAuditor:
         recommended = (
             []
             if has_unknown or has_deemed_constraint
-            else self._recommender.recommend(dep_licenses)
+            else self._recommender.recommend(dep_licenses, deemed)
         )
-        incompatible = self._matrix.find_incompatible_pairs(dep_spdx_ids)
+        incompatible = self._matrix.find_incompatible_pairs(inbound)
         action_items = self._policy.build_action_items(
             dep_packages,
             incompatible,
@@ -326,27 +323,3 @@ class LicenseAuditor:
             if reason is not None:
                 pkg.ignored = True
                 pkg.ignore_reason = reason
-
-    def _extract_spdx_ids(
-        self, expressions: list[str], deemed: CategoryOverrides | None = None
-    ) -> list[str]:
-        """SPDX ids that drive pairwise compatibility.
-
-        Licenses the user classified (``deemed``, normalized) are dropped,
-        whether keyed by a whole expression or by one component of a compound:
-        the user has asserted that license's category directly, so its real
-        SPDX identity should not raise compatibility conflicts. The deemed
-        map is passed to ``required_ids`` so OR resolution picks the same
-        alternative as classification.
-        """
-        deemed = deemed or {}
-        ids: set[str] = set()
-        for expr in expressions:
-            if expr == UNKNOWN_LICENSE:
-                continue
-            if normalize_license_key(expr) in deemed:
-                continue
-            for lic in self._expression.required_ids(expr, overrides=deemed):
-                if normalize_license_key(lic) not in deemed:
-                    ids.add(lic)
-        return list(ids)

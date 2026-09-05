@@ -105,7 +105,7 @@ Exit codes:
 | Code | Meaning |
 |------|---------|
 | `0` | All dependencies pass the policy |
-| `1` | Policy violation (incompatible pairs, denied licenses, or category exceeded) |
+| `1` | Policy violation (incompatible pairs, denied licenses, or category exceeded), or the check could not run |
 | `2` | Unknown licenses detected and no other violation (when `fail-on-unknown = true`) |
 
 For GitLab, pre-commit, handling unknowns, and the new-dependency workflow, see the [CI integration guide](https://dgeragh.github.io/license-audit/latest/user-guide/ci-integration/).
@@ -118,7 +118,7 @@ fail-on-unknown = true
 policy = "permissive"  # permissive | weak-copyleft | strong-copyleft | network-copyleft
 allowed-licenses = ["MIT", "Apache-2.0", "BSD-3-Clause"]
 denied-licenses = ["GPL-3.0-only"]
-target = ".venv"  # optional; defaults to the active environment
+target = ".venv"  # optional; defaults to ./.venv, else the active environment
 
 [tool.license-audit.overrides]
 some-internal-package = "MIT"

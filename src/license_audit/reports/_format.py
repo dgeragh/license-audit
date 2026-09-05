@@ -14,6 +14,7 @@ from license_audit.core.models import (
     IncompatiblePair,
     LicenseCategory,
     PackageLicense,
+    license_label,
 )
 
 _ATTRIBUTION_LINK = "[license_audit](https://github.com/dgeragh/license-audit)"
@@ -153,14 +154,6 @@ def explain_no_recommendation(
     )
 
 
-def license_label(value: str, limit: int = 120) -> str:
-    """Collapse whitespace and bound length so a license fits one table cell."""
-    collapsed = " ".join(value.split())
-    if len(collapsed) > limit:
-        return collapsed[: limit - 3].rstrip() + "..."
-    return collapsed
-
-
 def markdown_license_cell(value: str) -> str:
     """`license_label` plus pipe-escaping for safe markdown-table inclusion."""
     return license_label(value).replace("|", "\\|")
@@ -232,4 +225,4 @@ class IncompatiblePairFormatter:
     @classmethod
     def markdown_row(cls, pair: IncompatiblePair) -> str:
         """Markdown table row for a compatibility table."""
-        return f"| {pair.license_a} | {pair.license_b} | incompatible |"
+        return f"| {pair.license_a} | {pair.license_b} |"

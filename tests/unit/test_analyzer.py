@@ -247,25 +247,3 @@ class TestApplyClassifications:
         assert items[0].severity == "warning"
         assert "Typo License" in items[0].message
         assert "matched no package" in items[0].message
-
-
-class TestExtractSpdxIds:
-    def test_skips_unknown(self) -> None:
-        auditor = LicenseAuditor()
-        result = auditor._extract_spdx_ids(["MIT", UNKNOWN_LICENSE, "Apache-2.0"])
-        assert "MIT" in result
-        assert "Apache-2.0" in result
-        assert UNKNOWN_LICENSE not in result
-
-    def test_empty_list(self) -> None:
-        assert LicenseAuditor()._extract_spdx_ids([]) == []
-
-    def test_or_expression_only_contributes_chosen_branch(self) -> None:
-        result = LicenseAuditor()._extract_spdx_ids(["GPL-3.0-only OR MIT"])
-        assert "MIT" in result
-        assert "GPL-3.0-only" not in result
-
-    def test_and_expression_contributes_all_components(self) -> None:
-        result = LicenseAuditor()._extract_spdx_ids(["MPL-2.0 AND MIT"])
-        assert "MPL-2.0" in result
-        assert "MIT" in result

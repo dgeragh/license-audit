@@ -27,14 +27,14 @@ class OSADLDataStore:
     def matrix(self) -> dict[str, dict[str, str]]:
         """Compatibility matrix, keyed by outbound then inbound license."""
         if self._matrix is None:
-            raw: dict[str, Any] = json.loads(self._load_text(self.MATRIX_FILE))
+            raw = self._load_json(self.MATRIX_FILE)
             self._matrix = {k: v for k, v in raw.items() if isinstance(v, dict)}
         return self._matrix
 
     def copyleft(self) -> dict[str, str]:
         """Copyleft classification, keyed by SPDX id."""
         if self._copyleft is None:
-            raw: dict[str, Any] = json.loads(self._load_text(self.COPYLEFT_FILE))
+            raw = self._load_json(self.COPYLEFT_FILE)
             data = raw.get("copyleft", {})
             if not isinstance(data, dict):
                 self._copyleft = {}
@@ -51,9 +51,27 @@ class OSADLDataStore:
         self._matrix = None
         self._copyleft = None
 
-    def _load_text(self, filename: str) -> str:
+    def _load_json(self, filename: str) -> dict[str, Any]:
+        """Parse a data file, raising ValueError with a remedy when it's unusable."""
         cached = self.cache_dir() / filename
         if cached.is_file():
-            return cached.read_text(encoding="utf-8")
-        bundled = resources.files("license_audit._data").joinpath(filename)
-        return bundled.read_text(encoding="utf-8")
+            text = cached.read_text(encoding="utf-8")
+            problem = f"Cached {cached} is not valid OSADL data"
+            hint = (
+                "; run `license-audit refresh` to replace it, or delete it to "
+                "use the bundled data"
+            )
+        else:
+            bundled = resources.files("license_audit._data").joinpath(filename)
+            text = bundled.read_text(encoding="utf-8")
+            problem = f"Bundled {filename} is not valid OSADL data"
+            hint = "; reinstall license-audit"
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            msg = f"{problem}: {exc}{hint}"
+            raise ValueError(msg) from exc
+        if not isinstance(data, dict):
+            msg = f"{problem}: expected a JSON object{hint}"
+            raise ValueError(msg)  # noqa: TRY004
+        return data

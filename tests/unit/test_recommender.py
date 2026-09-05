@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from license_audit.core.compatibility import Inbound
+from license_audit.core.models import LicenseCategory
 from license_audit.core.recommender import LicenseRecommender
 
 
@@ -51,15 +53,45 @@ class TestRecommend:
         assert len(result) > 0
         assert "MIT" in result
 
+    def test_tied_or_alternatives_both_count(self) -> None:
+        # Apache-first ordering must not hide the BSD branch that admits GPL-2.0.
+        result = LicenseRecommender().recommend(
+            ["Apache-2.0 OR BSD-2-Clause", "GPL-2.0-only"]
+        )
+        assert "GPL-2.0-only" in result
+
+
+class TestRecommendWithOverrides:
+    _DEEMED = {"cnri-python": LicenseCategory.PERMISSIVE}
+
+    def test_classified_component_is_waived(self) -> None:
+        result = LicenseRecommender().recommend(
+            ["Apache-2.0 AND CNRI-Python"], self._DEEMED
+        )
+        assert "MIT" in result
+
+    def test_sibling_component_still_constrains(self) -> None:
+        # Apache-2.0 rules out GPL-2.0-only even though CNRI-Python is waived.
+        result = LicenseRecommender().recommend(
+            ["Apache-2.0 AND CNRI-Python"], self._DEEMED
+        )
+        assert "GPL-2.0-only" not in result
+
+    def test_sibling_conflict_with_other_dependency_empties_result(self) -> None:
+        result = LicenseRecommender().recommend(
+            ["Apache-2.0 AND CNRI-Python", "GPL-2.0-only"], self._DEEMED
+        )
+        assert result == []
+
 
 class TestResolveInboundAstDispatch:
     def test_or_resolves_to_single_license(self) -> None:
         resolved = LicenseRecommender().resolve_inbound(["MIT OR GPL-3.0-only"])
-        assert resolved == ["MIT"]
+        assert resolved == [Inbound((("MIT",),))]
 
     def test_and_resolves_to_all_components(self) -> None:
         resolved = LicenseRecommender().resolve_inbound(["MIT AND BSD-3-Clause"])
-        assert set(resolved) == {"MIT", "BSD-3-Clause"}
+        assert {u.label for u in resolved} == {"MIT", "BSD-3-Clause"}
 
     def test_unknown_is_skipped(self) -> None:
         assert LicenseRecommender().resolve_inbound(["UNKNOWN"]) == []
@@ -70,13 +102,17 @@ class TestResolveInboundAstDispatch:
         resolved = LicenseRecommender().resolve_inbound(
             ["MIT AND (GPL-3.0-only OR Apache-2.0)"]
         )
-        assert set(resolved) == {"MIT", "Apache-2.0"}
+        assert {u.label for u in resolved} == {"MIT", "Apache-2.0"}
 
     def test_and_nested_in_or_keeps_joint_requirement(self) -> None:
         resolved = LicenseRecommender().resolve_inbound(
             ["GPL-2.0-only OR (MIT AND Apache-2.0)"]
         )
-        assert set(resolved) == {"MIT", "Apache-2.0"}
+        assert {u.label for u in resolved} == {"MIT", "Apache-2.0"}
+
+    def test_tied_or_stays_one_unit(self) -> None:
+        resolved = LicenseRecommender().resolve_inbound(["Apache-2.0 OR MIT"])
+        assert resolved == [Inbound((("Apache-2.0",), ("MIT",)))]
 
 
 class TestRecommendCompoundExpressions:

@@ -90,7 +90,7 @@ def check_cmd(ctx: click.Context, fail_on_unknown: bool | None) -> None:
 
     Exit codes:
       0 = all clear
-      1 = policy violation or incompatible licenses
+      1 = policy violation, incompatible licenses, or the check could not run
       2 = unknown licenses are the only problem (when --fail-on-unknown)
     """
     console = Console(stderr=True)

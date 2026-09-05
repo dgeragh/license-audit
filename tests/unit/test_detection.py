@@ -263,6 +263,24 @@ class TestDetectFromMetadata:
         assert result.source == LicenseSource.UNKNOWN
         assert result.declared_license is None
 
+    def test_versioned_classifier_wins_over_bare_family_license_field(self) -> None:
+        # chardet 5.2.0: "License: LGPL" plus an LGPLv2+ classifier.
+        meta = _make_metadata(
+            License="LGPL",
+            Classifier=[
+                "License :: OSI Approved :: GNU Lesser General Public License v2 "
+                "or later (LGPLv2+)"
+            ],
+        )
+        result = _detect_from_metadata(meta)
+        assert result.expression == "LGPL-2.1-or-later"
+        assert result.source == LicenseSource.CLASSIFIER
+
+    def test_bare_family_license_field_alone_is_declared_not_guessed(self) -> None:
+        result = _detect_from_metadata(_make_metadata(License="GPL"))
+        assert not result.recognized
+        assert result.declared_license == "GPL"
+
     def test_recognized_classifier_wins_over_unrecognized_license_field(self) -> None:
         # A recognized SPDX result anywhere beats a declared-but-unrecognized one.
         meta = _make_metadata(
@@ -278,6 +296,19 @@ class TestDetectFromMetadata:
         result = _detect_from_metadata(meta)
         assert result.expression == "UNKNOWN"
         assert result.declared_license == "Some Bespoke License"
+
+    def test_unrecognized_pep639_wins_over_recognized_legacy_fields(self) -> None:
+        # setuptools still emits deprecated classifiers beside License-Expression;
+        # a package that declares itself proprietary must not read as MIT.
+        meta = _make_metadata(
+            License_Expression="LicenseRef-Proprietary",
+            License="MIT",
+            Classifier=["License :: OSI Approved :: MIT License"],
+        )
+        result = _detect_from_metadata(meta)
+        assert result.expression == "UNKNOWN"
+        assert result.declared_license == "LicenseRef-Proprietary"
+        assert result.source == LicenseSource.PEP639
 
     def test_pep639_declared_string_preferred_over_classifier_declared(self) -> None:
         meta = _make_metadata(

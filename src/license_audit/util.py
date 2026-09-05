@@ -45,8 +45,11 @@ class _DistInfoDir(_DistInfo):
         self._path = path
 
     def read_text(self, name: str) -> str | None:
-        target = self._path / name
-        if not target.is_file():
+        # A License-File entry is untrusted metadata; keep it inside the
+        # dist-info so a crafted wheel can't embed arbitrary files in a report.
+        root = self._path.resolve()
+        target = (root / name).resolve()
+        if not target.is_relative_to(root) or not target.is_file():
             return None
         return target.read_text(encoding="utf-8", errors="replace")
 
@@ -90,8 +93,10 @@ class _SitePackagesSource(_Source):
         return str(self._path)
 
     def _metadata_dirs(self) -> Iterator[Path]:
+        # glob() yields in directory order, which differs between filesystems;
+        # sorting keeps report output identical across machines.
         for pattern in ("*.dist-info", "*.egg-info"):
-            for path in self._path.glob(pattern):
+            for path in sorted(self._path.glob(pattern)):
                 if path.is_dir():
                     yield path
 

@@ -12,6 +12,15 @@ from license_audit import __version__
 # Sentinel value used when a package's license cannot be detected.
 UNKNOWN_LICENSE = "UNKNOWN"
 
+
+def license_label(value: str, limit: int = 120) -> str:
+    """Collapse whitespace and bound length so a license fits one line or cell."""
+    collapsed = " ".join(value.split())
+    if len(collapsed) > limit:
+        return collapsed[: limit - 3].rstrip() + "..."
+    return collapsed
+
+
 # Bumped only on breaking changes to the JSON report; additive changes do not bump.
 SCHEMA_VERSION: Final = 2
 
@@ -103,7 +112,7 @@ class DependencyNode(BaseModel):
         """Return all packages in the tree as a flat list (deduped by name).
 
         Each package's ``parent`` field is set to the top-level dependency
-        that pulls it in (direct deps have parent set to the root project).
+        that pulls it in; a direct dependency is its own parent.
         """
         seen: set[str] = set()
         result: list[PackageLicense] = []

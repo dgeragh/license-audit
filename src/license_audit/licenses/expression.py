@@ -7,7 +7,8 @@ from typing import Any
 from license_expression import AND, OR, LicenseSymbol, LicenseWithExceptionSymbol
 
 from license_audit.core.classifier import LicenseClassifier
-from license_audit.core.models import CATEGORY_RANK, LicenseCategory
+from license_audit.core.compatibility import Inbound
+from license_audit.core.models import CATEGORY_RANK, UNKNOWN_LICENSE, LicenseCategory
 from license_audit.licenses.spdx import SpdxNormalizer
 
 
@@ -53,20 +54,66 @@ class ExpressionEvaluator:
             return [[]]
         return self._walk_alternatives(parsed)
 
+    def best_alternatives(
+        self, expr: str, overrides: CategoryOverrides | None = None
+    ) -> list[list[str]]:
+        """Every alternative tied at the lowest rank, or `[]` when unparseable.
+
+        `overrides` is honored the same way as in `classify`, so the
+        alternatives here are the ones classification chose between.
+        """
+        non_empty = [alt for alt in self.alternatives(expr) if alt]
+        if not non_empty:
+            return []
+        ranks = [self._alt_rank(alt, overrides) for alt in non_empty]
+        best = min(ranks)
+        return [
+            list(dict.fromkeys(alt))
+            for alt, rank in zip(non_empty, ranks, strict=True)
+            if rank == best
+        ]
+
     def required_ids(
         self, expr: str, overrides: CategoryOverrides | None = None
     ) -> list[str]:
         """Ids the project must comply with after resolving every OR.
 
-        Picks the alternative whose worst-case license has the lowest
-        permissiveness rank. `overrides` is honored the same way as in
-        `classify`, so both resolve to the same alternative.
+        Ties between alternatives go to the first one written; use `inbound`
+        where that choice matters.
         """
-        non_empty = [alt for alt in self.alternatives(expr) if alt]
-        if not non_empty:
+        best = self.best_alternatives(expr, overrides)
+        return best[0] if best else []
+
+    def inbound(
+        self, expr: str, overrides: CategoryOverrides | None = None
+    ) -> list[Inbound]:
+        """Compatibility constraints `expr` imposes.
+
+        Every alternative tied at the best rank counts, so no branch is picked
+        by the order it was written in. Ids common to all of them come back
+        as their own units, so an AND component is named directly when it
+        conflicts. Overridden components are dropped: the user asserted their
+        category, and an alternative made only of those means no constraint.
+        """
+        overrides = overrides or {}
+        if expr == UNKNOWN_LICENSE or normalize_license_key(expr) in overrides:
             return []
-        best = min(non_empty, key=lambda alt: self._alt_rank(alt, overrides))
-        return list(dict.fromkeys(best))
+        alternatives = [
+            [lic for lic in alt if normalize_license_key(lic) not in overrides]
+            for alt in self.best_alternatives(expr, overrides)
+        ]
+        if not alternatives or not all(alternatives):
+            return []
+        common = set(alternatives[0]).intersection(*alternatives[1:])
+        units = [Inbound(((lic,),)) for lic in alternatives[0] if lic in common]
+        remainder = list(
+            dict.fromkeys(
+                tuple(lic for lic in alt if lic not in common) for alt in alternatives
+            )
+        )
+        if all(remainder):
+            units.append(Inbound(tuple(remainder)))
+        return units
 
     def unknown_components(self, expr: str) -> list[str]:
         """Ids in the chosen alternative that classify as UNKNOWN."""

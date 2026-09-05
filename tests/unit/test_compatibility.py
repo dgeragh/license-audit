@@ -3,8 +3,24 @@
 from __future__ import annotations
 
 from license_audit._data import OSADLDataStore
-from license_audit.core.compatibility import CompatibilityMatrix
+from license_audit.core.compatibility import CompatibilityMatrix, Inbound
 from license_audit.core.models import Verdict
+
+
+def _inbound(*ids: str) -> list[Inbound]:
+    return [Inbound(((lic,),)) for lic in ids]
+
+
+class TestInboundLabel:
+    def test_single_id(self) -> None:
+        assert Inbound((("MIT",),)).label == "MIT"
+
+    def test_and_joins_components(self) -> None:
+        assert Inbound((("MPL-2.0", "MIT"),)).label == "MPL-2.0 AND MIT"
+
+    def test_or_groups_compound_alternatives(self) -> None:
+        unit = Inbound((("MPL-2.0", "Apache-2.0"), ("MIT",)))
+        assert unit.label == "(MPL-2.0 AND Apache-2.0) OR MIT"
 
 
 class TestIsCompatible:
@@ -46,7 +62,7 @@ class TestKnownLicenses:
 class TestFindCompatibleOutbound:
     def test_permissive_only(self) -> None:
         compatible = CompatibilityMatrix().find_compatible_outbound(
-            ["MIT", "BSD-3-Clause"],
+            _inbound("MIT", "BSD-3-Clause"),
         )
         assert "MIT" in compatible
         assert "Apache-2.0" in compatible
@@ -54,7 +70,7 @@ class TestFindCompatibleOutbound:
 
     def test_gpl_restricts(self) -> None:
         compatible = CompatibilityMatrix().find_compatible_outbound(
-            ["MIT", "GPL-3.0-only"],
+            _inbound("MIT", "GPL-3.0-only"),
         )
         assert "MIT" not in compatible
         assert "GPL-3.0-only" in compatible
@@ -63,23 +79,72 @@ class TestFindCompatibleOutbound:
         compatible = CompatibilityMatrix().find_compatible_outbound([])
         assert len(compatible) > 0
 
+    def test_unknown_id_imposes_nothing(self) -> None:
+        compatible = CompatibilityMatrix().find_compatible_outbound(
+            _inbound("MIT", "NONEXISTENT-LICENSE"),
+        )
+        assert "MIT" in compatible
+
+    def test_any_alternative_satisfies(self) -> None:
+        # Apache-2.0 alone rules out GPL-2.0-only; the BSD branch admits it.
+        dual = Inbound((("Apache-2.0",), ("BSD-2-Clause",)))
+        compatible = CompatibilityMatrix().find_compatible_outbound(
+            [dual, *_inbound("GPL-2.0-only")],
+        )
+        assert "GPL-2.0-only" in compatible
+
+    def test_compound_alternative_requires_all_its_ids(self) -> None:
+        unit = Inbound((("MIT", "GPL-3.0-only"),))
+        compatible = CompatibilityMatrix().find_compatible_outbound([unit])
+        assert "MIT" not in compatible
+        assert "GPL-3.0-only" in compatible
+
 
 class TestFindIncompatiblePairs:
     def test_no_conflicts_permissive(self) -> None:
         result = CompatibilityMatrix().find_incompatible_pairs(
-            ["MIT", "Apache-2.0", "BSD-3-Clause"],
+            _inbound("MIT", "Apache-2.0", "BSD-3-Clause"),
         )
         assert len(result) == 0
 
     def test_gpl2_vs_apache2(self) -> None:
         result = CompatibilityMatrix().find_incompatible_pairs(
-            ["GPL-2.0-only", "Apache-2.0"],
+            _inbound("GPL-2.0-only", "Apache-2.0"),
         )
         assert len(result) > 0
         assert {result[0].license_a, result[0].license_b} == {
             "GPL-2.0-only",
             "Apache-2.0",
         }
+
+    def test_duplicate_units_checked_once(self) -> None:
+        result = CompatibilityMatrix().find_incompatible_pairs(
+            _inbound("GPL-2.0-only", "Apache-2.0", "Apache-2.0"),
+        )
+        assert len(result) == 1
+
+    def test_unknown_id_never_conflicts(self) -> None:
+        result = CompatibilityMatrix().find_incompatible_pairs(
+            _inbound("GPL-2.0-only", "NONEXISTENT-LICENSE"),
+        )
+        assert result == []
+
+    def test_dual_license_with_one_clean_branch_is_not_flagged(self) -> None:
+        # packaging and cryptography declare "Apache-2.0 OR BSD-x-Clause".
+        dual = Inbound((("Apache-2.0",), ("BSD-2-Clause",)))
+        result = CompatibilityMatrix().find_incompatible_pairs(
+            [dual, *_inbound("GPL-2.0-only")],
+        )
+        assert result == []
+
+    def test_dual_license_named_whole_when_every_branch_conflicts(self) -> None:
+        dual = Inbound((("Apache-2.0",), ("GPL-3.0-only",)))
+        result = CompatibilityMatrix().find_incompatible_pairs(
+            [dual, *_inbound("GPL-2.0-only")],
+        )
+        assert [(p.license_a, p.license_b) for p in result] == [
+            ("Apache-2.0 OR GPL-3.0-only", "GPL-2.0-only"),
+        ]
 
 
 class _StubStore(OSADLDataStore):
@@ -102,15 +167,15 @@ class TestCheckDependencyVerdict:
 
     def test_excluded_from_recommendations(self) -> None:
         matrix = CompatibilityMatrix(store=_StubStore(self._MATRIX))
-        assert matrix.find_compatible_outbound(["Lic-A", "Lic-B"]) == []
+        assert matrix.find_compatible_outbound(_inbound("Lic-A", "Lic-B")) == []
 
     def test_still_counts_for_pair_detection(self) -> None:
         matrix = CompatibilityMatrix(store=_StubStore(self._MATRIX))
-        assert matrix.find_incompatible_pairs(["Lic-A", "Lic-B"]) == []
+        assert matrix.find_incompatible_pairs(_inbound("Lic-A", "Lic-B")) == []
 
     def test_clean_cells_still_recommended(self) -> None:
         matrix = CompatibilityMatrix(store=_StubStore(self._MATRIX))
-        assert matrix.find_compatible_outbound(["Lic-A"]) == ["Lic-A"]
+        assert matrix.find_compatible_outbound(_inbound("Lic-A")) == ["Lic-A"]
 
 
 class TestInstanceIsolation:

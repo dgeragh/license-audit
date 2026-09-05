@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from license_audit.core.classifier import LicenseClassifier
-from license_audit.core.models import UNKNOWN_LICENSE, AnalysisReport, LicenseCategory
+from license_audit.core.models import (
+    UNKNOWN_LICENSE,
+    AnalysisReport,
+    LicenseCategory,
+    license_label,
+)
 from license_audit.reports._format import (
     ActionItemFormatter,
     IncompatiblePairFormatter,
@@ -14,7 +19,6 @@ from license_audit.reports._format import (
     explain_no_recommendation,
     fenced_code_block,
     generated_metadata_block,
-    license_label,
     markdown_license_cell,
 )
 
@@ -129,8 +133,8 @@ class MarkdownRenderer:
         lines = [
             "\n## Compatibility Analysis\n",
             "**WARNING: Incompatible license pairs detected!**\n",
-            "| License A | License B | Verdict |",
-            "|-----------|-----------|---------|",
+            "| License A | License B |",
+            "|-----------|-----------|",
         ]
         for pair in report.incompatible_pairs:
             lines.append(IncompatiblePairFormatter.markdown_row(pair))

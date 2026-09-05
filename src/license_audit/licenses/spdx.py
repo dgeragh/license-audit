@@ -48,14 +48,12 @@ class SpdxNormalizer:
         "apache software license": "Apache-2.0",
         "apache software license 2.0": "Apache-2.0",
         # GPL variants
-        "gpl": "GPL-3.0-only",
         "gpl v2": "GPL-2.0-only",
         "gpl v3": "GPL-3.0-only",
         "gpl-2": "GPL-2.0-only",
         "gpl-3": "GPL-3.0-only",
         "gplv2": "GPL-2.0-only",
         "gplv3": "GPL-3.0-only",
-        "gnu gpl": "GPL-3.0-only",
         "gnu gpl v2": "GPL-2.0-only",
         "gnu gpl v3": "GPL-3.0-only",
         "gnu general public license v2 (gplv2)": "GPL-2.0-only",
@@ -63,7 +61,6 @@ class SpdxNormalizer:
         "gnu general public license v2 or later (gplv2+)": "GPL-2.0-or-later",
         "gnu general public license v3 or later (gplv3+)": "GPL-3.0-or-later",
         # LGPL variants
-        "lgpl": "LGPL-3.0-only",
         "lgpl v2": "LGPL-2.1-only",
         "lgpl v3": "LGPL-3.0-only",
         "lgpl-2.1": "LGPL-2.1-only",
@@ -94,6 +91,11 @@ class SpdxNormalizer:
         "cc0 1.0": "CC0-1.0",
         "cc0-1.0": "CC0-1.0",
     }
+
+    # A family name with no version stays unrecognized so a versioned trove
+    # classifier can win. Guessing (license-expression reads "GPL" as
+    # GPL-1.0-or-later) lands on the wrong OSADL row.
+    UNVERSIONED: frozenset[str] = frozenset({"gpl", "gnu gpl", "lgpl", "gnu lgpl"})
 
     # Deprecated SPDX IDs mapped to the modern "-only"/"-or-later" forms used
     # by the OSADL matrix. license-expression still parses the old forms.
@@ -179,15 +181,18 @@ class SpdxNormalizer:
         stripped = license_string.strip()
         if not stripped or stripped.upper() in (UNKNOWN_LICENSE, "NONE", ""):
             return UNKNOWN_LICENSE
+        if stripped.lower() in self.UNVERSIONED:
+            return UNKNOWN_LICENSE
 
         alias_result = self.COMMON_ALIASES.get(stripped.lower())
         if alias_result:
             return alias_result
 
-        # validate() raises AttributeError on truncated input like "MIT AND".
+        # validate() raises AttributeError on truncated input like "MIT AND"
+        # and IndexError on an empty group like "MIT AND ()".
         try:
             info = self._spdx().validate(stripped)
-        except (AttributeError, ExpressionError):
+        except (AttributeError, IndexError, ExpressionError):
             info = None
         if info is not None and not info.errors and info.normalized_expression:
             return str(info.normalized_expression)
@@ -206,7 +211,7 @@ class SpdxNormalizer:
             if all(self.DEPRECATED_SPDX.get(s, s) in known for s in symbols):
                 result = str(parsed)
                 return self.DEPRECATED_SPDX.get(result, result)
-        except ExpressionError:
+        except (IndexError, ExpressionError):
             pass
 
         return UNKNOWN_LICENSE
@@ -219,7 +224,7 @@ class SpdxNormalizer:
         """Parse an SPDX expression into an AST, or None on failure."""
         try:
             return self._licensing.parse(expr)
-        except ExpressionError:
+        except (IndexError, ExpressionError):
             return None
 
     def get_simple_licenses(self, expr: str) -> list[str]:
