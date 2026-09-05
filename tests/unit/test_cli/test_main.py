@@ -9,6 +9,7 @@ import click
 from click.testing import CliRunner
 
 from license_audit.cli.main import cli
+from license_audit.core.models import AnalysisReport
 
 
 class TestUsageErrorsExitOne:
@@ -32,6 +33,41 @@ class TestUsageErrorsExitOne:
         result = CliRunner().invoke(cli, [])
         assert result.exit_code == 1
         assert "Usage:" in result.output
+
+
+class TestConfigOption:
+    """--config must name a pyproject.toml, not fall back to a sibling or defaults."""
+
+    def test_file_with_another_name_rejected(self, tmp_path: Path) -> None:
+        other = tmp_path / "audit.toml"
+        other.write_text('[tool.license-audit]\npolicy = "strong-copyleft"\n')
+        result = CliRunner().invoke(cli, ["--config", str(other), "check"])
+        assert result.exit_code == 1
+        assert "pyproject.toml" in result.output
+
+    def test_directory_without_pyproject_rejected(self, tmp_path: Path) -> None:
+        result = CliRunner().invoke(cli, ["--config", str(tmp_path), "check"])
+        assert result.exit_code == 1
+        assert "no pyproject.toml" in result.output
+
+    def test_pyproject_file_accepted(self, tmp_path: Path) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text('[project]\nname = "x"\n')
+        with patch(
+            "license_audit.cli.check.run_audit", return_value=AnalysisReport()
+        ) as run:
+            result = CliRunner().invoke(cli, ["--config", str(pyproject), "check"])
+        assert result.exit_code == 0
+        assert run.call_args.args[2] == tmp_path
+
+    def test_directory_with_pyproject_accepted(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n')
+        with patch(
+            "license_audit.cli.check.run_audit", return_value=AnalysisReport()
+        ) as run:
+            result = CliRunner().invoke(cli, ["--config", str(tmp_path), "check"])
+        assert result.exit_code == 0
+        assert run.call_args.args[2] == tmp_path
 
 
 class TestCleanExits:

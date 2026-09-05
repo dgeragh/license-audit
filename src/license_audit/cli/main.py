@@ -36,6 +36,22 @@ class _Group(click.Group):
             sys.exit(1)
 
 
+def _config_path(
+    ctx: click.Context, param: click.Parameter, value: Path | None
+) -> Path | None:
+    # Config is only ever read from a pyproject.toml; any other path would
+    # silently fall back to defaults or to a sibling file.
+    if value is None:
+        return None
+    if value.is_dir():
+        if not (value / "pyproject.toml").is_file():
+            raise click.BadParameter(f"no pyproject.toml in {value}")
+        return value
+    if value.name != "pyproject.toml":
+        raise click.BadParameter("must be a pyproject.toml or a directory holding one")
+    return value
+
+
 @click.group(cls=_Group)
 @click.option(
     "--target",
@@ -53,6 +69,7 @@ class _Group(click.Group):
     "--config",
     type=click.Path(exists=True, path_type=Path),
     default=None,
+    callback=_config_path,
     help=(
         "pyproject.toml (or its directory) to read config and project name "
         "from. Defaults to the target's location."

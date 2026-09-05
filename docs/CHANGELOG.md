@@ -16,6 +16,7 @@
 - A bare `GPL` or `LGPL` license field no longer reads as version 3; a classifier is used instead
 - A `License-Expression` field wins over a stale `License` field or classifier even when unrecognized
 - Package, action item, and conflict order in the JSON report no longer depends on the filesystem
+- `--config` rejects a file not named `pyproject.toml`, or a directory without one
 
 ### Changed
 

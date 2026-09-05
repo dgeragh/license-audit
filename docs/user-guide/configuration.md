@@ -124,7 +124,7 @@ license-audit always reads an **installed environment**. Provision your dependen
 | Virtualenv directory | Audit that virtualenv directly |
 | A file | Rejected; point at a project directory or virtualenv instead |
 
-`--config` decouples where config and the project name come from. By default they follow the target (a project directory, or a virtualenv's parent); pass `--config path/to/pyproject.toml` to override, which is useful when the virtualenv lives outside your project.
+`--config` decouples where config and the project name come from. By default they follow the target (a project directory, or a virtualenv's parent); pass `--config path/to/pyproject.toml` to override, which is useful when the virtualenv lives outside your project. The path must be a `pyproject.toml` or a directory holding one; anything else is rejected rather than silently falling back to defaults.
 
 Examples:
 
