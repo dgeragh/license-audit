@@ -247,6 +247,15 @@ class TestMetadataReader:
         reader = MetadataReader.from_site_packages(tmp_path)
         assert sorted(reader.iter_package_names()) == ["first-pkg", "second-pkg"]
 
+    def test_iter_package_names_is_sorted_regardless_of_creation_order(
+        self, tmp_path: Path
+    ) -> None:
+        # Directory order differs between filesystems; reports must not.
+        for name in ("zeta", "alpha", "mid"):
+            _make_dist_info(tmp_path, name, "1.0.0")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        assert list(reader.iter_package_names()) == ["alpha", "mid", "zeta"]
+
     def test_describe_source_returns_path(self, tmp_path: Path) -> None:
         reader = MetadataReader.from_site_packages(tmp_path)
         assert reader.describe_source() == str(tmp_path)

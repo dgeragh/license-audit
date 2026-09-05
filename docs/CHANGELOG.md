@@ -15,6 +15,7 @@
 - Markers comparing `platform_release` no longer crash on Linux with packaging older than 26
 - A bare `GPL` or `LGPL` license field no longer reads as version 3; a classifier is used instead
 - A `License-Expression` field wins over a stale `License` field or classifier even when unrecognized
+- Package, action item, and conflict order in the JSON report no longer depends on the filesystem
 
 ### Changed
 

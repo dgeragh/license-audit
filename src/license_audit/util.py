@@ -90,8 +90,10 @@ class _SitePackagesSource(_Source):
         return str(self._path)
 
     def _metadata_dirs(self) -> Iterator[Path]:
+        # glob() yields in directory order, which differs between filesystems;
+        # sorting keeps report output identical across machines.
         for pattern in ("*.dist-info", "*.egg-info"):
-            for path in self._path.glob(pattern):
+            for path in sorted(self._path.glob(pattern)):
                 if path.is_dir():
                     yield path
 
