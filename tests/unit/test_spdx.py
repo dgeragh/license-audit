@@ -78,6 +78,11 @@ class TestNormalize:
     def test_truncated_expression_returns_unknown(self) -> None:
         assert SpdxNormalizer().normalize("MIT AND") == "UNKNOWN"
 
+    def test_empty_group_returns_unknown(self) -> None:
+        # license-expression raises IndexError, not ExpressionError, on "()".
+        assert SpdxNormalizer().normalize("MIT AND ()") == "UNKNOWN"
+        assert SpdxNormalizer().normalize("()") == "UNKNOWN"
+
     def test_with_clause_rejected_by_validate_returns_unknown(self) -> None:
         assert (
             SpdxNormalizer().normalize(
@@ -119,6 +124,9 @@ class TestParseExpression:
 
     def test_invalid(self) -> None:
         assert SpdxNormalizer().parse_expression("not a valid expression!!!") is None
+
+    def test_empty_group(self) -> None:
+        assert SpdxNormalizer().parse_expression("MIT OR ()") is None
 
 
 class TestGetSimpleLicenses:

@@ -69,6 +69,12 @@ class TestLoadConfig:
         with pytest.raises(ValueError, match="Could not parse"):
             load_config(tmp_path)
 
+    def test_unreadable_pyproject_raises(self, tmp_path: Path) -> None:
+        # A directory exists but can't be opened as a file on any platform.
+        (tmp_path / "pyproject.toml").mkdir()
+        with pytest.raises(ValueError, match="Could not read"):
+            load_config(tmp_path)
+
     def test_unknown_key_rejected(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text(
             "[tool.license-audit]\nfail-on-unkown = false\n"
@@ -168,6 +174,10 @@ class TestLicenseListValidation:
         with pytest.raises(ValidationError, match="single SPDX license"):
             LicenseAuditConfig(allowed_licenses=["MIT OR Apache-2.0"])
 
+    def test_empty_group_rejected_cleanly(self) -> None:
+        with pytest.raises(ValidationError, match="single SPDX license"):
+            LicenseAuditConfig(denied_licenses=["()"])
+
     def test_normalized_from_pyproject(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text(
             '[tool.license-audit]\ndenied-licenses = ["GPL-2.0"]\n'
@@ -191,4 +201,8 @@ class TestGetProjectName:
 
     def test_malformed_toml_returns_unknown(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text("this is = = not valid [[[\n")
+        assert get_project_name(tmp_path) == "unknown"
+
+    def test_unreadable_pyproject_returns_unknown(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").mkdir()
         assert get_project_name(tmp_path) == "unknown"

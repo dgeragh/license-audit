@@ -108,7 +108,7 @@ def recommend_cmd(ctx: click.Context) -> None:
     report = run_audit(target, config, config_dir)
 
     console.print()
-    console.rule(f"[bold]License Recommendation: {report.project_name}[/bold]")
+    console.rule(f"[bold]License Recommendation: {escape(report.project_name)}[/bold]")
     if report.source:
         console.print(f"[dim]Source:[/dim] {escape(report.source)}")
     console.print()

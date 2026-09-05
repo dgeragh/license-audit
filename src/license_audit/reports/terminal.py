@@ -46,7 +46,9 @@ class TerminalRenderer:
 
     def _render_header(self, report: AnalysisReport) -> None:
         self._console.print()
-        self._console.rule(f"[bold]License Analysis: {report.project_name}[/bold]")
+        self._console.rule(
+            f"[bold]License Analysis: {escape(report.project_name)}[/bold]"
+        )
         if report.source:
             self._console.print(f"[dim]Source:[/dim] {escape(report.source)}")
         self._console.print()

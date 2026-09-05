@@ -184,10 +184,11 @@ class SpdxNormalizer:
         if alias_result:
             return alias_result
 
-        # validate() raises AttributeError on truncated input like "MIT AND".
+        # validate() raises AttributeError on truncated input like "MIT AND"
+        # and IndexError on an empty group like "MIT AND ()".
         try:
             info = self._spdx().validate(stripped)
-        except (AttributeError, ExpressionError):
+        except (AttributeError, IndexError, ExpressionError):
             info = None
         if info is not None and not info.errors and info.normalized_expression:
             return str(info.normalized_expression)
@@ -206,7 +207,7 @@ class SpdxNormalizer:
             if all(self.DEPRECATED_SPDX.get(s, s) in known for s in symbols):
                 result = str(parsed)
                 return self.DEPRECATED_SPDX.get(result, result)
-        except ExpressionError:
+        except (IndexError, ExpressionError):
             pass
 
         return UNKNOWN_LICENSE
@@ -219,7 +220,7 @@ class SpdxNormalizer:
         """Parse an SPDX expression into an AST, or None on failure."""
         try:
             return self._licensing.parse(expr)
-        except ExpressionError:
+        except (IndexError, ExpressionError):
             return None
 
     def get_simple_licenses(self, expr: str) -> list[str]:

@@ -134,6 +134,9 @@ def load_config(config_dir: Path | None = None) -> LicenseAuditConfig:
     try:
         with open(pyproject_path, "rb") as f:
             data = tomllib.load(f)
+    except OSError as exc:
+        msg = f"Could not read {pyproject_path}: {exc}"
+        raise ValueError(msg) from exc
     except tomllib.TOMLDecodeError as exc:
         msg = f"Could not parse {pyproject_path}: {exc}"
         raise ValueError(msg) from exc
@@ -165,7 +168,7 @@ def get_project_name(config_dir: Path | None = None) -> str:
     try:
         with open(pyproject_path, "rb") as f:
             data = tomllib.load(f)
-    except tomllib.TOMLDecodeError:
+    except (OSError, tomllib.TOMLDecodeError):
         return "unknown"
 
     return str(data.get("project", {}).get("name", "unknown"))

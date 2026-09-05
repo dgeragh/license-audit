@@ -186,3 +186,10 @@ class TestTerminalRendererMarkupSafety:
         report = AnalysisReport(project_name="p", source="/home/[user]/.venv")
         TerminalRenderer(console=console).render(report)
         assert "/home/[user]/.venv" in buf.getvalue()
+
+    def test_project_name_with_markup_preserved(self) -> None:
+        # An unmatched closing tag raised MarkupError before it was escaped.
+        console, buf = _make_console()
+        report = AnalysisReport(project_name="my[x]proj[/bold]")
+        TerminalRenderer(console=console).render(report)
+        assert "my[x]proj[/bold]" in buf.getvalue()

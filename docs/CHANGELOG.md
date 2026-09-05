@@ -7,6 +7,11 @@
 - Dual-licensed dependencies no longer conflict based on which alternative is written first
 - Recommendations keep a package's other license components when one component is classified
 - A bad flag or path exits 1 instead of 2, the code `check` reserves for unknown licenses
+- An empty group in a license expression (`MIT AND ()`) reads as unknown instead of crashing
+- Rich markup in the project name no longer crashes `analyze` and `recommend`
+- An unreadable `pyproject.toml` or environment reports a clean error instead of a traceback
+- `refresh` reports an HTTP protocol error cleanly instead of a traceback
+- A corrupt cached OSADL file names itself and suggests `refresh` instead of failing every command
 
 ### Changed
 

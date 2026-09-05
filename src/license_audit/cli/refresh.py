@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from http.client import HTTPException
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -50,10 +51,13 @@ class OSADLRefresher:
             raise RuntimeError(msg)
         # Parse before writing so malformed data never lands in the cache.
         try:
-            json.loads(data)
+            payload = json.loads(data)
         except json.JSONDecodeError as exc:
             msg = f"Invalid JSON received from {url}: {exc}"
             raise ValueError(msg) from exc
+        if not isinstance(payload, dict):
+            msg = f"Invalid data received from {url}: expected a JSON object"
+            raise ValueError(msg)  # noqa: TRY004
         tmp = dest.with_name(dest.name + ".tmp")
         tmp.write_bytes(data)
         tmp.replace(dest)
@@ -64,5 +68,5 @@ def refresh_cmd() -> None:
     """Download the latest OSADL compatibility data."""
     try:
         OSADLRefresher().refresh(Console())
-    except (OSError, ValueError, RuntimeError) as exc:
+    except (OSError, HTTPException, ValueError, RuntimeError) as exc:
         raise click.ClickException(f"Failed to refresh OSADL data: {exc}") from exc
