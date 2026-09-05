@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -14,7 +16,27 @@ from license_audit.cli.report import report_cmd
 from license_audit.core.models import PolicyLevel
 
 
-@click.group()
+class _Group(click.Group):
+    """Exit 1 on every error.
+
+    Click exits 2 on a usage error, which `check` reserves for "unknown
+    licenses only"; a bad flag or path would otherwise pass as a warning in
+    CI.
+    """
+
+    def main(self, *args: Any, **kwargs: Any) -> Any:
+        kwargs["standalone_mode"] = False
+        try:
+            return super().main(*args, **kwargs)
+        except click.ClickException as exc:
+            exc.show()
+            sys.exit(1)
+        except click.Abort:
+            click.echo("Aborted!", err=True)
+            sys.exit(1)
+
+
+@click.group(cls=_Group)
 @click.option(
     "--target",
     type=click.Path(exists=True, path_type=Path),

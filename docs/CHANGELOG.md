@@ -6,6 +6,7 @@
 
 - Dual-licensed dependencies no longer conflict based on which alternative is written first
 - Recommendations keep a package's other license components when one component is classified
+- A bad flag or path exits 1 instead of 2, the code `check` reserves for unknown licenses
 
 ### Changed
 

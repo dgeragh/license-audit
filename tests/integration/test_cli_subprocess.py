@@ -148,6 +148,21 @@ class TestExitCodes:
         result = _run(["--target", str(tmp_path), "check", "--no-fail-on-unknown"])
         assert result.returncode == 0
 
+    def test_missing_target_exits_one_not_two(self, tmp_path: Path) -> None:
+        # Click's own usage code is 2, which a CI script reads as "unknowns only".
+        result = _run(["--target", str(tmp_path / "nope"), "check"])
+        assert result.returncode == 1
+        assert "does not exist" in result.stderr
+
+    def test_unknown_option_exits_one(self) -> None:
+        result = _run(["check", "--bogus"])
+        assert result.returncode == 1
+
+    def test_no_arguments_prints_usage_and_exits_one(self) -> None:
+        result = _run([])
+        assert result.returncode == 1
+        assert "Usage:" in result.stderr
+
 
 # -----------------------------------------------------------------------------
 # JSON output parseable by external interpreter
