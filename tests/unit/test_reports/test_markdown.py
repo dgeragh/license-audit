@@ -32,15 +32,14 @@ class TestMarkdownRenderer:
         assert "# License Compliance Report" in result
 
     def test_incompatible_pairs_section(self) -> None:
-        from license_audit.core.models import CompatibilityResult, Verdict
+        from license_audit.core.models import IncompatiblePair
 
         report = AnalysisReport(
             project_name="conflict-project",
             incompatible_pairs=[
-                CompatibilityResult(
-                    inbound="GPL-2.0-only",
-                    outbound="Apache-2.0",
-                    verdict=Verdict.INCOMPATIBLE,
+                IncompatiblePair(
+                    license_a="GPL-2.0-only",
+                    license_b="Apache-2.0",
                 )
             ],
         )
@@ -50,16 +49,15 @@ class TestMarkdownRenderer:
         assert "GPL-2.0-only" in result
 
     def test_no_compatible_licenses(self) -> None:
-        from license_audit.core.models import CompatibilityResult, Verdict
+        from license_audit.core.models import IncompatiblePair
 
         report = AnalysisReport(
             project_name="no-compat",
             recommended_licenses=[],
             incompatible_pairs=[
-                CompatibilityResult(
-                    inbound="GPL-2.0-only",
-                    outbound="Apache-2.0",
-                    verdict=Verdict.INCOMPATIBLE,
+                IncompatiblePair(
+                    license_a="GPL-2.0-only",
+                    license_b="Apache-2.0",
                 )
             ],
         )

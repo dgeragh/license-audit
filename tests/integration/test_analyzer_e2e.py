@@ -163,7 +163,7 @@ class TestConfigPropagation:
         assert mpl.category == LicenseCategory.PERMISSIVE
         assert mpl.category_overridden is True
         assert all(
-            "MPL-2.0" not in (pair.inbound, pair.outbound)
+            "MPL-2.0" not in (pair.license_a, pair.license_b)
             for pair in report.incompatible_pairs
         )
         assert report.policy_passed is True
@@ -231,7 +231,8 @@ class TestConfigPropagation:
         assert compound.category_overridden is True
         # MPL waived even though it was only a component.
         assert all(
-            "MPL-2.0" not in (p.inbound, p.outbound) for p in report.incompatible_pairs
+            "MPL-2.0" not in (p.license_a, p.license_b)
+            for p in report.incompatible_pairs
         )
         # No spurious no-match warning (the component matched).
         assert not any("matched no package" in i.message for i in report.action_items)
@@ -259,7 +260,7 @@ class TestConfigPropagation:
         assert report.policy_passed is True
         assert not any("matched no package" in i.message for i in report.action_items)
         assert all(
-            "CNRI-Python" not in (p.inbound, p.outbound)
+            "CNRI-Python" not in (p.license_a, p.license_b)
             for p in report.incompatible_pairs
         )
 
@@ -306,7 +307,7 @@ class TestConfigPropagation:
         pkga = next(p for p in report.packages if p.name == "pkga")
         assert pkga.category == LicenseCategory.STRONG_COPYLEFT
         assert any(
-            {pair.inbound, pair.outbound} == {"GPL-2.0-only", "GPL-3.0-only"}
+            {pair.license_a, pair.license_b} == {"GPL-2.0-only", "GPL-3.0-only"}
             for pair in report.incompatible_pairs
         )
 

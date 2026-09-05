@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from license_audit._data import OSADLDataStore
-from license_audit.core.models import CompatibilityResult, Verdict
+from license_audit.core.models import CompatibilityResult, IncompatiblePair, Verdict
 
 
 class CompatibilityMatrix:
@@ -70,13 +70,13 @@ class CompatibilityMatrix:
             )
         ]
 
-    def find_incompatible_pairs(self, licenses: list[str]) -> list[CompatibilityResult]:
+    def find_incompatible_pairs(self, licenses: list[str]) -> list[IncompatiblePair]:
         """Pairs of licenses with no common outbound license."""
         matrix = self._store.matrix()
         evaluable = [lic for lic in licenses if lic in matrix]
         all_outbound = list(matrix.keys())
 
-        results: list[CompatibilityResult] = []
+        results: list[IncompatiblePair] = []
         for i, lic_a in enumerate(evaluable):
             for lic_b in evaluable[i + 1 :]:
                 has_common = any(
@@ -85,14 +85,5 @@ class CompatibilityMatrix:
                     for outbound in all_outbound
                 )
                 if not has_common:
-                    # Both licenses here are inbound dependency licenses;
-                    # the inbound/outbound field names are a historic misuse
-                    # kept for JSON schema stability (schema_version 1).
-                    results.append(
-                        CompatibilityResult(
-                            inbound=lic_a,
-                            outbound=lic_b,
-                            verdict=Verdict.INCOMPATIBLE,
-                        )
-                    )
+                    results.append(IncompatiblePair(license_a=lic_a, license_b=lic_b))
         return results

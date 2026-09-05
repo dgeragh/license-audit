@@ -8,11 +8,10 @@ from rich.console import Console
 
 from license_audit.core.models import (
     AnalysisReport,
-    CompatibilityResult,
+    IncompatiblePair,
     LicenseCategory,
     LicenseSource,
     PackageLicense,
-    Verdict,
 )
 from license_audit.reports.terminal import TerminalRenderer
 
@@ -60,10 +59,9 @@ class TestTerminalRenderer:
         report = AnalysisReport(
             project_name="conflict",
             incompatible_pairs=[
-                CompatibilityResult(
-                    inbound="GPL-2.0-only",
-                    outbound="Apache-2.0",
-                    verdict=Verdict.INCOMPATIBLE,
+                IncompatiblePair(
+                    license_a="GPL-2.0-only",
+                    license_b="Apache-2.0",
                 ),
             ],
         )
@@ -78,10 +76,9 @@ class TestTerminalRenderer:
             project_name="no-compat",
             recommended_licenses=[],
             incompatible_pairs=[
-                CompatibilityResult(
-                    inbound="GPL-2.0-only",
-                    outbound="Apache-2.0",
-                    verdict=Verdict.INCOMPATIBLE,
+                IncompatiblePair(
+                    license_a="GPL-2.0-only",
+                    license_b="Apache-2.0",
                 ),
             ],
         )

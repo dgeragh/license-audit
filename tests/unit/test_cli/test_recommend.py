@@ -93,17 +93,16 @@ class TestRecommendActionItems:
         assert "Action items" in result.output
 
     def test_incompatible_pairs_shown(self) -> None:
-        from license_audit.core.models import CompatibilityResult, Verdict
+        from license_audit.core.models import IncompatiblePair
 
         report = _make_report(
             packages=[_GPL_PKG],
             recommended_licenses=[],
         )
         report.incompatible_pairs = [
-            CompatibilityResult(
-                inbound="GPL-2.0-only",
-                outbound="Apache-2.0",
-                verdict=Verdict.INCOMPATIBLE,
+            IncompatiblePair(
+                license_a="GPL-2.0-only",
+                license_b="Apache-2.0",
             )
         ]
         with patch("license_audit.cli.recommend.run_audit", return_value=report) as _m:

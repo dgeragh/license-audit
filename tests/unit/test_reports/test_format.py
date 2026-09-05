@@ -5,11 +5,10 @@ from __future__ import annotations
 from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
-    CompatibilityResult,
+    IncompatiblePair,
     LicenseCategory,
     LicenseSource,
     PackageLicense,
-    Verdict,
 )
 from license_audit.reports._format import (
     ActionItemFormatter,
@@ -228,11 +227,10 @@ class TestActionItemFormatterMarkdown:
 
 
 class TestIncompatiblePairFormatter:
-    def _pair(self) -> CompatibilityResult:
-        return CompatibilityResult(
-            inbound="GPL-2.0-only",
-            outbound="Apache-2.0",
-            verdict=Verdict.INCOMPATIBLE,
+    def _pair(self) -> IncompatiblePair:
+        return IncompatiblePair(
+            license_a="GPL-2.0-only",
+            license_b="Apache-2.0",
         )
 
     def test_rich(self) -> None:
