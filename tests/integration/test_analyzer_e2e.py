@@ -208,6 +208,33 @@ class TestConfigPropagation:
         assert report.incompatible_pairs == []
         assert "GPL-2.0-only" in report.recommended_licenses
 
+    def test_weak_copyleft_tree_has_no_conflicts(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """certifi (MPL-2.0) beside typing-extensions (PSF-2.0), as requests and
+        pydantic install them: weak copyleft stays with its own files, so a
+        permissive outbound license fits and nothing conflicts."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "weak-copyleft"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {
+                "certifi": "MPL-2.0",
+                "typing-extensions": "PSF-2.0",
+                "requests": "Apache-2.0",
+                "pydantic": "MIT",
+            },
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs == []
+        assert report.recommended_licenses[0] == "MIT"
+        assert report.policy_passed is True
+
     def test_less_permissive_dual_license_branch_avoids_conflict(
         self,
         tmp_path: Path,

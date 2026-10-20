@@ -8,6 +8,9 @@
 - Large environments audit in linear time: installed packages are indexed once instead of rescanned for every lookup (2,000 packages took minutes)
 - Control characters in package metadata and license files, such as ANSI escape sequences, are stripped instead of reaching the terminal
 - A dual-licensed dependency can be used under any of its licenses, so a less permissive alternative that fits the rest of the tree no longer reports a conflict (`Apache-2.0 OR GPL-2.0-only` next to `GPL-2.0-only`)
+- Permissive and weak-copyleft dependencies no longer conflict with each other or rule out permissive outbound licenses: their obligations stay with their own files, so only strong or network copyleft constrains the outbound license. A project using just requests and pydantic failed `check` under every policy (certifi's MPL-2.0 against typing-extensions' PSF-2.0)
+- PSF-2.0 counts as GPL-compatible, as the FSF lists it, instead of conflicting with every GPL-family dependency
+- The incompatible-pair action item says no outbound license satisfies both licenses instead of claiming the dependencies "cannot coexist"
 
 ### Added
 

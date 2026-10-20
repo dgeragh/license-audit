@@ -134,8 +134,8 @@ class PolicyEngine:
                     package="",
                     message=(
                         f"Licenses '{pair.license_a}' and '{pair.license_b}' are "
-                        f"mutually incompatible. Dependencies using these licenses "
-                        f"cannot coexist."
+                        f"incompatible: no outbound license satisfies both under "
+                        f"the OSADL compatibility data."
                     ),
                 ),
             )
