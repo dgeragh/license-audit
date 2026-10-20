@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from license_audit.config import LicenseAuditConfig, get_project_name, load_config
+from license_audit.config import (
+    LicenseAuditConfig,
+    get_project_dependencies,
+    get_project_name,
+    load_config,
+)
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import (
@@ -13,6 +18,7 @@ from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
     LicenseCategory,
+    LicenseSource,
     PackageLicense,
 )
 from license_audit.core.policy import PolicyEngine
@@ -23,6 +29,7 @@ from license_audit.environment.venv import (
     is_venv_dir,
     reader_for_venv,
 )
+from license_audit.licenses.detection import unmapped_license_classifiers
 from license_audit.licenses.expression import (
     CategoryOverrides,
     ExpressionEvaluator,
@@ -105,8 +112,8 @@ class LicenseAuditor:
         policy: PolicyEngine | None = None,
         expression: ExpressionEvaluator | None = None,
     ) -> None:
-        self._matrix = matrix or CompatibilityMatrix()
         self._classifier = classifier or LicenseClassifier()
+        self._matrix = matrix or CompatibilityMatrix(classifier=self._classifier)
         self._normalizer = normalizer or SpdxNormalizer(matrix=self._matrix)
         self._expression = expression or ExpressionEvaluator(
             classifier=self._classifier,
@@ -144,7 +151,12 @@ class LicenseAuditor:
         project_name = get_project_name(effective_dir)
 
         reader = self._reader_for(info)
-        tree = analyze_environment(project_name, reader, dict(config.overrides))
+        tree = analyze_environment(
+            project_name,
+            reader,
+            dict(config.overrides),
+            get_project_dependencies(effective_dir),
+        )
         packages = tree.flatten()
         self._classify_packages(packages)
         deemed = {
@@ -188,7 +200,9 @@ class LicenseAuditor:
             config,
         )
         action_items.extend(self._classification_warnings(unmatched_classifications))
-        policy_passed = self._policy.check(
+        action_items.extend(self._unmapped_classifier_warnings(dep_packages, reader))
+        # The same verdict `check` reaches: incompatible pairs fail it too.
+        policy_passed = not incompatible and self._policy.check(
             dep_packages,
             self._policy.build_policy(config),
         )
@@ -298,6 +312,37 @@ class LicenseAuditor:
             )
             for name in unmatched
         ]
+
+    @staticmethod
+    def _unmapped_classifier_warnings(
+        packages: list[PackageLicense], reader: MetadataReader
+    ) -> list[ActionItem]:
+        """Warn when a license read from classifiers skipped some of them."""
+        items: list[ActionItem] = []
+        for pkg in packages:
+            if (
+                pkg.ignored
+                or pkg.license_source != LicenseSource.CLASSIFIER
+                or pkg.license_expression == UNKNOWN_LICENSE
+            ):
+                continue
+            unmapped = unmapped_license_classifiers(reader.read_metadata(pkg.name))
+            if not unmapped:
+                continue
+            names = ", ".join(f"'{c}'" for c in unmapped)
+            items.append(
+                ActionItem(
+                    severity="warning",
+                    package=pkg.name,
+                    message=(
+                        f"Package '{pkg.name}' also lists license classifiers "
+                        f"that can't be mapped to SPDX ({names}), so its license "
+                        f"was read from the rest as '{pkg.license_expression}'. "
+                        "Check that it applies, or set an override."
+                    ),
+                )
+            )
+        return items
 
     @staticmethod
     def _collect_license_text(

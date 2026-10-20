@@ -147,6 +147,57 @@ class TestFindIncompatiblePairs:
         ]
 
 
+class TestLibraryScope:
+    """Permissive and weak-copyleft obligations stay with the dependency's own
+    files; only strong copyleft reaches the combined work."""
+
+    def test_weak_copyleft_leaves_permissive_outbound_open(self) -> None:
+        compatible = CompatibilityMatrix().find_compatible_outbound(
+            _inbound("MPL-2.0", "MIT"),
+        )
+        assert "MIT" in compatible
+        assert "Apache-2.0" in compatible
+
+    def test_weak_copyleft_and_permissive_never_conflict(self) -> None:
+        # certifi (MPL-2.0) and typing-extensions (PSF-2.0) sit in most trees.
+        result = CompatibilityMatrix().find_incompatible_pairs(
+            _inbound("MPL-2.0", "PSF-2.0", "LGPL-2.1-only", "Apache-2.0"),
+        )
+        assert result == []
+
+    def test_strong_copyleft_still_binds_weak_copyleft(self) -> None:
+        result = CompatibilityMatrix().find_incompatible_pairs(
+            _inbound("GPL-2.0-only", "EPL-2.0"),
+        )
+        assert len(result) == 1
+
+    def test_strong_copyleft_needs_copyleft_outbound(self) -> None:
+        # OSADL lets the weak-copyleft Classpath variant take in GPL-2.0-only
+        # code, but the combined work is then GPL-2.0-only, which rules out
+        # Apache-2.0.
+        compatible = CompatibilityMatrix().find_compatible_outbound(
+            _inbound("GPL-2.0-only", "Apache-2.0"),
+        )
+        assert compatible == []
+
+
+class TestPsfCorrection:
+    def test_psf_usable_in_gpl_family_works(self) -> None:
+        matrix = CompatibilityMatrix()
+        assert matrix.raw_verdict("GPL-2.0-only", "PSF-2.0") == "Yes"
+        assert matrix.raw_verdict("GPL-3.0-or-later", "PSF-2.0") == "Yes"
+        assert matrix.raw_verdict("AGPL-3.0-only", "PSF-2.0") == "Yes"
+
+    def test_psf_and_gpl_dependencies_do_not_conflict(self) -> None:
+        result = CompatibilityMatrix().find_incompatible_pairs(
+            _inbound("PSF-2.0", "GPL-3.0-or-later"),
+        )
+        assert result == []
+
+    def test_other_verdicts_untouched(self) -> None:
+        assert CompatibilityMatrix().raw_verdict("GPL-2.0-only", "Apache-2.0") == "No"
+
+
 class _StubStore(OSADLDataStore):
     def __init__(self, matrix: dict[str, dict[str, str]]) -> None:
         super().__init__()

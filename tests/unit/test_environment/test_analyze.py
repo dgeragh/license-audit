@@ -267,6 +267,94 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         assert parents["kernelonly"] == "kernelonly"
 
 
+class TestParentAttribution:
+    """Who a package is attributed to when it isn't reached from the root."""
+
+    @staticmethod
+    def _parents(
+        tmp_path: Path, root: str = "synth_root", declared: tuple[str, ...] = ()
+    ) -> dict[str, str]:
+        reader = MetadataReader.from_site_packages(tmp_path)
+        tree = analyze_environment(root, reader, declared=declared)
+        return {p.name: p.parent for p in tree.flatten()}
+
+    def test_leftover_tool_owns_its_dependencies(self, tmp_path: Path) -> None:
+        # iniconfig and pluggy sort before pytest but belong to it.
+        _make_dist_info(tmp_path, "iniconfig", "1.0", license_expression="MIT")
+        _make_dist_info(tmp_path, "pluggy", "1.0", license_expression="MIT")
+        _make_dist_info(
+            tmp_path,
+            "pytest",
+            "9.0",
+            license_expression="MIT",
+            requires=["iniconfig>=1", "pluggy>=1"],
+        )
+        parents = self._parents(tmp_path)
+        assert parents["iniconfig"] == "pytest"
+        assert parents["pluggy"] == "pytest"
+        assert parents["pytest"] == "pytest"
+
+    def test_declared_dependency_is_direct_when_project_not_installed(
+        self, tmp_path: Path
+    ) -> None:
+        # A uv virtual project: numpy is declared directly, though contourpy
+        # (sorting first) also requires it.
+        _make_dist_info(tmp_path, "numpy", "2.0", license_expression="BSD-3-Clause")
+        _make_dist_info(
+            tmp_path,
+            "contourpy",
+            "1.0",
+            license_expression="BSD-3-Clause",
+            requires=["numpy>=1"],
+        )
+        _make_dist_info(
+            tmp_path,
+            "matplotlib",
+            "3.0",
+            license_expression="PSF-2.0",
+            requires=["contourpy>=1", "numpy>=1"],
+        )
+        parents = self._parents(tmp_path, declared=("numpy", "matplotlib>=3"))
+        assert parents["numpy"] == "numpy"
+        assert parents["matplotlib"] == "matplotlib"
+        assert parents["contourpy"] == "matplotlib"
+
+    def test_declared_group_is_direct_beside_installed_project(
+        self, tmp_path: Path
+    ) -> None:
+        _make_dist_info(
+            tmp_path, "rootpkg", "1.0", license_expression="MIT", requires=["click"]
+        )
+        _make_dist_info(tmp_path, "click", "8.0", license_expression="BSD-3-Clause")
+        _make_dist_info(
+            tmp_path, "pytest", "9.0", license_expression="MIT", requires=["pluggy"]
+        )
+        _make_dist_info(tmp_path, "pluggy", "1.0", license_expression="MIT")
+        parents = self._parents(
+            tmp_path, root="rootpkg", declared=("click", "pytest>=9", "rootpkg[dev]")
+        )
+        assert parents == {
+            "rootpkg": "",
+            "click": "click",
+            "pytest": "pytest",
+            "pluggy": "pytest",
+        }
+
+    def test_declared_requirement_filtered_like_requires_dist(
+        self, tmp_path: Path
+    ) -> None:
+        _make_dist_info(tmp_path, "legacy", "1.0", license_expression="MIT")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        tree = analyze_environment(
+            "synth_root",
+            reader,
+            declared=('legacy; python_version < "3.0"', "ghost", "!!!"),
+        )
+        names = {p.name for p in tree.flatten()}
+        assert "ghost" not in names
+        assert "legacy" in names
+
+
 class TestMarkerMatches:
     def test_unevaluable_marker_is_false_for_every_extra(self) -> None:
         class _Marker:

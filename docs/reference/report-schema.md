@@ -31,7 +31,7 @@ Version history:
 | `incompatible_pairs` | array of [IncompatiblePair](#incompatiblepair) | License pairs found incompatible |
 | `recommended_licenses` | array of string | Recommended outbound licenses as SPDX ids, most permissive first |
 | `action_items` | array of [ActionItem](#actionitem) | Follow-ups the user should address |
-| `policy_passed` | boolean or null | Policy gate result, `null` when no policy is configured |
+| `policy_passed` | boolean or null | Policy gate result, the same verdict `check` reaches: `false` on an incompatible pair, a policy violation, or an unknown license while `fail-on-unknown` is on. Always set by current versions; `null` is reserved |
 
 ## PackageLicense
 
@@ -44,7 +44,7 @@ Version history:
 | `license_source` | string | How the license was detected, see [LicenseSource](#licensesource) |
 | `category` | string | Copyleft classification, see [LicenseCategory](#licensecategory) |
 | `category_overridden` | boolean | Whether the category came from a `license-classifications` entry (an `overrides` entry sets `license_source` instead) |
-| `parent` | string | Top-level dependency that pulls this package in; equal to `name` for a direct dependency |
+| `parent` | string | Top-level dependency that pulls this package in; equal to `name` for a direct dependency: one the project declares, or an installed package nothing else requires |
 | `license_text` | string or null | Full license text when available |
 | `ignored` | boolean | Whether the package is excluded from policy evaluation |
 | `ignore_reason` | string | Reason given for ignoring, empty otherwise |

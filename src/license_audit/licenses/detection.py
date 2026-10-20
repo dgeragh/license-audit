@@ -35,6 +35,33 @@ class DetectionResult:
 
 _NOT_DETECTED = DetectionResult(UNKNOWN_LICENSE, LicenseSource.UNKNOWN)
 
+# License classifiers that name no particular license.
+_GENERIC_CLASSIFIERS = frozenset(
+    {
+        "License :: OSI Approved",
+        "License :: DFSG approved",
+        "License :: Freely Distributable",
+    }
+)
+
+
+def unmapped_license_classifiers(meta: Message | None) -> list[str]:
+    """License classifiers that name a license with no SPDX mapping.
+
+    Detection ORs together the classifiers it can map and skips these, so a
+    caller can warn that the detected license may not be the whole story.
+    """
+    if meta is None:
+        return []
+    return [
+        segment
+        for cls in meta.get_all("Classifier") or []
+        if cls.startswith("License ::")
+        and cls.strip() not in _GENERIC_CLASSIFIERS
+        and (segment := cls.split("::", 1)[1].strip())
+        and _normalizer.normalize_classifier(cls) is None
+    ]
+
 
 def detect_license(
     package_name: str,

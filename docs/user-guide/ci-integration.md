@@ -130,7 +130,7 @@ Typical flow when introducing a new package:
      new-package = "MIT"
 
      [tool.license-audit.license-classifications]
-     "CNRI-Python" = "permissive"
+     "CC-BY-SA-4.0" = "weak-copyleft"
      ```
    - **Exit 1 (policy violation)**: swap the dependency for a differently-licensed alternative, add the license to `allowed-licenses`, relax `policy` (e.g. `permissive` to `weak-copyleft`), or, if you've reviewed the package manually and confirmed it's safe for your case, exempt it:
      ```toml

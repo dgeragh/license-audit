@@ -7,7 +7,7 @@
 | Pairwise compatibility analysis (OSADL) | Yes | No | No | No |
 | Outbound license recommendation | Yes | No | No | No |
 | Transitive dependency tree with parents | Yes | N/A | No | No |
-| Dual-license resolution (OR expressions) | Yes (picks most permissive) | N/A | No | No |
+| Dual-license resolution (OR expressions) | Yes (any alternative) | N/A | No | No |
 | CI policy gating with exit codes | Yes | Via scripting | Via flags | Yes |
 | Compliance report generation | Markdown, JSON, notices | JSON, HTML, CSV, SPDX | CSV, JSON, Markdown | No |
 | Allow/deny lists | Yes | Via scripting | No | Yes |

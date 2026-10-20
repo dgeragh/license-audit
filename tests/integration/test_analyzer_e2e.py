@@ -208,6 +208,70 @@ class TestConfigPropagation:
         assert report.incompatible_pairs == []
         assert "GPL-2.0-only" in report.recommended_licenses
 
+    def test_weak_copyleft_tree_has_no_conflicts(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """certifi (MPL-2.0) beside typing-extensions (PSF-2.0), as requests and
+        pydantic install them: weak copyleft stays with its own files, so a
+        permissive outbound license fits and nothing conflicts."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "weak-copyleft"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {
+                "certifi": "MPL-2.0",
+                "typing-extensions": "PSF-2.0",
+                "requests": "Apache-2.0",
+                "pydantic": "MIT",
+            },
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs == []
+        assert report.recommended_licenses[0] == "MIT"
+        assert report.policy_passed is True
+
+    def test_incompatible_pair_fails_policy_passed(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """policy_passed is the verdict `check` reaches: a conflict fails it
+        even when every package fits the policy level."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"gpl2": "GPL-2.0-only", "apache": "Apache-2.0"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs
+        assert report.policy_passed is False
+
+    def test_less_permissive_dual_license_branch_avoids_conflict(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A dependency dual-licensed Apache-2.0 OR GPL-2.0-only fits a
+        GPL-2.0-only tree through its GPL branch, though Apache-2.0 alone
+        would conflict."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"dual": "Apache-2.0 OR GPL-2.0-only", "gpl": "GPL-2.0-only"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs == []
+        assert "GPL-2.0-only" in report.recommended_licenses
+
     def test_classified_component_keeps_sibling_in_recommendations(
         self,
         tmp_path: Path,
@@ -320,13 +384,64 @@ class TestConfigPropagation:
             tmp_path / "pyproject.toml",
             '[project]\nname = "x"\nversion = "0.0.1"\n',
         )
-        make_venv(tmp_path / ".venv", {"legacy_pkg": "Apache-2.0 AND CNRI-Python"})
+        make_venv(tmp_path / ".venv", {"legacy_pkg": "Apache-2.0 AND CC-BY-SA-4.0"})
         report = LicenseAuditor().run(target=tmp_path)
         pkg = next(p for p in report.packages if p.name == "legacy-pkg")
-        assert pkg.license_expression == "Apache-2.0 AND CNRI-Python"
+        assert pkg.license_expression == "Apache-2.0 AND CC-BY-SA-4.0"
         assert pkg.category == LicenseCategory.UNKNOWN
         assert report.policy_passed is False
-        assert any("'CNRI-Python'" in i.message for i in report.action_items)
+        assert any("'CC-BY-SA-4.0'" in i.message for i in report.action_items)
+
+    def test_supplemental_classification_resolves_common_license(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """numpy's CC0-1.0 component and regex's CNRI-Python aren't in the
+        OSADL data but are classified built-in, so neither reads unknown."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {
+                "numpy": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+                "regex": "Apache-2.0 AND CNRI-Python",
+            },
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert {p.category for p in report.packages} == {LicenseCategory.PERMISSIVE}
+        assert not any(p.category_overridden for p in report.packages)
+        assert report.recommended_licenses[0] == "MIT"
+        assert report.policy_passed is True
+
+    def test_unmappable_classifier_beside_mapped_ones_warns(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """docutils lists Public Domain, BSD, and an unversioned GPL classifier;
+        the GPL one can't be mapped, so the OR of the others carries a warning."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        dist_info = next(venv.glob("lib/*/site-packages")) / "docutils-0.21.dist-info"
+        dist_info.mkdir()
+        (dist_info / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: docutils\nVersion: 0.21\n"
+            "Classifier: License :: Public Domain\n"
+            "Classifier: License :: OSI Approved :: BSD License\n"
+            "Classifier: License :: OSI Approved :: GNU General Public License (GPL)\n"
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        docutils = next(p for p in report.packages if p.name == "docutils")
+        assert docutils.license_expression == "BSD-3-Clause OR Unlicense"
+        warnings = [i for i in report.action_items if i.package == "docutils"]
+        assert len(warnings) == 1
+        assert "GNU General Public License (GPL)" in warnings[0].message
 
     def test_deemed_or_branch_keeps_conflicts_visible(
         self,

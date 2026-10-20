@@ -55,6 +55,7 @@ nav:
       - JSON report schema: reference/report-schema.md
       - Comparison: reference/comparison.md
       - Limitations: reference/limitations.md
+      - Versioning and stability: reference/versioning.md
   - Changelog: CHANGELOG.md
 
 markdown_extensions:

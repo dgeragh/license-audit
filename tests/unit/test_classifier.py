@@ -69,3 +69,24 @@ class TestLicenseClassifier:
         store = OSADLDataStore()
         classifier = LicenseClassifier(store=store)
         assert classifier.classify("MIT") == LicenseCategory.PERMISSIVE
+
+
+class _CopyleftStub(OSADLDataStore):
+    def __init__(self, copyleft: dict[str, str]) -> None:
+        super().__init__()
+        self._copyleft = copyleft
+
+
+class TestSupplementalCategories:
+    def test_common_licenses_missing_from_osadl_are_permissive(self) -> None:
+        classifier = LicenseClassifier()
+        for spdx_id in ("CC0-1.0", "CNRI-Python", "ZPL-2.1", "CC-BY-4.0"):
+            assert classifier.classify(spdx_id) == LicenseCategory.PERMISSIVE
+
+    def test_osadl_entry_takes_precedence(self) -> None:
+        classifier = LicenseClassifier(store=_CopyleftStub({"CC0-1.0": "Yes"}))
+        assert classifier.classify("CC0-1.0") == LicenseCategory.STRONG_COPYLEFT
+
+    def test_source_available_licenses_stay_unknown(self) -> None:
+        for spdx_id in ("SSPL-1.0", "BUSL-1.1", "CC-BY-SA-4.0"):
+            assert LicenseClassifier().classify(spdx_id) == LicenseCategory.UNKNOWN

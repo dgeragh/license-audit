@@ -12,6 +12,16 @@ from typing import Self
 
 from packaging.utils import canonicalize_name
 
+# Package metadata and license files are untrusted. Control characters such as
+# ANSI escape sequences would otherwise reach terminals and CI logs verbatim,
+# where they can hide or rewrite output.
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def strip_control_chars(text: str) -> str:
+    """Remove control characters other than tab and newline."""
+    return _CONTROL_CHARS.sub("", text)
+
 
 def canonicalize(name: str) -> str:
     """Canonicalize a package name per PEP 503.
@@ -51,7 +61,7 @@ class _DistInfoDir(_DistInfo):
         target = (root / name).resolve()
         if not target.is_relative_to(root) or not target.is_file():
             return None
-        return target.read_text(encoding="utf-8", errors="replace")
+        return strip_control_chars(target.read_text(encoding="utf-8", errors="replace"))
 
     def iter_files(self) -> Iterator[str]:
         for child in self._path.rglob("*"):
@@ -78,19 +88,33 @@ class _SitePackagesSource(_Source):
 
     def __init__(self, path: Path) -> None:
         self._path = path
+        self._entries: list[tuple[str, Path]] | None = None
+        self._index: dict[str, Path] = {}
 
     def find_dist_info(self, canonical_name: str) -> _DistInfo | None:
-        for dist_info in self._metadata_dirs():
-            if self._dist_info_name(dist_info.name) == canonical_name:
-                return _DistInfoDir(dist_info)
-        return None
+        self._scan()
+        path = self._index.get(canonical_name)
+        return _DistInfoDir(path) if path is not None else None
 
     def iter_package_names(self) -> Iterator[str]:
-        for dist_info in self._metadata_dirs():
-            yield self._dist_info_name(dist_info.name)
+        for name, _ in self._scan():
+            yield name
 
     def describe(self) -> str:
         return str(self._path)
+
+    def _scan(self) -> list[tuple[str, Path]]:
+        # Scanned once: re-globbing and re-sorting the directory on every
+        # lookup made an audit quadratic in the number of installed packages.
+        if self._entries is None:
+            self._entries = [
+                (self._dist_info_name(path.name), path)
+                for path in self._metadata_dirs()
+            ]
+            for name, path in self._entries:
+                # The first match wins, as it did when lookups scanned in order.
+                self._index.setdefault(name, path)
+        return self._entries
 
     def _metadata_dirs(self) -> Iterator[Path]:
         # glob() yields in directory order, which differs between filesystems;
@@ -102,7 +126,8 @@ class _SitePackagesSource(_Source):
 
     @staticmethod
     def _dist_info_name(dir_name: str) -> str:
-        stem = dir_name.removesuffix(".dist-info").removesuffix(".egg-info")
+        stem = strip_control_chars(dir_name).removesuffix(".dist-info")
+        stem = stem.removesuffix(".egg-info")
         name = re.split(r"-(?=\d)", stem, maxsplit=1)[0]
         return canonicalize(name)
 
@@ -123,6 +148,7 @@ class MetadataReader:
     def __init__(self, source: _Source) -> None:
         self._source = source
         self._parser = HeaderParser()
+        self._metadata: dict[str, Message | None] = {}
 
     @classmethod
     def from_site_packages(cls, path: Path) -> Self:
@@ -131,10 +157,13 @@ class MetadataReader:
 
     def read_metadata(self, package_name: str) -> Message | None:
         """Parsed METADATA for `package_name`, or None if absent."""
-        dist_info = self._source.find_dist_info(canonicalize(package_name))
-        if dist_info is None:
-            return None
-        return self._parse_metadata(dist_info)
+        canonical = canonicalize(package_name)
+        if canonical not in self._metadata:
+            dist_info = self._source.find_dist_info(canonical)
+            self._metadata[canonical] = (
+                None if dist_info is None else self._parse_metadata(dist_info)
+            )
+        return self._metadata[canonical]
 
     def is_installed(self, package_name: str) -> bool:
         """True if `package_name` has installed metadata in the source."""
@@ -150,7 +179,9 @@ class MetadataReader:
         dist_info = self._source.find_dist_info(canonicalize(package_name))
         if dist_info is None:
             return None
-        texts = self._read_pep639_license_files(dist_info)
+        texts = self._read_pep639_license_files(
+            dist_info, self.read_metadata(package_name)
+        )
         if not texts:
             texts = self._read_common_license_files(dist_info)
         return "\n".join(texts) if texts else None
@@ -171,8 +202,9 @@ class MetadataReader:
             return None
         return self._parser.parsestr(text)
 
-    def _read_pep639_license_files(self, dist_info: _DistInfo) -> list[str]:
-        meta = self._parse_metadata(dist_info)
+    def _read_pep639_license_files(
+        self, dist_info: _DistInfo, meta: Message | None
+    ) -> list[str]:
         if meta is None:
             return []
         texts: list[str] = []

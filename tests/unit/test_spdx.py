@@ -99,6 +99,17 @@ class TestNormalize:
             == "UNKNOWN"
         )
 
+    def test_spelled_out_bsd_and_expat_aliases(self) -> None:
+        normalizer = SpdxNormalizer()
+        assert normalizer.normalize("3-Clause BSD License") == "BSD-3-Clause"
+        assert normalizer.normalize("BSD 2-Clause License") == "BSD-2-Clause"
+        assert normalizer.normalize("Expat license") == "MIT"
+
+    def test_operator_after_open_paren_returns_unknown(self) -> None:
+        # boolean.py raises AssertionError on these rather than ExpressionError.
+        for malformed in ("MIT OR ( AND BSD", "License or ( AND GPL-2.0+"):
+            assert SpdxNormalizer().normalize(malformed) == "UNKNOWN"
+
 
 class TestNormalizeClassifier:
     def test_mit(self) -> None:
@@ -135,6 +146,9 @@ class TestParseExpression:
 
     def test_empty_group(self) -> None:
         assert SpdxNormalizer().parse_expression("MIT OR ()") is None
+
+    def test_operator_after_open_paren(self) -> None:
+        assert SpdxNormalizer().parse_expression("MIT OR ( AND BSD") is None
 
 
 class TestGetSimpleLicenses:

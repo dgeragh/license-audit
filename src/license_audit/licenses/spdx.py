@@ -14,6 +14,12 @@ from license_expression import (
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import UNKNOWN_LICENSE
 
+# Malformed input surfaces from license-expression as more than ExpressionError:
+# AttributeError on truncated input ("MIT AND"), IndexError on an empty group
+# ("MIT AND ()"), and AssertionError from boolean.py when an operator follows
+# an open paren ("MIT OR ( AND BSD").
+_PARSE_ERRORS = (AssertionError, AttributeError, IndexError, ExpressionError)
+
 
 class SpdxNormalizer:
     """Converts loose license strings into canonical SPDX identifiers."""
@@ -25,12 +31,19 @@ class SpdxNormalizer:
         "bsd license": "BSD-3-Clause",
         "bsd-3": "BSD-3-Clause",
         "bsd 3-clause": "BSD-3-Clause",
+        "bsd 3-clause license": "BSD-3-Clause",
+        "bsd-3-clause license": "BSD-3-Clause",
         "3-clause bsd": "BSD-3-Clause",
+        "3-clause bsd license": "BSD-3-Clause",
         "modified bsd": "BSD-3-Clause",
         "new bsd": "BSD-3-Clause",
         "new bsd license": "BSD-3-Clause",
         "bsd-2": "BSD-2-Clause",
         "bsd 2-clause": "BSD-2-Clause",
+        "bsd 2-clause license": "BSD-2-Clause",
+        "bsd-2-clause license": "BSD-2-Clause",
+        "2-clause bsd": "BSD-2-Clause",
+        "2-clause bsd license": "BSD-2-Clause",
         "simplified bsd": "BSD-2-Clause",
         "freebsd": "BSD-2-Clause",
         # MIT variants
@@ -38,6 +51,8 @@ class SpdxNormalizer:
         "mit license": "MIT",
         "the mit license": "MIT",
         "mit/x11": "MIT",
+        "expat": "MIT",
+        "expat license": "MIT",
         # Apache variants
         "apache": "Apache-2.0",
         "apache 2": "Apache-2.0",
@@ -188,11 +203,9 @@ class SpdxNormalizer:
         if alias_result:
             return alias_result
 
-        # validate() raises AttributeError on truncated input like "MIT AND"
-        # and IndexError on an empty group like "MIT AND ()".
         try:
             info = self._spdx().validate(stripped)
-        except (AttributeError, IndexError, ExpressionError):
+        except _PARSE_ERRORS:
             info = None
         if info is not None and not info.errors and info.normalized_expression:
             return str(info.normalized_expression)
@@ -211,7 +224,7 @@ class SpdxNormalizer:
             if all(self.DEPRECATED_SPDX.get(s, s) in known for s in symbols):
                 result = str(parsed)
                 return self.DEPRECATED_SPDX.get(result, result)
-        except (IndexError, ExpressionError):
+        except _PARSE_ERRORS:
             pass
 
         return UNKNOWN_LICENSE
@@ -224,7 +237,7 @@ class SpdxNormalizer:
         """Parse an SPDX expression into an AST, or None on failure."""
         try:
             return self._licensing.parse(expr)
-        except (IndexError, ExpressionError):
+        except _PARSE_ERRORS:
             return None
 
     def get_simple_licenses(self, expr: str) -> list[str]:

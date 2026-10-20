@@ -6,11 +6,16 @@ license-audit reads what's declared in package metadata: PEP 639 fields, the leg
 
 ## OSADL coverage is finite
 
-The OSADL compatibility matrix covers about 120 well-known open-source licenses. A valid SPDX license outside that set is detected but classifies as unknown; record your judgement in `[tool.license-audit.license-classifications]` to resolve it. Strings that aren't SPDX at all produce "Unknown" verdicts; use `[tool.license-audit.overrides]` to assign SPDX identifiers manually when detection fails.
+The OSADL compatibility matrix covers about 120 well-known open-source licenses. A handful of common permissive licenses its data leaves out are classified built-in: CC0-1.0, CNRI-Python, ZPL-2.1, CC-BY-4.0, Python-2.0.1, MIT-Modern-Variant, and BSD-3-Clause-Clear. Any other valid SPDX license outside the data is detected but classifies as unknown; record your judgement in `[tool.license-audit.license-classifications]` to resolve it (an entry there also overrides a built-in category). Strings that aren't SPDX at all produce "Unknown" verdicts; use `[tool.license-audit.overrides]` to assign SPDX identifiers manually when detection fails.
 
-## OSADL is conservative
+## Compatibility reads OSADL for libraries
 
-The matrix encodes a strict reading of license compatibility. For weak-copyleft licenses (LGPL, MPL) it typically excludes permissive outbound combinations even though dynamic linking or unmodified redistribution often makes those acceptable in practice. Treat the matrix as a default guardrail, not a final answer.
+The OSADL matrix answers whether code under one license can be incorporated into a work under another. license-audit applies it the way Python dependencies are combined, as separately distributed libraries:
+
+- A permissive or weak-copyleft dependency (MIT, LGPL, MPL) never constrains a permissive or weak-copyleft outbound license, because its obligations stay with its own files.
+- A strong- or network-copyleft dependency (GPL, AGPL) makes the combined work copyleft, so it needs a strong- or network-copyleft outbound license, and every other dependency is held to the matrix verdict for that license.
+
+One verdict departs from OSADL: PSF-2.0 (typing-extensions, among others) counts as usable in GPL-family works, as the FSF's license list states, where OSADL says it is not. The matrix is otherwise a strict reading of compatibility, so treat its conflicts as a default guardrail, not a final answer.
 
 ## License strings on PyPI are messy
 

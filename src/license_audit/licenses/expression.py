@@ -89,18 +89,28 @@ class ExpressionEvaluator:
     ) -> list[Inbound]:
         """Compatibility constraints `expr` imposes.
 
-        Every alternative tied at the best rank counts, so no branch is picked
-        by the order it was written in. Ids common to all of them come back
-        as their own units, so an AND component is named directly when it
-        conflicts. Overridden components are dropped: the user asserted their
-        category, and an alternative made only of those means no constraint.
+        A dual-licensed dependency can be used under any one alternative, so
+        every alternative counts, however permissive and in whatever order it
+        was written: an outbound license that satisfies any of them is
+        accepted. Ids common to all of them come back as their own units, so
+        an AND component is named directly when it conflicts. Overridden
+        components are dropped: the user asserted their category, and an
+        alternative made only of those means no constraint. An alternative
+        holding a component deemed non-permissive is not relied on while
+        another one remains.
         """
         overrides = overrides or {}
         if expr == UNKNOWN_LICENSE or normalize_license_key(expr) in overrides:
             return []
+        candidates = [
+            list(dict.fromkeys(alt)) for alt in self.alternatives(expr) if alt
+        ]
+        usable = [
+            alt for alt in candidates if not self._deems_restrictive(alt, overrides)
+        ]
         alternatives = [
             [lic for lic in alt if normalize_license_key(lic) not in overrides]
-            for alt in self.best_alternatives(expr, overrides)
+            for alt in usable or candidates
         ]
         if not alternatives or not all(alternatives):
             return []
@@ -179,6 +189,15 @@ class ExpressionEvaluator:
                 continue
             return True
         return False
+
+    @staticmethod
+    def _deems_restrictive(alt: list[str], overrides: CategoryOverrides) -> bool:
+        """True if the user deemed any component of `alt` non-permissive."""
+        return any(
+            overrides.get(normalize_license_key(lic), LicenseCategory.PERMISSIVE)
+            != LicenseCategory.PERMISSIVE
+            for lic in alt
+        )
 
     def _alt_rank(
         self, alt: list[str], overrides: CategoryOverrides | None = None

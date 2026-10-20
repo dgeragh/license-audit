@@ -125,7 +125,7 @@ some-internal-package = "MIT"
 dual-licensed-pkg = "Apache-2.0 OR MIT"
 
 [tool.license-audit.license-classifications]
-"CNRI-Python" = "permissive"  # your judgement for licenses OSADL doesn't cover
+"CC-BY-SA-4.0" = "weak-copyleft"  # your judgement for licenses OSADL doesn't cover
 
 [tool.license-audit.ignored-packages]
 pandas-stubs = "Stubs only, not redistributed"

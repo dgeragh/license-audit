@@ -13,6 +13,7 @@ from license_audit.licenses.detection import (
     _try_license_field,
     _try_pep639,
     detect_license,
+    unmapped_license_classifiers,
 )
 from license_audit.util import MetadataReader
 
@@ -174,6 +175,14 @@ class TestTryLicenseField:
         assert result.declared_license == "Weird Custom Terms v3"
         assert result.source == LicenseSource.METADATA
 
+    def test_malformed_expression_is_declared_not_raised(self) -> None:
+        for field in ("License", "License_Expression"):
+            result = _detect_from_metadata(
+                _make_metadata(**{field: "MIT OR ( AND BSD"})
+            )
+            assert result.expression == "UNKNOWN"
+            assert result.declared_license == "MIT OR ( AND BSD"
+
 
 class TestTryClassifiers:
     def test_single_classifier(self) -> None:
@@ -233,6 +242,27 @@ class TestTryClassifiers:
     def test_only_bare_license_classifier_returns_none(self) -> None:
         meta = _make_metadata(Classifier=["License ::"])
         assert _try_classifiers(meta) is None
+
+
+class TestUnmappedLicenseClassifiers:
+    def test_reports_classifiers_without_spdx_mapping(self) -> None:
+        meta = _make_metadata(
+            Classifier=[
+                "License :: Public Domain",
+                "License :: OSI Approved :: BSD License",
+                "License :: OSI Approved :: GNU General Public License (GPL)",
+                "License :: OSI Approved",
+                "Programming Language :: Python",
+            ]
+        )
+        assert unmapped_license_classifiers(meta) == [
+            "OSI Approved :: GNU General Public License (GPL)"
+        ]
+
+    def test_nothing_to_report(self) -> None:
+        assert unmapped_license_classifiers(None) == []
+        meta = _make_metadata(Classifier=["License :: OSI Approved :: MIT License"])
+        assert unmapped_license_classifiers(meta) == []
 
 
 class TestDetectFromMetadata:
