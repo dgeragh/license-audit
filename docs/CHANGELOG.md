@@ -14,6 +14,7 @@
 - `policy_passed` in the JSON report, and the policy line in `analyze` and Markdown reports, fail on incompatible license pairs as `check` does; they reported a pass while `check` exited 1
 - JSON, Markdown, and notices reports on stdout are UTF-8 whatever the console encoding; redirecting one on Windows crashed when a license text held a character outside the code page (pygments, a dependency of license-audit itself, has one)
 - Terminal output replaces characters the console can't encode instead of crashing
+- A package's parent is the dependency that actually pulls it in. Packages outside the project's own tree were attached in alphabetical order, so a dev tool's dependencies read as direct, and in a uv application (whose project isn't installed) declared dependencies could read as pulled in by another package; direct dependencies now come from `pyproject.toml` too
 - The minimum versions of click (8.2.0) and license-expression (30.2.0) are ones license-audit works with: under older releases a bare `license-audit` exited 0 and some license expressions were misread. CI now runs the test suite against the oldest allowed dependency versions
 
 ### Added

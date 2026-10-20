@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from license_audit.config import LicenseAuditConfig, get_project_name, load_config
+from license_audit.config import (
+    LicenseAuditConfig,
+    get_project_dependencies,
+    get_project_name,
+    load_config,
+)
 
 
 class TestLoadConfig:
@@ -216,3 +221,51 @@ class TestGetProjectName:
     def test_unreadable_pyproject_returns_unknown(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").mkdir()
         assert get_project_name(tmp_path) == "unknown"
+
+
+class TestGetProjectDependencies:
+    def test_reads_every_declared_table(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            "[project]\n"
+            'name = "app"\n'
+            'dependencies = ["requests>=2", "numpy; python_version >= \'3.11\'"]\n'
+            "[project.optional-dependencies]\n"
+            'fast = ["orjson"]\n'
+            "[dependency-groups]\n"
+            'dev = ["pytest>=9", {include-group = "lint"}]\n'
+            'lint = ["ruff"]\n'
+            "[tool.uv]\n"
+            'dev-dependencies = ["mypy"]\n'
+            "[tool.poetry.dependencies]\n"
+            'python = "^3.11"\n'
+            'click = "^8.2"\n'
+            "[tool.poetry.group.docs.dependencies]\n"
+            'mkdocs = "*"\n'
+        )
+        assert get_project_dependencies(tmp_path) == [
+            "requests>=2",
+            "numpy; python_version >= '3.11'",
+            "orjson",
+            "pytest>=9",
+            "ruff",
+            "mypy",
+            "click",
+            "mkdocs",
+        ]
+
+    def test_missing_or_malformed_pyproject_declares_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        assert get_project_dependencies(tmp_path) == []
+        (tmp_path / "pyproject.toml").write_text("this is = = not valid [[[\n")
+        assert get_project_dependencies(tmp_path) == []
+
+    def test_wrongly_shaped_tables_ignored(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            'project = "oops"\n'
+            "[dependency-groups]\n"
+            'dev = "pytest"\n'
+            "[tool.poetry]\n"
+            'group = ["not", "a", "table"]\n'
+        )
+        assert get_project_dependencies(tmp_path) == []

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 from pydantic import (
     BaseModel,
@@ -179,17 +179,61 @@ def load_config(config_dir: Path | None = None) -> LicenseAuditConfig:
 
 def get_project_name(config_dir: Path | None = None) -> str:
     """Read [project].name from pyproject.toml, or 'unknown' if missing."""
-    if config_dir is None:
-        config_dir = Path.cwd()
+    project = _table(_read_pyproject(config_dir).get("project"))
+    return str(project.get("name", "unknown"))
 
-    pyproject_path = config_dir / "pyproject.toml"
-    if not pyproject_path.exists():
-        return "unknown"
 
+def get_project_dependencies(config_dir: Path | None = None) -> list[str]:
+    """Requirements pyproject.toml declares for the project.
+
+    Covers [project] dependencies and optional-dependencies, PEP 735
+    dependency groups, and the dev tables of uv and Poetry (Poetry entries
+    by name). A virtual project, uv's default for applications, isn't
+    installed into its own environment, so these are the only record of
+    what it depends on directly.
+    """
+    data = _read_pyproject(config_dir)
+    project = _table(data.get("project"))
+    tool = _table(data.get("tool"))
+    poetry = _table(tool.get("poetry"))
+    lists = [
+        project.get("dependencies"),
+        *_table(project.get("optional-dependencies")).values(),
+        *_table(data.get("dependency-groups")).values(),
+        _table(tool.get("uv")).get("dev-dependencies"),
+    ]
+    poetry_tables = [
+        poetry.get("dependencies"),
+        poetry.get("dev-dependencies"),
+        *(
+            _table(group).get("dependencies")
+            for group in _table(poetry.get("group")).values()
+        ),
+    ]
+    # A dependency group may also hold {include-group = "..."} tables; every
+    # group is read anyway, so only the requirement strings matter.
+    requirements = [
+        entry
+        for entries in lists
+        if isinstance(entries, list)
+        for entry in entries
+        if isinstance(entry, str)
+    ]
+    requirements += [
+        name for table in poetry_tables for name in _table(table) if name != "python"
+    ]
+    return requirements
+
+
+def _read_pyproject(config_dir: Path | None) -> dict[str, Any]:
+    """Parsed pyproject.toml in `config_dir`, or {} if absent or unreadable."""
+    pyproject_path = (config_dir or Path.cwd()) / "pyproject.toml"
     try:
         with open(pyproject_path, "rb") as f:
-            data = tomllib.load(f)
+            return tomllib.load(f)
     except (OSError, tomllib.TOMLDecodeError):
-        return "unknown"
+        return {}
 
-    return str(data.get("project", {}).get("name", "unknown"))
+
+def _table(value: object) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}

@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from license_audit.config import LicenseAuditConfig, get_project_name, load_config
+from license_audit.config import (
+    LicenseAuditConfig,
+    get_project_dependencies,
+    get_project_name,
+    load_config,
+)
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import (
@@ -144,7 +149,12 @@ class LicenseAuditor:
         project_name = get_project_name(effective_dir)
 
         reader = self._reader_for(info)
-        tree = analyze_environment(project_name, reader, dict(config.overrides))
+        tree = analyze_environment(
+            project_name,
+            reader,
+            dict(config.overrides),
+            get_project_dependencies(effective_dir),
+        )
         packages = tree.flatten()
         self._classify_packages(packages)
         deemed = {
