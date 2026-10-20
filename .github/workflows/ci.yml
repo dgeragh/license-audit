@@ -27,6 +27,18 @@ jobs:
       - run: uv sync --locked --all-groups
       - run: uv run pytest tests/ --cov
 
+  test-lowest:
+    # The oldest dependency versions pyproject.toml allows, so the declared
+    # minimums stay true.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.11"
+      - run: uv sync --resolution lowest-direct
+      - run: uv run --no-sync pytest tests/
+
   lint:
     runs-on: ubuntu-latest
     steps:
