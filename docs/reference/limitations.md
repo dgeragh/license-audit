@@ -6,7 +6,7 @@ license-audit reads what's declared in package metadata: PEP 639 fields, the leg
 
 ## OSADL coverage is finite
 
-The OSADL compatibility matrix covers about 120 well-known open-source licenses. A valid SPDX license outside that set is detected but classifies as unknown; record your judgement in `[tool.license-audit.license-classifications]` to resolve it. Strings that aren't SPDX at all produce "Unknown" verdicts; use `[tool.license-audit.overrides]` to assign SPDX identifiers manually when detection fails.
+The OSADL compatibility matrix covers about 120 well-known open-source licenses. A handful of common permissive licenses its data leaves out are classified built-in: CC0-1.0, CNRI-Python, ZPL-2.1, CC-BY-4.0, Python-2.0.1, MIT-Modern-Variant, and BSD-3-Clause-Clear. Any other valid SPDX license outside the data is detected but classifies as unknown; record your judgement in `[tool.license-audit.license-classifications]` to resolve it (an entry there also overrides a built-in category). Strings that aren't SPDX at all produce "Unknown" verdicts; use `[tool.license-audit.overrides]` to assign SPDX identifiers manually when detection fails.
 
 ## Compatibility reads OSADL for libraries
 

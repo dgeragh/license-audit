@@ -25,6 +25,21 @@ class LicenseClassifier:
         }
     )
 
+    # Licenses OSADL's copyleft data leaves out that are common on PyPI and
+    # plainly permissive (OSADL rates their nearest relatives, ZPL-2.0,
+    # CC-BY-3.0, Python-2.0, MIT, and BSD-3-Clause, as permissive). Without
+    # them numpy (CC0-1.0), regex (CNRI-Python), and the zope packages read as
+    # unknown out of the box. OSADL data, when it has an entry, comes first.
+    SUPPLEMENTAL: dict[str, LicenseCategory] = {
+        "BSD-3-Clause-Clear": LicenseCategory.PERMISSIVE,
+        "CC-BY-4.0": LicenseCategory.PERMISSIVE,
+        "CC0-1.0": LicenseCategory.PERMISSIVE,
+        "CNRI-Python": LicenseCategory.PERMISSIVE,
+        "MIT-Modern-Variant": LicenseCategory.PERMISSIVE,
+        "Python-2.0.1": LicenseCategory.PERMISSIVE,
+        "ZPL-2.1": LicenseCategory.PERMISSIVE,
+    }
+
     def __init__(self, store: OSADLDataStore | None = None) -> None:
         self._store = store or OSADLDataStore()
 
@@ -41,6 +56,10 @@ class LicenseClassifier:
         raw_value = self._store.copyleft().get(spdx_id)
         if raw_value is not None:
             return self.COPYLEFT_MAP.get(raw_value, LicenseCategory.UNKNOWN)
+
+        supplemental = self.SUPPLEMENTAL.get(spdx_id)
+        if supplemental is not None:
+            return supplemental
 
         if " WITH " in spdx_id:
             return self.classify(spdx_id.split(" WITH ", 1)[0])

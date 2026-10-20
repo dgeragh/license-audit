@@ -95,7 +95,7 @@ Use `overrides` when you want to re-assert what the license is. Use `ignored-pac
 
 ### `license-classifications`
 
-Record your own judgement about a license and apply it to every package that uses that license. This is useful for custom strings detection can't map to SPDX, for a valid SPDX license the OSADL data doesn't classify (CNRI-Python, say, which otherwise reports as unknown), and for a recognized license you've reviewed (for example, MPL-2.0 dependencies you distribute unmodified, which you consider permissive). Unlike `overrides` (keyed by package name), one entry here applies to all matching packages.
+Record your own judgement about a license and apply it to every package that uses that license. This is useful for custom strings detection can't map to SPDX, for a valid SPDX license the OSADL data doesn't classify (CC-BY-SA-4.0, say, which otherwise reports as unknown), and for a recognized license you've reviewed (for example, MPL-2.0 dependencies you distribute unmodified, which you consider permissive). Unlike `overrides` (keyed by package name), one entry here applies to all matching packages.
 
 ```toml
 [tool.license-audit.license-classifications]

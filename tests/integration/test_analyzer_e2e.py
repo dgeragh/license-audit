@@ -384,13 +384,64 @@ class TestConfigPropagation:
             tmp_path / "pyproject.toml",
             '[project]\nname = "x"\nversion = "0.0.1"\n',
         )
-        make_venv(tmp_path / ".venv", {"legacy_pkg": "Apache-2.0 AND CNRI-Python"})
+        make_venv(tmp_path / ".venv", {"legacy_pkg": "Apache-2.0 AND CC-BY-SA-4.0"})
         report = LicenseAuditor().run(target=tmp_path)
         pkg = next(p for p in report.packages if p.name == "legacy-pkg")
-        assert pkg.license_expression == "Apache-2.0 AND CNRI-Python"
+        assert pkg.license_expression == "Apache-2.0 AND CC-BY-SA-4.0"
         assert pkg.category == LicenseCategory.UNKNOWN
         assert report.policy_passed is False
-        assert any("'CNRI-Python'" in i.message for i in report.action_items)
+        assert any("'CC-BY-SA-4.0'" in i.message for i in report.action_items)
+
+    def test_supplemental_classification_resolves_common_license(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """numpy's CC0-1.0 component and regex's CNRI-Python aren't in the
+        OSADL data but are classified built-in, so neither reads unknown."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {
+                "numpy": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+                "regex": "Apache-2.0 AND CNRI-Python",
+            },
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert {p.category for p in report.packages} == {LicenseCategory.PERMISSIVE}
+        assert not any(p.category_overridden for p in report.packages)
+        assert report.recommended_licenses[0] == "MIT"
+        assert report.policy_passed is True
+
+    def test_unmappable_classifier_beside_mapped_ones_warns(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """docutils lists Public Domain, BSD, and an unversioned GPL classifier;
+        the GPL one can't be mapped, so the OR of the others carries a warning."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        dist_info = next(venv.glob("lib/*/site-packages")) / "docutils-0.21.dist-info"
+        dist_info.mkdir()
+        (dist_info / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: docutils\nVersion: 0.21\n"
+            "Classifier: License :: Public Domain\n"
+            "Classifier: License :: OSI Approved :: BSD License\n"
+            "Classifier: License :: OSI Approved :: GNU General Public License (GPL)\n"
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        docutils = next(p for p in report.packages if p.name == "docutils")
+        assert docutils.license_expression == "BSD-3-Clause OR Unlicense"
+        warnings = [i for i in report.action_items if i.package == "docutils"]
+        assert len(warnings) == 1
+        assert "GNU General Public License (GPL)" in warnings[0].message
 
     def test_deemed_or_branch_keeps_conflicts_visible(
         self,

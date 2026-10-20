@@ -18,6 +18,7 @@ from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
     LicenseCategory,
+    LicenseSource,
     PackageLicense,
 )
 from license_audit.core.policy import PolicyEngine
@@ -28,6 +29,7 @@ from license_audit.environment.venv import (
     is_venv_dir,
     reader_for_venv,
 )
+from license_audit.licenses.detection import unmapped_license_classifiers
 from license_audit.licenses.expression import (
     CategoryOverrides,
     ExpressionEvaluator,
@@ -198,6 +200,7 @@ class LicenseAuditor:
             config,
         )
         action_items.extend(self._classification_warnings(unmatched_classifications))
+        action_items.extend(self._unmapped_classifier_warnings(dep_packages, reader))
         # The same verdict `check` reaches: incompatible pairs fail it too.
         policy_passed = not incompatible and self._policy.check(
             dep_packages,
@@ -309,6 +312,37 @@ class LicenseAuditor:
             )
             for name in unmatched
         ]
+
+    @staticmethod
+    def _unmapped_classifier_warnings(
+        packages: list[PackageLicense], reader: MetadataReader
+    ) -> list[ActionItem]:
+        """Warn when a license read from classifiers skipped some of them."""
+        items: list[ActionItem] = []
+        for pkg in packages:
+            if (
+                pkg.ignored
+                or pkg.license_source != LicenseSource.CLASSIFIER
+                or pkg.license_expression == UNKNOWN_LICENSE
+            ):
+                continue
+            unmapped = unmapped_license_classifiers(reader.read_metadata(pkg.name))
+            if not unmapped:
+                continue
+            names = ", ".join(f"'{c}'" for c in unmapped)
+            items.append(
+                ActionItem(
+                    severity="warning",
+                    package=pkg.name,
+                    message=(
+                        f"Package '{pkg.name}' also lists license classifiers "
+                        f"that can't be mapped to SPDX ({names}), so its license "
+                        f"was read from the rest as '{pkg.license_expression}'. "
+                        "Check that it applies, or set an override."
+                    ),
+                )
+            )
+        return items
 
     @staticmethod
     def _collect_license_text(

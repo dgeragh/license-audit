@@ -271,15 +271,15 @@ class TestClassify:
 
     def test_unclassified_component_makes_and_unknown(self) -> None:
         assert (
-            ExpressionEvaluator().classify("Apache-2.0 AND CNRI-Python")
+            ExpressionEvaluator().classify("Apache-2.0 AND CC-BY-SA-4.0")
             == LicenseCategory.UNKNOWN
         )
 
     def test_override_resolves_unclassified_component(self) -> None:
         assert (
             ExpressionEvaluator().classify(
-                "Apache-2.0 AND CNRI-Python",
-                overrides={"cnri-python": LicenseCategory.PERMISSIVE},
+                "Apache-2.0 AND CC-BY-SA-4.0",
+                overrides={"cc-by-sa-4.0": LicenseCategory.PERMISSIVE},
             )
             == LicenseCategory.PERMISSIVE
         )

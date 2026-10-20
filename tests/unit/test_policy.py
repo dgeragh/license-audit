@@ -493,18 +493,18 @@ class TestBuildActionItems:
         """Pkg with a parseable expression where only one AND component is
         UNKNOWN should call out that component by name, not the whole expr."""
         pkg = PackageLicense(
-            name="numpy",
+            name="docs-pkg",
             version="1.0",
-            license_expression="BSD-3-Clause AND CC0-1.0",
+            license_expression="BSD-3-Clause AND CC-BY-SA-4.0",
             category=LicenseCategory.UNKNOWN,
         )
         items = PolicyEngine().build_action_items([pkg], [], LicenseAuditConfig())
         warnings = [
-            i for i in items if i.severity == "warning" and i.package == "numpy"
+            i for i in items if i.severity == "warning" and i.package == "docs-pkg"
         ]
         assert len(warnings) == 1
         msg = warnings[0].message
-        assert "'CC0-1.0'" in msg
+        assert "'CC-BY-SA-4.0'" in msg
         assert "BSD-3-Clause" not in msg.split("in '")[0]  # Only in the expr echo
         assert "not a recognized SPDX" not in msg
 
