@@ -158,10 +158,21 @@ class TestInbound:
             Inbound((("Apache-2.0",), ("MIT",))),
         ]
 
-    def test_or_contributes_only_best_branch(self) -> None:
+    def test_or_contributes_every_branch(self) -> None:
+        # The dependency can be used under either license, not only the more
+        # permissive one.
         assert ExpressionEvaluator().inbound("GPL-3.0-only OR MIT") == [
-            Inbound((("MIT",),)),
+            Inbound((("GPL-3.0-only",), ("MIT",))),
         ]
+
+    def test_or_branch_order_irrelevant(self) -> None:
+        def alternatives(expr: str) -> set[tuple[str, ...]]:
+            (unit,) = ExpressionEvaluator().inbound(expr)
+            return set(unit.alternatives)
+
+        assert alternatives("MIT OR GPL-3.0-only") == alternatives(
+            "GPL-3.0-only OR MIT"
+        )
 
     def test_common_component_factored_out(self) -> None:
         units = ExpressionEvaluator().inbound("MPL-2.0 AND (Apache-2.0 OR MIT)")
@@ -169,7 +180,7 @@ class TestInbound:
 
     def test_and_nested_in_or_keeps_joint_requirement(self) -> None:
         units = ExpressionEvaluator().inbound("GPL-2.0-only OR (MIT AND Apache-2.0)")
-        assert [u.label for u in units] == ["MIT", "Apache-2.0"]
+        assert [u.label for u in units] == ["GPL-2.0-only OR (MIT AND Apache-2.0)"]
 
     def test_unknown_contributes_nothing(self) -> None:
         assert ExpressionEvaluator().inbound(UNKNOWN_LICENSE) == []

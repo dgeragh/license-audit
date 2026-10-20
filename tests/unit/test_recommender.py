@@ -85,9 +85,9 @@ class TestRecommendWithOverrides:
 
 
 class TestResolveInboundAstDispatch:
-    def test_or_resolves_to_single_license(self) -> None:
+    def test_or_keeps_every_branch(self) -> None:
         resolved = LicenseRecommender().resolve_inbound(["MIT OR GPL-3.0-only"])
-        assert resolved == [Inbound((("MIT",),))]
+        assert resolved == [Inbound((("MIT",), ("GPL-3.0-only",)))]
 
     def test_and_resolves_to_all_components(self) -> None:
         resolved = LicenseRecommender().resolve_inbound(["MIT AND BSD-3-Clause"])
@@ -97,18 +97,18 @@ class TestResolveInboundAstDispatch:
         assert LicenseRecommender().resolve_inbound(["UNKNOWN"]) == []
 
     def test_or_nested_in_and_keeps_required_components(self) -> None:
-        """AND components outside the OR stay required; the OR resolves to
-        its most permissive branch, matching the compatibility check."""
+        """AND components outside the OR stay required; the OR stays one
+        unit with both branches, matching the compatibility check."""
         resolved = LicenseRecommender().resolve_inbound(
             ["MIT AND (GPL-3.0-only OR Apache-2.0)"]
         )
-        assert {u.label for u in resolved} == {"MIT", "Apache-2.0"}
+        assert {u.label for u in resolved} == {"MIT", "GPL-3.0-only OR Apache-2.0"}
 
     def test_and_nested_in_or_keeps_joint_requirement(self) -> None:
         resolved = LicenseRecommender().resolve_inbound(
             ["GPL-2.0-only OR (MIT AND Apache-2.0)"]
         )
-        assert {u.label for u in resolved} == {"MIT", "Apache-2.0"}
+        assert {u.label for u in resolved} == {"GPL-2.0-only OR (MIT AND Apache-2.0)"}
 
     def test_tied_or_stays_one_unit(self) -> None:
         resolved = LicenseRecommender().resolve_inbound(["Apache-2.0 OR MIT"])
@@ -126,14 +126,22 @@ class TestRecommendCompoundExpressions:
         assert result[0] == "MIT"
         assert result.index("MIT") < result.index("GPL-3.0-only")
 
-    def test_and_nested_in_or_excludes_incompatible_outbound(self) -> None:
-        # GPL-2.0-only is incompatible with Apache-2.0 per OSADL, so it
-        # must not be recommended once the AND branch is chosen.
+    def test_and_nested_in_or_admits_outbound_through_either_branch(self) -> None:
+        # GPL-2.0-only can't take the MIT AND Apache-2.0 branch (Apache-2.0 is
+        # GPLv2-incompatible), but it can use the GPL-2.0-only branch.
         result = LicenseRecommender().recommend(
             ["GPL-2.0-only OR (MIT AND Apache-2.0)"]
         )
-        assert "MIT" in result
-        assert "GPL-2.0-only" not in result
+        assert result[0] == "MIT"
+        assert "GPL-2.0-only" in result
+
+    def test_less_permissive_branch_resolves_conflict(self) -> None:
+        # Using the dual-licensed dependency under GPL-2.0-only fits a
+        # GPL-2.0-only project; its Apache-2.0 branch alone would not.
+        result = LicenseRecommender().recommend(
+            ["Apache-2.0 OR GPL-2.0-only", "GPL-2.0-only"]
+        )
+        assert result == ["GPL-2.0-only"]
 
 
 class TestFindMinimum:

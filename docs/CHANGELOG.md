@@ -7,6 +7,7 @@
 - A malformed license string such as `MIT OR ( AND BSD` reads as unknown instead of crashing the audit
 - Large environments audit in linear time: installed packages are indexed once instead of rescanned for every lookup (2,000 packages took minutes)
 - Control characters in package metadata and license files, such as ANSI escape sequences, are stripped instead of reaching the terminal
+- A dual-licensed dependency can be used under any of its licenses, so a less permissive alternative that fits the rest of the tree no longer reports a conflict (`Apache-2.0 OR GPL-2.0-only` next to `GPL-2.0-only`)
 
 ### Added
 

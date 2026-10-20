@@ -208,6 +208,26 @@ class TestConfigPropagation:
         assert report.incompatible_pairs == []
         assert "GPL-2.0-only" in report.recommended_licenses
 
+    def test_less_permissive_dual_license_branch_avoids_conflict(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A dependency dual-licensed Apache-2.0 OR GPL-2.0-only fits a
+        GPL-2.0-only tree through its GPL branch, though Apache-2.0 alone
+        would conflict."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"dual": "Apache-2.0 OR GPL-2.0-only", "gpl": "GPL-2.0-only"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs == []
+        assert "GPL-2.0-only" in report.recommended_licenses
+
     def test_classified_component_keeps_sibling_in_recommendations(
         self,
         tmp_path: Path,
