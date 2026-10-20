@@ -6,6 +6,7 @@
 
 - A malformed license string such as `MIT OR ( AND BSD` reads as unknown instead of crashing the audit
 - Large environments audit in linear time: installed packages are indexed once instead of rescanned for every lookup (2,000 packages took minutes)
+- Control characters in package metadata and license files, such as ANSI escape sequences, are stripped instead of reaching the terminal
 
 ### Added
 

@@ -342,6 +342,22 @@ class TestMetadataReader:
             assert list(reader.iter_package_names()) == ["alpha", "beta"]
         assert calls == 1
 
+    def test_control_characters_stripped_from_metadata_and_license_text(
+        self, tmp_path: Path
+    ) -> None:
+        _make_dist_info(
+            tmp_path,
+            "noisy",
+            "1.0.0",
+            metadata_extra="License: \x1b[2J\x1b[31mGPL\x1b[0m\r\n",
+            license_files={"LICENSE": "Line one\r\n\x1b]8;;https://x\x07link\tend\n"},
+        )
+        reader = MetadataReader.from_site_packages(tmp_path)
+        meta = reader.read_metadata("noisy")
+        assert meta is not None
+        assert meta.get("License") == "[2J[31mGPL[0m"
+        assert reader.read_license_text("noisy") == "Line one\n]8;;https://xlink\tend\n"
+
     def test_first_dist_info_wins_for_duplicate_installs(self, tmp_path: Path) -> None:
         _make_dist_info(tmp_path, "dup", "1.0.0")
         _make_dist_info(tmp_path, "dup", "2.0.0")
