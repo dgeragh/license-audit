@@ -53,6 +53,8 @@ license-audit report --format notices --output NOTICES.md
 | `json` | Machine-readable, suitable for downstream tooling. See the [JSON report schema](../reference/report-schema.md) |
 | `notices` | `THIRD_PARTY_NOTICES.md` with full license texts |
 
+Reports are UTF-8 whether they go to a file or to stdout, whatever the console's encoding, so redirecting one (`license-audit report --format json > report.json`) is safe on Windows too.
+
 ## `refresh`
 
 Re-downloads the OSADL compatibility matrix and copyleft data into the user cache. Run after upgrading license-audit, or whenever you suspect the bundled data is stale.

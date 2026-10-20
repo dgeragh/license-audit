@@ -27,6 +27,13 @@ class _Group(click.Group):
 
     def main(self, *args: Any, **kwargs: Any) -> Any:
         kwargs["standalone_mode"] = False
+        # Terminal output is for people: a character the console encoding
+        # can't represent is replaced rather than aborting the run. Reports
+        # bypass this and are always written as UTF-8.
+        for stream in (sys.stdout, sys.stderr):
+            reconfigure = getattr(stream, "reconfigure", None)
+            if reconfigure is not None:
+                reconfigure(errors="replace")
         try:
             return super().main(*args, **kwargs)
         except click.ClickException as exc:

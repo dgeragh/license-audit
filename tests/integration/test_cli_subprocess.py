@@ -15,6 +15,7 @@ Each test points the CLI at a fake virtualenv built under ``tmp_path``
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -246,3 +247,74 @@ class TestJsonOutputs:
         assert result.returncode == 0
         assert out.exists() and out.stat().st_size > 0
         json.loads(out.read_text())  # parses
+
+
+# -----------------------------------------------------------------------------
+# Output encoding
+# -----------------------------------------------------------------------------
+
+
+class TestOutputEncoding:
+    """Reports are UTF-8 whatever the console encoding. On Windows, redirected
+    stdout defaults to the ANSI code page (cp1252), which can't encode every
+    license text."""
+
+    @staticmethod
+    def _run_with_encoding(
+        args: list[str], encoding: str, columns: int | None = None
+    ) -> subprocess.CompletedProcess[bytes]:
+        env = {**os.environ, "PYTHONIOENCODING": encoding}
+        if columns is not None:
+            env["COLUMNS"] = str(columns)
+        return subprocess.run(
+            [_binary(), *args],
+            capture_output=True,
+            env=env,
+            check=False,
+        )
+
+    @staticmethod
+    def _venv_with_polish_license(root: Path, make_venv: VenvBuilder) -> None:
+        _make_pyproject(root / "pyproject.toml")
+        make_venv(root / ".venv", {"black": "MIT"})
+        dist_info = next((root / ".venv").glob("lib/*/site-packages/black-*"))
+        (dist_info / "LICENSE").write_text(
+            "Copyright (c) 2018 Łukasz Langa\n", encoding="utf-8"
+        )
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["analyze", "--format", "json"],
+            ["report", "--format", "json"],
+            ["report", "--format", "notices"],
+        ],
+        ids=["analyze-json", "report-json", "report-notices"],
+    )
+    def test_reports_are_utf8_on_a_cp1252_console(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+        args: list[str],
+    ) -> None:
+        self._venv_with_polish_license(tmp_path, make_venv)
+        result = self._run_with_encoding(["--target", str(tmp_path), *args], "cp1252")
+        assert result.returncode == 0, result.stderr
+        assert "Łukasz" in result.stdout.decode("utf-8")
+
+    def test_terminal_output_survives_an_ascii_console(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        # A narrow console makes Rich truncate cells with a non-ASCII "…".
+        _make_pyproject(tmp_path / "pyproject.toml")
+        make_venv(
+            tmp_path / ".venv",
+            {"multi-licensed-package": "Apache-2.0 OR BSD-3-Clause OR MIT OR ISC"},
+        )
+        for command in (["analyze"], ["check"], ["recommend"]):
+            result = self._run_with_encoding(
+                ["--target", str(tmp_path), *command], "ascii", columns=40
+            )
+            assert result.returncode == 0, result.stderr

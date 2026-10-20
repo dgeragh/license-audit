@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from license_audit.cli._common import resolve_config, run_audit
+from license_audit.cli._common import echo_document, resolve_config, run_audit
 from license_audit.reports.base import StringRenderer
 from license_audit.reports.json_report import JsonRenderer
 from license_audit.reports.markdown import MarkdownRenderer
@@ -57,4 +57,4 @@ def report_cmd(
             raise click.ClickException(msg) from exc
         click.echo(f"Report written to {output_path}")
     else:
-        click.echo(content)
+        echo_document(content)

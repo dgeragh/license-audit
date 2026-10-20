@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import click
 
-from license_audit.cli._common import resolve_config, run_audit
+from license_audit.cli._common import echo_document, resolve_config, run_audit
 from license_audit.reports.json_report import JsonRenderer
 from license_audit.reports.terminal import TerminalRenderer
 
@@ -25,6 +25,6 @@ def analyze_cmd(ctx: click.Context, output_format: str) -> None:
     report = run_audit(target, config, config_dir)
 
     if output_format == "json":
-        click.echo(JsonRenderer().render(report))
+        echo_document(JsonRenderer().render(report))
     else:
         TerminalRenderer().render(report)

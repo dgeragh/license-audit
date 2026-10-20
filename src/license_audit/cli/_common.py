@@ -51,6 +51,16 @@ def _config_dir(target: Path | None, config_override: Path | None) -> Path | Non
     return target
 
 
+def echo_document(content: str) -> None:
+    """Write a rendered report to stdout as UTF-8.
+
+    JSON, Markdown, and notices are files in all but name, so they are UTF-8
+    whatever the console's encoding: on Windows, redirected stdout defaults
+    to the ANSI code page, which can't encode every license text.
+    """
+    click.echo(content.encode("utf-8"))
+
+
 def run_audit(
     target: Path | None,
     config: LicenseAuditConfig,

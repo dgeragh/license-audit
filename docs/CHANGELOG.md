@@ -12,6 +12,8 @@
 - PSF-2.0 counts as GPL-compatible, as the FSF lists it, instead of conflicting with every GPL-family dependency
 - The incompatible-pair action item says no outbound license satisfies both licenses instead of claiming the dependencies "cannot coexist"
 - `policy_passed` in the JSON report, and the policy line in `analyze` and Markdown reports, fail on incompatible license pairs as `check` does; they reported a pass while `check` exited 1
+- JSON, Markdown, and notices reports on stdout are UTF-8 whatever the console encoding; redirecting one on Windows crashed when a license text held a character outside the code page (pygments, a dependency of license-audit itself, has one)
+- Terminal output replaces characters the console can't encode instead of crashing
 
 ### Added
 
