@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
-from license_audit.util import MetadataReader, canonicalize
+import pytest
+
+from license_audit.util import MetadataReader, _SitePackagesSource, canonicalize
 
 
 def get_license_text(package_name: str, site_packages: Path) -> str | None:
@@ -317,3 +320,31 @@ class TestMetadataReader:
         reader = MetadataReader.from_site_packages(tmp_path)
         assert reader.is_installed("present-pkg") is True
         assert reader.is_installed("absent-pkg") is False
+
+    def test_directory_scanned_once_across_lookups(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        for name in ("alpha", "beta"):
+            _make_dist_info(tmp_path, name, "1.0.0")
+        calls = 0
+        original = _SitePackagesSource._metadata_dirs
+
+        def counting(self: _SitePackagesSource) -> Iterator[Path]:
+            nonlocal calls
+            calls += 1
+            return original(self)
+
+        monkeypatch.setattr(_SitePackagesSource, "_metadata_dirs", counting)
+        reader = MetadataReader.from_site_packages(tmp_path)
+        for _ in range(3):
+            assert reader.is_installed("alpha")
+            assert reader.read_metadata("beta") is not None
+            assert list(reader.iter_package_names()) == ["alpha", "beta"]
+        assert calls == 1
+
+    def test_first_dist_info_wins_for_duplicate_installs(self, tmp_path: Path) -> None:
+        _make_dist_info(tmp_path, "dup", "1.0.0")
+        _make_dist_info(tmp_path, "dup", "2.0.0")
+        meta = MetadataReader.from_site_packages(tmp_path).read_metadata("dup")
+        assert meta is not None
+        assert meta.get("Version") == "1.0.0"
