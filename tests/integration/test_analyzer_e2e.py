@@ -235,6 +235,23 @@ class TestConfigPropagation:
         assert report.recommended_licenses[0] == "MIT"
         assert report.policy_passed is True
 
+    def test_incompatible_pair_fails_policy_passed(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """policy_passed is the verdict `check` reaches: a conflict fails it
+        even when every package fits the policy level."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"gpl2": "GPL-2.0-only", "apache": "Apache-2.0"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs
+        assert report.policy_passed is False
+
     def test_less_permissive_dual_license_branch_avoids_conflict(
         self,
         tmp_path: Path,

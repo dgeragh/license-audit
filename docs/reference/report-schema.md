@@ -31,7 +31,7 @@ Version history:
 | `incompatible_pairs` | array of [IncompatiblePair](#incompatiblepair) | License pairs found incompatible |
 | `recommended_licenses` | array of string | Recommended outbound licenses as SPDX ids, most permissive first |
 | `action_items` | array of [ActionItem](#actionitem) | Follow-ups the user should address |
-| `policy_passed` | boolean or null | Policy gate result, `null` when no policy is configured |
+| `policy_passed` | boolean or null | Policy gate result, the same verdict `check` reaches: `false` on an incompatible pair, a policy violation, or an unknown license while `fail-on-unknown` is on. Always set by current versions; `null` is reserved |
 
 ## PackageLicense
 

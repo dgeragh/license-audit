@@ -105,8 +105,8 @@ class LicenseAuditor:
         policy: PolicyEngine | None = None,
         expression: ExpressionEvaluator | None = None,
     ) -> None:
-        self._matrix = matrix or CompatibilityMatrix()
         self._classifier = classifier or LicenseClassifier()
+        self._matrix = matrix or CompatibilityMatrix(classifier=self._classifier)
         self._normalizer = normalizer or SpdxNormalizer(matrix=self._matrix)
         self._expression = expression or ExpressionEvaluator(
             classifier=self._classifier,
@@ -188,7 +188,8 @@ class LicenseAuditor:
             config,
         )
         action_items.extend(self._classification_warnings(unmatched_classifications))
-        policy_passed = self._policy.check(
+        # The same verdict `check` reaches: incompatible pairs fail it too.
+        policy_passed = not incompatible and self._policy.check(
             dep_packages,
             self._policy.build_policy(config),
         )

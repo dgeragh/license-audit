@@ -11,6 +11,7 @@
 - Permissive and weak-copyleft dependencies no longer conflict with each other or rule out permissive outbound licenses: their obligations stay with their own files, so only strong or network copyleft constrains the outbound license. A project using just requests and pydantic failed `check` under every policy (certifi's MPL-2.0 against typing-extensions' PSF-2.0)
 - PSF-2.0 counts as GPL-compatible, as the FSF lists it, instead of conflicting with every GPL-family dependency
 - The incompatible-pair action item says no outbound license satisfies both licenses instead of claiming the dependencies "cannot coexist"
+- `policy_passed` in the JSON report, and the policy line in `analyze` and Markdown reports, fail on incompatible license pairs as `check` does; they reported a pass while `check` exited 1
 
 ### Added
 

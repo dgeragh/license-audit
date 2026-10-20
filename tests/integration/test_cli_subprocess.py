@@ -201,6 +201,29 @@ class TestJsonOutputs:
         assert "metadata" not in payload
         assert "compatibility_results" not in payload
 
+    @pytest.mark.parametrize(
+        ("licenses", "policy"),
+        [
+            ({"click": "BSD-3-Clause"}, None),
+            ({"gpl": "GPL-3.0-only"}, None),
+            ({"gpl2": "GPL-2.0-only", "apache": "Apache-2.0"}, "strong-copyleft"),
+            ({"odd": "Custom-Terms"}, None),
+        ],
+        ids=["clean", "category-exceeded", "conflict-only", "unknown-only"],
+    )
+    def test_policy_passed_matches_check_exit_code(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+        licenses: dict[str, str],
+        policy: str | None,
+    ) -> None:
+        _make_pyproject(tmp_path / "pyproject.toml", policy=policy)
+        make_venv(tmp_path / ".venv", licenses)
+        check = _run(["--target", str(tmp_path), "check"])
+        analyze = _run(["--target", str(tmp_path), "analyze", "--format", "json"])
+        assert json.loads(analyze.stdout)["policy_passed"] is (check.returncode == 0)
+
     def test_report_output_writes_file(
         self,
         tmp_path: Path,
