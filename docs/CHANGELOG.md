@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Python 3.14 support
+
 ## 0.14.0 (2026-09-05)
 
 ### Fixed
