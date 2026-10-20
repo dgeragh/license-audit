@@ -349,8 +349,8 @@ class TestMetadataReader:
             tmp_path,
             "noisy",
             "1.0.0",
-            metadata_extra="License: \x1b[2J\x1b[31mGPL\x1b[0m\r\n",
-            license_files={"LICENSE": "Line one\r\n\x1b]8;;https://x\x07link\tend\n"},
+            metadata_extra="License: \x1b[2J\x1b[31mGPL\x1b[0m\x00\n",
+            license_files={"LICENSE": "Line one\n\x1b]8;;https://x\x07link\x08\tend\n"},
         )
         reader = MetadataReader.from_site_packages(tmp_path)
         meta = reader.read_metadata("noisy")

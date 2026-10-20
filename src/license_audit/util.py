@@ -13,8 +13,8 @@ from typing import Self
 from packaging.utils import canonicalize_name
 
 # Package metadata and license files are untrusted. Control characters such as
-# ANSI escape sequences or a bare carriage return would otherwise reach
-# terminals and CI logs verbatim, where they can hide or rewrite output.
+# ANSI escape sequences would otherwise reach terminals and CI logs verbatim,
+# where they can hide or rewrite output.
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
 
