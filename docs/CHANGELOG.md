@@ -8,23 +8,27 @@
 - Large environments audit in linear time: installed packages are indexed once instead of rescanned for every lookup (2,000 packages took minutes)
 - Control characters in package metadata and license files, such as ANSI escape sequences, are stripped instead of reaching the terminal
 - A dual-licensed dependency can be used under any of its licenses, so a less permissive alternative that fits the rest of the tree no longer reports a conflict (`Apache-2.0 OR GPL-2.0-only` next to `GPL-2.0-only`)
-- Permissive and weak-copyleft dependencies no longer conflict with each other or rule out permissive outbound licenses: their obligations stay with their own files, so only strong or network copyleft constrains the outbound license. A project using just requests and pydantic failed `check` under every policy (certifi's MPL-2.0 against typing-extensions' PSF-2.0)
-- PSF-2.0 counts as GPL-compatible, as the FSF lists it, instead of conflicting with every GPL-family dependency
-- The incompatible-pair action item says no outbound license satisfies both licenses instead of claiming the dependencies "cannot coexist"
 - `policy_passed` in the JSON report, and the policy line in `analyze` and Markdown reports, fail on incompatible license pairs as `check` does; they reported a pass while `check` exited 1
 - JSON, Markdown, and notices reports on stdout are UTF-8 whatever the console encoding; redirecting one on Windows crashed when a license text held a character outside the code page (pygments, a dependency of license-audit itself, has one)
 - Terminal output replaces characters the console can't encode instead of crashing
 - protobuf's `3-Clause BSD License` and similar spelled-out BSD and Expat license strings are recognized
-- Common permissive licenses the OSADL data leaves out (CC0-1.0, CNRI-Python, ZPL-2.1, CC-BY-4.0, Python-2.0.1, MIT-Modern-Variant, BSD-3-Clause-Clear) are classified built-in, so numpy, regex, and the zope packages no longer read as unknown
 - A license classifier that can't be mapped, listed beside ones that can (docutils' unversioned GPL classifier), is reported in a warning instead of dropped silently
 - A package's parent is the dependency that actually pulls it in. Packages outside the project's own tree were attached in alphabetical order, so a dev tool's dependencies read as direct, and in a uv application (whose project isn't installed) declared dependencies could read as pulled in by another package; direct dependencies now come from `pyproject.toml` too
 - license-audit's own metadata declares the CC-BY-4.0 license of its bundled OSADL data (`MIT AND CC-BY-4.0`), and `THIRD_PARTY_NOTICES.md` ships among the wheel's license files, where notices reports pick it up, instead of installing to a stray `license_audit/` directory at the environment root. The MIT license classifier is dropped in favour of the license expression (PEP 639)
 - Config errors name the `pyproject.toml` and spell keys as written there, without pydantic's model and field names or links; an unknown key lists the valid ones
+
+### Changed
+
+- Permissive and weak-copyleft dependencies no longer conflict with each other or rule out permissive outbound licenses: their obligations stay with their own files, so only strong or network copyleft constrains the outbound license. A project using just requests and pydantic failed `check` under every policy (certifi's MPL-2.0 against typing-extensions' PSF-2.0)
+- PSF-2.0 counts as GPL-compatible, as the FSF lists it, instead of conflicting with every GPL-family dependency
+- The incompatible-pair action item says no outbound license satisfies both licenses instead of claiming the dependencies "cannot coexist"
+- Common permissive licenses the OSADL data leaves out (CC0-1.0, CNRI-Python, ZPL-2.1, CC-BY-4.0, Python-2.0.1, MIT-Modern-Variant, BSD-3-Clause-Clear) are classified built-in, so numpy, regex, and the zope packages no longer read as unknown
 - The minimum versions of click (8.2.0) and license-expression (30.2.0) are ones license-audit works with: under older releases a bare `license-audit` exited 0 and some license expressions were misread. CI now runs the test suite against the oldest allowed dependency versions
 
 ### Added
 
 - Python 3.14 support
+- A versioning and stability page that says what Semantic Versioning covers from 1.0 on
 
 ## 0.14.0 (2026-09-05)
 
