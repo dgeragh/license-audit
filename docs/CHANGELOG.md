@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- A malformed license string such as `MIT OR ( AND BSD` reads as unknown instead of crashing the audit
+
 ### Added
 
 - Python 3.14 support

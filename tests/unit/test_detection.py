@@ -174,6 +174,14 @@ class TestTryLicenseField:
         assert result.declared_license == "Weird Custom Terms v3"
         assert result.source == LicenseSource.METADATA
 
+    def test_malformed_expression_is_declared_not_raised(self) -> None:
+        for field in ("License", "License_Expression"):
+            result = _detect_from_metadata(
+                _make_metadata(**{field: "MIT OR ( AND BSD"})
+            )
+            assert result.expression == "UNKNOWN"
+            assert result.declared_license == "MIT OR ( AND BSD"
+
 
 class TestTryClassifiers:
     def test_single_classifier(self) -> None:
