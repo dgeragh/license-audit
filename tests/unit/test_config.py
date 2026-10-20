@@ -84,8 +84,29 @@ class TestLoadConfig:
         (tmp_path / "pyproject.toml").write_text(
             "[tool.license-audit]\nfail-on-unkown = false\n"
         )
-        with pytest.raises(ValidationError, match="Extra inputs"):
+        with pytest.raises(ValueError, match="fail-on-unkown: unknown key"):
             load_config(tmp_path)
+
+    def test_errors_read_as_pyproject_keys(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.license-audit]\n"
+            'policy = "lenient"\n'
+            'fail-on-unknown = "maybe"\n'
+            'allowed-licenses = ["not a license"]\n'
+        )
+        with pytest.raises(ValueError) as caught:
+            load_config(tmp_path)
+        message = str(caught.value)
+        assert message.splitlines()[0] == (
+            "Invalid [tool.license-audit] configuration in "
+            f"{tmp_path / 'pyproject.toml'}:"
+        )
+        assert "  policy: Input should be 'permissive'" in message
+        assert "(got 'lenient')" in message
+        assert "  fail-on-unknown: Input should be a valid boolean" in message
+        assert "  allowed-licenses entry 'not a license' must be" in message
+        assert "pydantic" not in message
+        assert "LicenseAuditConfig" not in message
 
     def test_non_table_section_rejected(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text('[tool]\n"license-audit" = "oops"\n')
@@ -145,7 +166,7 @@ class TestOverridesValidation:
         (tmp_path / "pyproject.toml").write_text(
             '[tool.license-audit.overrides]\nsome-pkg = "Custom EULA"\n'
         )
-        with pytest.raises(ValidationError, match="not a recognized SPDX"):
+        with pytest.raises(ValueError, match="not a recognized SPDX"):
             load_config(tmp_path)
 
 

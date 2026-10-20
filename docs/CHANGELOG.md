@@ -18,6 +18,7 @@
 - Common permissive licenses the OSADL data leaves out (CC0-1.0, CNRI-Python, ZPL-2.1, CC-BY-4.0, Python-2.0.1, MIT-Modern-Variant, BSD-3-Clause-Clear) are classified built-in, so numpy, regex, and the zope packages no longer read as unknown
 - A license classifier that can't be mapped, listed beside ones that can (docutils' unversioned GPL classifier), is reported in a warning instead of dropped silently
 - A package's parent is the dependency that actually pulls it in. Packages outside the project's own tree were attached in alphabetical order, so a dev tool's dependencies read as direct, and in a uv application (whose project isn't installed) declared dependencies could read as pulled in by another package; direct dependencies now come from `pyproject.toml` too
+- Config errors name the `pyproject.toml` and spell keys as written there, without pydantic's model and field names or links; an unknown key lists the valid ones
 - The minimum versions of click (8.2.0) and license-expression (30.2.0) are ones license-audit works with: under older releases a bare `license-audit` exited 0 and some license expressions were misread. CI now runs the test suite against the oldest allowed dependency versions
 
 ### Added

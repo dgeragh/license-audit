@@ -10,6 +10,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    ValidationError,
     ValidationInfo,
     field_validator,
     model_validator,
@@ -174,7 +175,38 @@ def load_config(config_dir: Path | None = None) -> LicenseAuditConfig:
     for key, value in tool_config.items():
         normalized[key.replace("-", "_")] = value
 
-    return LicenseAuditConfig.model_validate(normalized)
+    try:
+        return LicenseAuditConfig.model_validate(normalized)
+    except ValidationError as exc:
+        raise ValueError(_describe_errors(exc, pyproject_path)) from exc
+
+
+def _describe_errors(exc: ValidationError, path: Path) -> str:
+    """Summarize `exc` for the user, naming keys as pyproject.toml spells them."""
+    lines = [f"Invalid [tool.license-audit] configuration in {path}:"]
+    for error in exc.errors():
+        location = _toml_location(error["loc"])
+        if error["type"] == "extra_forbidden":
+            keys = sorted(f.replace("_", "-") for f in LicenseAuditConfig.model_fields)
+            lines.append(
+                f"  {location}: unknown key; expected one of {', '.join(keys)}"
+            )
+        elif error["type"] == "value_error" or not location:
+            # Our own validators name the key and the offending value.
+            lines.append(f"  {error['msg'].removeprefix('Value error, ')}")
+        else:
+            lines.append(f"  {location}: {error['msg']} (got {error['input']!r})")
+    return "\n".join(lines)
+
+
+def _toml_location(loc: tuple[int | str, ...]) -> str:
+    """`allowed_licenses, 0` as `allowed-licenses[0]`, and so on."""
+    if not loc:
+        return ""
+    head, *rest = loc
+    return str(head).replace("_", "-") + "".join(
+        f"[{part}]" if isinstance(part, int) else f"['{part}']" for part in rest
+    )
 
 
 def get_project_name(config_dir: Path | None = None) -> str:
