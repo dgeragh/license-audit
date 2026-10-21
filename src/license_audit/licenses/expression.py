@@ -97,7 +97,9 @@ class ExpressionEvaluator:
         components are dropped: the user asserted their category, and an
         alternative made only of those means no constraint. An alternative
         holding a component deemed non-permissive is not relied on while
-        another one remains.
+        another one remains, and neither is one holding a component with no
+        known category while one without remains: `classify` never picks it
+        either, so the constraint matches the category.
         """
         overrides = overrides or {}
         if expr == UNKNOWN_LICENSE or normalize_license_key(expr) in overrides:
@@ -107,10 +109,11 @@ class ExpressionEvaluator:
         ]
         usable = [
             alt for alt in candidates if not self._deems_restrictive(alt, overrides)
-        ]
+        ] or candidates
+        known = [alt for alt in usable if not self._has_unknown(alt, overrides)]
         alternatives = [
             [lic for lic in alt if normalize_license_key(lic) not in overrides]
-            for alt in usable or candidates
+            for alt in known or usable
         ]
         if not alternatives or not all(alternatives):
             return []
@@ -196,6 +199,13 @@ class ExpressionEvaluator:
         return any(
             overrides.get(normalize_license_key(lic), LicenseCategory.PERMISSIVE)
             != LicenseCategory.PERMISSIVE
+            for lic in alt
+        )
+
+    def _has_unknown(self, alt: list[str], overrides: CategoryOverrides) -> bool:
+        """True if a component of `alt` has no known category."""
+        return any(
+            self._component_category(lic, overrides) == LicenseCategory.UNKNOWN
             for lic in alt
         )
 

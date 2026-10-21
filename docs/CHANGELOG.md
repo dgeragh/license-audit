@@ -23,6 +23,7 @@
 - `check` prints every violation; incompatible license pairs hid the denied, disallowed, and over-policy packages, which surfaced only once the pairs were fixed
 - `check` fails when no outbound license satisfies every dependency, though each pair of them can share one; EUPL-1.1, Apache-2.0, and PSF-2.0 passed `check` while `recommend` found no license. The licenses are reported as incompatible together
 - `check` and `recommend` agree: where OSADL's "Check dependency" verdict is the only fit (GPL-2.0-only with LGPL-2.1, AGPL-3.0 with GPL-3.0), `recommend` lists the licenses that need review and `check` warns, instead of `recommend` reporting conflicting requirements that `check` passed
+- A strong- or network-copyleft `WITH` exception form the OSADL data lacks is checked as its base license, as it is classified, and a dual license's alternative with no known category isn't relied on while another remains. `GPL-2.0-or-later WITH Bootloader-exception` and `GPL-3.0-only OR Elastic-2.0` read as copyleft in the table and policy but as no constraint in recommendations, which offered MIT while saying the project must be GPL-licensed
 - `recommend`'s guidance for weak-copyleft dependencies no longer claims permissive outbound licenses are excluded, right below a list that recommends them
 
 ### Changed

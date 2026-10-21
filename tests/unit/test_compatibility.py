@@ -302,3 +302,32 @@ class TestFindIncompatibleGroups:
         for trio in hidden:
             groups = matrix.find_incompatible_groups(_inbound(*trio))
             assert groups == [IncompatibleGroup(licenses=list(trio))], trio
+
+
+class TestWithExceptionBase:
+    def test_copyleft_exception_form_checked_as_its_base(self) -> None:
+        matrix = CompatibilityMatrix()
+        verdicts = matrix.COMPATIBLE_VERDICTS
+        exception = Inbound((("GPL-2.0-or-later WITH Bootloader-exception",),))
+        base = Inbound((("GPL-2.0-or-later",),))
+        assert matrix.outbound_for(exception, verdicts) == matrix.outbound_for(
+            base, verdicts
+        )
+        assert "MIT" not in matrix.find_compatible_outbound([exception])
+
+    def test_permissive_exception_form_constrains_nothing(self) -> None:
+        # The LLVM exception exists to make Apache-2.0 code usable in GPL-2.0.
+        result = CompatibilityMatrix().find_incompatible_pairs(
+            _inbound("Apache-2.0 WITH LLVM-exception", "GPL-2.0-only"),
+        )
+        assert result == []
+
+    def test_exception_form_in_the_matrix_uses_its_own_entry(self) -> None:
+        matrix = CompatibilityMatrix()
+        classpath = "GPL-2.0-only WITH Classpath-exception-2.0"
+        assert classpath in matrix.known_licenses()
+        assert matrix.outbound_for(
+            Inbound(((classpath,),)), matrix.COMPATIBLE_VERDICTS
+        ) != matrix.outbound_for(
+            Inbound((("GPL-2.0-only",),)), matrix.COMPATIBLE_VERDICTS
+        )

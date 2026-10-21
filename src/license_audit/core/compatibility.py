@@ -63,6 +63,10 @@ class CompatibilityMatrix:
     LIBRARY_SCOPED: frozenset[LicenseCategory] = frozenset(
         {LicenseCategory.PERMISSIVE, LicenseCategory.WEAK_COPYLEFT}
     )
+    # Categories whose obligations reach the whole combined work.
+    WORK_SCOPED: frozenset[LicenseCategory] = frozenset(
+        {LicenseCategory.STRONG_COPYLEFT, LicenseCategory.NETWORK_COPYLEFT}
+    )
 
     # OSADL marks PSF-2.0 code unusable in GPL-family works, but the FSF lists
     # the PSF License as GPL-compatible, and it is everywhere in Python
@@ -123,11 +127,13 @@ class CompatibilityMatrix:
 
         See the class docstring for when an id is admitted. Ids absent from
         the matrix impose nothing here; they surface as UNKNOWN elsewhere.
+        A copyleft `WITH` form the matrix lacks is the exception, see
+        `_entry`.
         """
         matrix = self._store.matrix()
         result: set[str] = set()
         for alt in inbound.alternatives:
-            known = [lic for lic in alt if lic in matrix]
+            known = [entry for lic in alt if (entry := self._entry(lic)) is not None]
             result.update(
                 outbound
                 for outbound in matrix
@@ -140,12 +146,26 @@ class CompatibilityMatrix:
         category = self._category(inbound)
         if category in self.LIBRARY_SCOPED:
             return allowed or self._category(outbound) in self.LIBRARY_SCOPED
-        if category in (
-            LicenseCategory.STRONG_COPYLEFT,
-            LicenseCategory.NETWORK_COPYLEFT,
-        ):
+        if category in self.WORK_SCOPED:
             return allowed and self._category(outbound) not in self.LIBRARY_SCOPED
         return allowed
+
+    def _entry(self, lic: str) -> str | None:
+        """The matrix id `lic` is checked as, or None when the matrix lacks it.
+
+        A strong- or network-copyleft `X WITH exception` form the OSADL data
+        has no entry for is checked as `X`, the base its category already
+        comes from: an exception only adds permissions, so the base is a safe
+        upper bound. Imposing nothing would recommend permissive licenses for
+        a project that same category says must be copyleft.
+        """
+        matrix = self._store.matrix()
+        if lic in matrix:
+            return lic
+        base, sep, _ = lic.partition(" WITH ")
+        if sep and base in matrix and self._category(base) in self.WORK_SCOPED:
+            return base
+        return None
 
     def _category(self, lic: str) -> LicenseCategory:
         category = self._categories.get(lic)
