@@ -253,6 +253,31 @@ class TestConfigPropagation:
         assert report.incompatible_pairs
         assert report.policy_passed is False
 
+    def test_review_only_fit_passes_and_says_so(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """GPL-2.0-only beside LGPL-2.1-only fits GPL-2.0-only only through
+        OSADL's "Check dependency" verdict: the check passes, and instead of
+        reporting conflicting requirements the report lists it for review."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"gpl": "GPL-2.0-only", "lgpl": "LGPL-2.1-only"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.policy_passed is True
+        assert report.incompatible_pairs == []
+        assert report.incompatible_groups == []
+        assert report.recommended_licenses == []
+        assert report.review_licenses == ["GPL-2.0-only"]
+        assert any(
+            item.severity == "warning" and "definite fit" in item.message
+            for item in report.action_items
+        )
+
     def test_conflict_no_pair_explains_fails_policy_passed(
         self,
         tmp_path: Path,
@@ -275,6 +300,7 @@ class TestConfigPropagation:
             ["EUPL-1.1", "Apache-2.0", "PSF-2.0"],
         ]
         assert report.recommended_licenses == []
+        assert report.review_licenses == []
         assert report.policy_passed is False
         assert any(
             item.severity == "error" and "incompatible together" in item.message

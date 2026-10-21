@@ -93,6 +93,7 @@ class NoRecommendationReason(StrEnum):
     MISSING_DEPENDENCIES = "missing-dependencies"
     UNKNOWN_LICENSES = "unknown-licenses"
     DEEMED_CONSTRAINT = "deemed-constraint"
+    NEEDS_REVIEW = "needs-review"
     NO_COMMON_LICENSE = "no-common-license"
 
 
@@ -158,6 +159,20 @@ def explain_no_recommendation(
             ),
         )
 
+    if report.review_licenses:
+        return NoRecommendationExplanation(
+            reason=NoRecommendationReason.NEEDS_REVIEW,
+            headline="No definite fit",
+            detail=(
+                "No outbound license is a definite fit for every dependency "
+                "under the OSADL compatibility data. These fit once you confirm "
+                'how the dependencies are combined (OSADL\'s "Check dependency" '
+                f"verdict): {', '.join(report.review_licenses)}."
+            ),
+        )
+
+    # Reached only with an incompatible pair or group: whatever the check
+    # allows is listed above, as recommended or review licenses.
     return NoRecommendationExplanation(
         reason=NoRecommendationReason.NO_COMMON_LICENSE,
         headline="No compatible outbound license found",

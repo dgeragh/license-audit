@@ -256,3 +256,16 @@ class TestIncompatibleGroups:
         assert "Licenses Incompatible Together" in output
         assert "EUPL-1.1 + Apache-2.0 + PSF-2.0" in output
         assert "No compatible outbound license found" in output
+
+
+class TestReviewLicenses:
+    def test_review_licenses_shown_instead_of_a_conflict(self) -> None:
+        console, buf = _make_console()
+        report = AnalysisReport(
+            project_name="p", review_licenses=["GPL-2.0-only"], policy_passed=True
+        )
+        TerminalRenderer(console=console).render(report)
+        output = buf.getvalue()
+        assert "No definite fit" in output
+        assert "GPL-2.0-only" in output
+        assert "No compatible outbound license found" not in output

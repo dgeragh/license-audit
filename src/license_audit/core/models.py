@@ -203,5 +203,6 @@ class AnalysisReport(BaseModel):
     incompatible_pairs: list[IncompatiblePair] = Field(default_factory=list)
     incompatible_groups: list[IncompatibleGroup] = Field(default_factory=list)
     recommended_licenses: list[str] = Field(default_factory=list)
+    review_licenses: list[str] = Field(default_factory=list)
     action_items: list[ActionItem] = Field(default_factory=list)
     policy_passed: bool | None = None

@@ -328,3 +328,14 @@ class TestRecommendIncompatibleGroups:
         assert result.exit_code == 0
         assert "Conflicting together" in result.output
         assert "EUPL-1.1 + Apache-2.0 + PSF-2.0" in result.output
+
+
+class TestRecommendReviewLicenses:
+    def test_review_licenses_shown_without_claiming_a_conflict(self) -> None:
+        report = _make_report(packages=[_GPL_PKG], recommended_licenses=[])
+        report.review_licenses = ["GPL-2.0-only"]
+        with patch("license_audit.cli.recommend.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert result.exit_code == 0
+        assert "No definite fit" in result.output
+        assert "conflicting" not in result.output

@@ -301,6 +301,15 @@ class TestExplainNoRecommendation:
         assert "outbound compatibility can't be computed" in explanation.detail
         assert "vendor-sdk" in explanation.detail
 
+    def test_review_branch(self) -> None:
+        report = AnalysisReport(review_licenses=["GPL-2.0-only"])
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.NEEDS_REVIEW
+        assert explanation.headline == "No definite fit"
+        assert "GPL-2.0-only" in explanation.detail
+        assert "Check dependency" in explanation.detail
+
     def test_conflict_branch(self) -> None:
         report = AnalysisReport(
             packages=[

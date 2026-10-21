@@ -32,6 +32,7 @@ Version history:
 | `incompatible_pairs` | array of [IncompatiblePair](#incompatiblepair) | License pairs found incompatible |
 | `incompatible_groups` | array of [IncompatibleGroup](#incompatiblegroup) | Licenses no outbound license satisfies together although every pair of them can, reported when no incompatible pair explains the conflict |
 | `recommended_licenses` | array of string | Recommended outbound licenses as SPDX ids, most permissive first |
+| `review_licenses` | array of string | When no outbound license is a definite fit, the ones that satisfy every dependency once you confirm how they are combined (OSADL's "Check dependency" verdict), most permissive first; empty otherwise. Unless recommendations are withheld, exactly one of `recommended_licenses`, `review_licenses`, and the incompatible pairs and groups is non-empty |
 | `action_items` | array of [ActionItem](#actionitem) | Follow-ups the user should address |
 | `policy_passed` | boolean or null | Policy gate result, the same verdict `check` reaches: `false` on an incompatible pair or group, a missing required dependency, a policy violation, or an unknown license while `fail-on-unknown` is on. Always set by current versions; `null` is reserved |
 

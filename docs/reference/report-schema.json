@@ -219,6 +219,13 @@
       "title": "Recommended Licenses",
       "type": "array"
     },
+    "review_licenses": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Review Licenses",
+      "type": "array"
+    },
     "action_items": {
       "items": {
         "$ref": "#/$defs/ActionItem"

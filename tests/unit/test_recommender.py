@@ -157,3 +157,25 @@ class TestFindMinimum:
     def test_empty(self) -> None:
         result = LicenseRecommender().find_minimum([])
         assert result is not None
+
+
+class TestReview:
+    def test_check_dependency_only_fit_needs_review(self) -> None:
+        # OSADL: GPL-2.0-only takes in LGPL-2.1 code only after review.
+        recommender = LicenseRecommender()
+        deps = ["GPL-2.0-only", "LGPL-2.1-only"]
+        assert recommender.recommend(deps) == []
+        assert recommender.review(deps) == ["GPL-2.0-only"]
+
+    def test_most_permissive_first(self) -> None:
+        review = LicenseRecommender().review(["AGPL-3.0-only", "GPL-3.0-or-later"])
+        assert review[0] == "GPL-3.0-only"
+        assert "AGPL-3.0-only" in review
+
+    def test_nothing_without_constraints(self) -> None:
+        assert LicenseRecommender().review([]) == []
+
+    def test_definite_fits_are_not_repeated(self) -> None:
+        recommender = LicenseRecommender()
+        deps = ["LGPL-2.1-only", "MIT"]
+        assert not set(recommender.review(deps)) & set(recommender.recommend(deps))

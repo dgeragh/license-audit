@@ -22,6 +22,7 @@
 - A project is no longer audited as a dependency of itself when its name isn't in `[project]`: the name is read from `[tool.poetry]` too, or else found from the package installed from the project's directory (a setup.py project installed editable). An unlicensed private Poetry app made `check` exit 2
 - `check` prints every violation; incompatible license pairs hid the denied, disallowed, and over-policy packages, which surfaced only once the pairs were fixed
 - `check` fails when no outbound license satisfies every dependency, though each pair of them can share one; EUPL-1.1, Apache-2.0, and PSF-2.0 passed `check` while `recommend` found no license. The licenses are reported as incompatible together
+- `check` and `recommend` agree: where OSADL's "Check dependency" verdict is the only fit (GPL-2.0-only with LGPL-2.1, AGPL-3.0 with GPL-3.0), `recommend` lists the licenses that need review and `check` warns, instead of `recommend` reporting conflicting requirements that `check` passed
 - `recommend`'s guidance for weak-copyleft dependencies no longer claims permissive outbound licenses are excluded, right below a list that recommends them
 
 ### Changed
@@ -39,7 +40,7 @@
 - Python 3.14 support
 - A versioning and stability page that says what Semantic Versioning covers from 1.0 on
 - `missing_dependencies` in the JSON report: the required dependencies the audited environment lacks
-- `incompatible_groups` in the JSON report
+- `incompatible_groups` and `review_licenses` in the JSON report
 
 ## 0.14.0 (2026-09-05)
 

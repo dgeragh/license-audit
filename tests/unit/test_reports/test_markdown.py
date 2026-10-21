@@ -356,3 +356,11 @@ class TestIncompatibleGroups:
         assert "- EUPL-1.1 + Apache-2.0 + PSF-2.0" in result
         assert "No incompatible license pairs found" not in result
         assert "no common outbound license together" in result
+
+
+class TestReviewLicenses:
+    def test_review_licenses_explained(self) -> None:
+        report = AnalysisReport(project_name="p", review_licenses=["GPL-2.0-only"])
+        result = MarkdownRenderer().render(report)
+        assert "No definite fit" in result
+        assert "GPL-2.0-only" in result
