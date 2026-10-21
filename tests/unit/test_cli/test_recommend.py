@@ -292,3 +292,24 @@ class TestRecommendIgnoredPackages:
         assert result.exit_code == 0
         assert "Most restrictive dependency" in result.output
         assert "Proprietary License" in result.output
+
+
+class TestRecommendGuidance:
+    def test_weak_copyleft_guidance_matches_permissive_recommendation(self) -> None:
+        lgpl = PackageLicense(
+            name="lgpl-pkg",
+            version="1.0.0",
+            license_expression="LGPL-2.1-only",
+            license_source=LicenseSource.PEP639,
+            category=LicenseCategory.WEAK_COPYLEFT,
+        )
+        report = _make_report(
+            packages=[_MIT_PKG, lgpl], recommended_licenses=["MIT", "Apache-2.0"]
+        )
+        with patch("license_audit.cli.recommend.run_audit", return_value=report):
+            result = CliRunner(env={"COLUMNS": "200"}).invoke(cli, ["recommend"])
+        assert result.exit_code == 0
+        output = " ".join(result.output.split())
+        assert "-> MIT" in output
+        assert "permissive ones included" in output
+        assert "excluded" not in output

@@ -54,12 +54,18 @@ class TerminalRenderer:
 
     def _render_package_table(self, report: AnalysisReport) -> None:
         table = Table(title="Dependency Licenses", show_lines=False)
-        table.add_column("Package", style="cyan")
-        table.add_column("Version", style="dim")
-        table.add_column("License", style="bold")
-        table.add_column("Category")
-        table.add_column("Source", style="dim")
-        table.add_column("Parent", style="dim")
+        # Fold long values onto further lines rather than cutting them off: at
+        # 80 columns, the usual width of CI logs, "opentelemetry-…" names that
+        # share a prefix were otherwise indistinguishable.
+        for header, style in (
+            ("Package", "cyan"),
+            ("Version", "dim"),
+            ("License", "bold"),
+            ("Category", ""),
+            ("Source", "dim"),
+            ("Parent", "dim"),
+        ):
+            table.add_column(header, style=style, overflow="fold")
 
         for pkg in sorted(report.packages, key=lambda p: p.name):
             color = self.CATEGORY_COLORS.get(pkg.category, "white")

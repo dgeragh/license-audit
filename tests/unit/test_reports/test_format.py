@@ -249,6 +249,24 @@ class TestExplainNoRecommendation:
         report = AnalysisReport(recommended_licenses=["MIT"])
         assert explain_no_recommendation(report) is None
 
+    def test_missing_dependencies_branch_wins(self) -> None:
+        report = AnalysisReport(
+            missing_dependencies=["ghost", "phantom"],
+            packages=[
+                PackageLicense(
+                    name="mystery",
+                    version="1.0",
+                    category=LicenseCategory.UNKNOWN,
+                )
+            ],
+        )
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.MISSING_DEPENDENCIES
+        assert explanation.headline == "Cannot recommend a license"
+        assert "2 required dependency(ies)" in explanation.detail
+        assert "ghost, phantom" in explanation.detail
+
     def test_unknown_branch(self) -> None:
         report = AnalysisReport(
             packages=[

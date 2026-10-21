@@ -209,10 +209,68 @@ def _toml_location(loc: tuple[int | str, ...]) -> str:
     )
 
 
+def find_project_dir(start: Path) -> Path:
+    """The project `start` belongs to: the nearest directory holding a
+    pyproject.toml, from `start` up to the repository root, else `start`.
+
+    The search stops at a `.git` or `.hg` directory so a project is never
+    taken from outside the repository.
+    """
+    for directory in (start, *start.parents):
+        if (directory / "pyproject.toml").is_file():
+            return directory
+        if (directory / ".git").exists() or (directory / ".hg").exists():
+            break
+    return start
+
+
 def get_project_name(config_dir: Path | None = None) -> str:
-    """Read [project].name from pyproject.toml, or 'unknown' if missing."""
-    project = _table(_read_pyproject(config_dir).get("project"))
-    return str(project.get("name", "unknown"))
+    """Read the project name from pyproject.toml, or 'unknown' if missing.
+
+    `[project].name` comes first; Poetry projects that predate PEP 621 keep
+    it in `[tool.poetry].name`.
+    """
+    data = _read_pyproject(config_dir)
+    poetry = _table(_table(data.get("tool")).get("poetry"))
+    for table in (_table(data.get("project")), poetry):
+        name = table.get("name")
+        if isinstance(name, str) and name.strip():
+            return name
+    return "unknown"
+
+
+def get_required_dependencies(config_dir: Path | None = None) -> list[str]:
+    """Requirements the project can't be installed without.
+
+    `[project].dependencies`, plus Poetry's main dependencies that are
+    neither optional nor conditional (a `markers`, `python`, or `platform`
+    constraint, or a list of alternatives). Extras and dependency groups are
+    left out: installing them is a choice.
+    """
+    data = _read_pyproject(config_dir)
+    project = _table(data.get("project"))
+    entries = project.get("dependencies")
+    required = [
+        entry
+        for entry in (entries if isinstance(entries, list) else [])
+        if isinstance(entry, str)
+    ]
+    poetry = _table(_table(_table(data.get("tool")).get("poetry")).get("dependencies"))
+    required += [
+        name
+        for name, spec in poetry.items()
+        if name != "python" and _poetry_always_required(spec)
+    ]
+    return required
+
+
+def _poetry_always_required(spec: object) -> bool:
+    """True for a Poetry dependency spec installed on every platform."""
+    if isinstance(spec, str):
+        return True
+    if not isinstance(spec, dict) or spec.get("optional") is True:
+        return False
+    return not {"markers", "python", "platform"} & spec.keys()
 
 
 def get_project_dependencies(config_dir: Path | None = None) -> list[str]:

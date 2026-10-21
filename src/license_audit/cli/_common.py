@@ -7,7 +7,7 @@ from pathlib import Path
 import click
 
 from license_audit.config import LicenseAuditConfig, load_config
-from license_audit.core.analyzer import LicenseAuditor
+from license_audit.core.analyzer import LicenseAuditor, TargetResolver
 from license_audit.core.models import AnalysisReport, PolicyLevel
 from license_audit.environment.venv import is_venv_dir
 
@@ -45,7 +45,7 @@ def _config_dir(target: Path | None, config_override: Path | None) -> Path | Non
     if config_override is not None:
         return config_override.parent if config_override.is_file() else config_override
     if target is None:
-        return Path.cwd()
+        return TargetResolver.default_project_dir(Path.cwd())
     if target.is_file() or is_venv_dir(target):
         return target.parent
     return target

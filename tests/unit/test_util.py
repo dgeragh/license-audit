@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -364,3 +365,47 @@ class TestMetadataReader:
         meta = MetadataReader.from_site_packages(tmp_path).read_metadata("dup")
         assert meta is not None
         assert meta.get("Version") == "1.0.0"
+
+
+class TestInstalledFrom:
+    @staticmethod
+    def _direct_url(dist_info: Path, url: str, editable: bool = True) -> None:
+        info = {"dir_info": {"editable": editable}, "url": url}
+        (dist_info / "direct_url.json").write_text(json.dumps(info))
+
+    def test_finds_project_installed_from_directory(self, tmp_path: Path) -> None:
+        project = tmp_path / "my project"
+        project.mkdir()
+        sp = tmp_path / "sp"
+        _make_dist_info(sp, "other", "1.0")
+        dist = _make_dist_info(sp, "My_App", "0.1")
+        self._direct_url(dist, project.resolve().as_uri())
+        reader = MetadataReader.from_site_packages(sp)
+        assert reader.installed_from(project) == "My_App"
+
+    def test_non_editable_local_install_counts(self, tmp_path: Path) -> None:
+        sp = tmp_path / "sp"
+        dist = _make_dist_info(sp, "app", "0.1")
+        self._direct_url(dist, tmp_path.resolve().as_uri(), editable=False)
+        assert MetadataReader.from_site_packages(sp).installed_from(tmp_path) == "app"
+
+    def test_other_sources_ignored(self, tmp_path: Path) -> None:
+        sp = tmp_path / "sp"
+        archive = _make_dist_info(sp, "archive", "1.0")
+        (archive / "direct_url.json").write_text(
+            json.dumps({"archive_info": {}, "url": tmp_path.resolve().as_uri()})
+        )
+        vcs = _make_dist_info(sp, "remote", "1.0")
+        self._direct_url(vcs, "https://example.com/repo")
+        broken = _make_dist_info(sp, "broken", "1.0")
+        (broken / "direct_url.json").write_text("{not json")
+        elsewhere = _make_dist_info(sp, "elsewhere", "1.0")
+        self._direct_url(elsewhere, (tmp_path / "other").resolve().as_uri())
+        listy = _make_dist_info(sp, "listy", "1.0")
+        (listy / "direct_url.json").write_text("[1, 2]")
+        no_url = _make_dist_info(sp, "no-url", "1.0")
+        (no_url / "direct_url.json").write_text('{"dir_info": {}}')
+        # A NUL that survives control-character stripping percent-encoded.
+        nul = _make_dist_info(sp, "nul", "1.0")
+        self._direct_url(nul, "file:///tmp/a%00b")
+        assert MetadataReader.from_site_packages(sp).installed_from(tmp_path) is None

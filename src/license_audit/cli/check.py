@@ -12,10 +12,7 @@ from license_audit.cli._common import resolve_config, run_audit
 from license_audit.config import LicenseAuditConfig
 from license_audit.core.models import AnalysisReport, PackageLicense
 from license_audit.core.policy import PolicyEngine
-from license_audit.reports._format import (
-    ActionItemFormatter,
-    IncompatiblePairFormatter,
-)
+from license_audit.reports._format import ActionItemFormatter
 
 
 def _determine_exit_code(
@@ -23,8 +20,9 @@ def _determine_exit_code(
     unknown_pkgs: list[PackageLicense],
     config: LicenseAuditConfig,
 ) -> int:
-    # Incompatible pairs always fail the check.
-    if report.incompatible_pairs:
+    # Incompatible pairs always fail the check, and so does a required
+    # dependency the audit couldn't read: its license is unchecked.
+    if report.incompatible_pairs or report.missing_dependencies:
         return 1
     # A definite policy violation exits 1 even when unknowns are present,
     # so exit code 2 can't hide a real violation behind "fix your unknowns
@@ -47,11 +45,9 @@ def _print_result(
     unknown_pkgs: list[PackageLicense],
     exit_code: int,
 ) -> None:
-    if exit_code == 1 and report.incompatible_pairs:
-        console.print("[bold red]FAIL:[/bold red] Incompatible license pairs found.")
-        for pair in report.incompatible_pairs:
-            console.print(IncompatiblePairFormatter.rich(pair))
-    elif exit_code == 1:
+    if exit_code == 1:
+        # Every error, so fixing one kind of violation doesn't uncover the
+        # next only on the following run.
         console.print("[bold red]FAIL:[/bold red] License policy check failed.")
         for item in report.action_items:
             if item.severity == "error":
@@ -90,7 +86,8 @@ def check_cmd(ctx: click.Context, fail_on_unknown: bool | None) -> None:
 
     Exit codes:
       0 = all clear
-      1 = policy violation, incompatible licenses, or the check could not run
+      1 = policy violation, incompatible licenses, a required dependency
+          that isn't installed, or the check could not run
       2 = unknown licenses are the only problem (when --fail-on-unknown)
     """
     console = Console(stderr=True)

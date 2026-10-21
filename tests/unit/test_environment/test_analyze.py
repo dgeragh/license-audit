@@ -9,7 +9,11 @@ from unittest.mock import patch
 import pytest
 from packaging.version import InvalidVersion
 
-from license_audit.environment.analyze import _marker_matches, analyze_environment
+from license_audit.environment.analyze import (
+    _marker_matches,
+    analyze_environment,
+    missing_requirements,
+)
 from license_audit.util import MetadataReader
 
 
@@ -362,3 +366,49 @@ class TestMarkerMatches:
                 raise InvalidVersion(environment["extra"] or "bare")
 
         assert _marker_matches(_Marker(), frozenset({"fast"})) is False
+
+
+class TestMissingRequirements:
+    def test_required_but_absent(self, tmp_path: Path) -> None:
+        _make_dist_info(tmp_path, "present", "1.0", license_expression="MIT")
+        reader = MetadataReader.from_site_packages(tmp_path)
+        missing = missing_requirements(
+            "app", reader, ["present>=1", "Ghost_Pkg[extra]>=2", "app[cli]", "!!!"]
+        )
+        assert missing == ["ghost-pkg"]
+
+    def test_markers_evaluated_for_audited_environment(self, tmp_path: Path) -> None:
+        required = ['backport; python_version < "3.13"']
+        old = MetadataReader.from_site_packages(tmp_path, {"python_version": "3.12"})
+        new = MetadataReader.from_site_packages(tmp_path, {"python_version": "3.13"})
+        assert missing_requirements("app", old, required) == ["backport"]
+        assert missing_requirements("app", new, required) == []
+
+    def test_installed_project_requirements_checked(self, tmp_path: Path) -> None:
+        _make_dist_info(
+            tmp_path,
+            "app",
+            "1.0",
+            requires=["needed", 'optional-thing; extra == "fast"'],
+        )
+        reader = MetadataReader.from_site_packages(tmp_path)
+        assert missing_requirements("app", reader) == ["needed"]
+
+
+class TestMarkerEnvironmentWalk:
+    def test_walk_uses_audited_python_version(self, tmp_path: Path) -> None:
+        _make_dist_info(
+            tmp_path,
+            "rootpkg",
+            "1.0",
+            license_expression="MIT",
+            requires=['backport; python_version < "3.13"'],
+        )
+        _make_dist_info(tmp_path, "backport", "1.0", license_expression="MIT")
+        for version, parent in (("3.12", "rootpkg"), ("3.13", "backport")):
+            reader = MetadataReader.from_site_packages(
+                tmp_path, {"python_version": version}
+            )
+            tree = analyze_environment("app", reader, declared=["rootpkg"])
+            parents = {p.name: p.parent for p in tree.flatten()}
+            assert parents["backport"] == parent

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from email.message import Message
 
@@ -61,6 +62,33 @@ def unmapped_license_classifiers(meta: Message | None) -> list[str]:
         and (segment := cls.split("::", 1)[1].strip())
         and _normalizer.normalize_classifier(cls) is None
     ]
+
+
+# A GPL-family classifier names one version and no exception, so a License
+# field beside it that grants later versions or adds an exception states
+# terms the classifier reading drops. Other licenses' texts often mention
+# exceptions for bundled code, so only a GPL-family reading is checked.
+_GPL_FAMILY = re.compile(r"\b(?:A|L)?GPL-")
+_LATER_VERSIONS = re.compile(r"or[\s-]+later|any\s+later\s+version|\d\+", re.IGNORECASE)
+_EXCEPTION = re.compile(r"\bexception\b", re.IGNORECASE)
+
+
+def license_field_terms_dropped(meta: Message | None, expression: str) -> list[str]:
+    """What a License field states that `expression`, read from classifiers,
+    drops: "allows later versions", "adds an exception", or both.
+
+    Only meaningful when `expression` came from classifiers because the
+    License field couldn't be normalized.
+    """
+    if meta is None or not _GPL_FAMILY.search(expression):
+        return []
+    field = meta.get("License") or ""
+    terms: list[str] = []
+    if "-only" in expression and _LATER_VERSIONS.search(field):
+        terms.append("allows later versions")
+    if " WITH " not in expression and _EXCEPTION.search(field):
+        terms.append("adds an exception")
+    return terms
 
 
 def detect_license(

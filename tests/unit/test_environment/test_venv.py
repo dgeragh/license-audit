@@ -10,6 +10,7 @@ from license_audit.environment.venv import (
     current_reader,
     find_site_packages,
     is_venv_dir,
+    marker_environment,
     reader_for_venv,
 )
 
@@ -68,3 +69,43 @@ class TestFindSitePackages:
 
     def test_missing_returns_none(self, tmp_path: Path) -> None:
         assert find_site_packages(tmp_path) is None
+
+
+class TestMarkerEnvironment:
+    @pytest.mark.parametrize(
+        ("cfg", "expected"),
+        [
+            ("home = /usr/bin\nversion_info = 3.13.2\n", "3.13.2"),  # uv
+            ("home = /usr/bin\nversion = 3.11.9\n", "3.11.9"),  # venv
+            ("version_info = 3.12.4.final.0\n", "3.12.4"),  # virtualenv
+            ("Version = 3.10.1\n", "3.10.1"),
+        ],
+    )
+    def test_reads_pyvenv_cfg(self, tmp_path: Path, cfg: str, expected: str) -> None:
+        venv = _make_venv(tmp_path)
+        (venv / "pyvenv.cfg").write_text(cfg)
+        sp = find_site_packages(venv)
+        assert sp is not None
+        env = marker_environment(venv, sp)
+        assert env == {
+            "python_version": ".".join(expected.split(".")[:2]),
+            "python_full_version": expected,
+        }
+
+    def test_falls_back_to_lib_directory(self, tmp_path: Path) -> None:
+        sp = tmp_path / "lib" / "python3.13t" / "site-packages"
+        sp.mkdir(parents=True)
+        assert marker_environment(tmp_path, sp) == {
+            "python_version": "3.13",
+            "python_full_version": "3.13",
+        }
+
+    def test_unknown_version_keeps_ours(self, tmp_path: Path) -> None:
+        sp = tmp_path / "Lib" / "site-packages"
+        sp.mkdir(parents=True)
+        (tmp_path / "pyvenv.cfg").write_text("home = C:\\Python\nversion = ?\n")
+        assert marker_environment(tmp_path, sp) == {}
+
+    def test_reader_for_venv_carries_it(self, tmp_path: Path) -> None:
+        venv = _make_venv(tmp_path)
+        assert reader_for_venv(venv).marker_environment["python_version"] == "3.12"

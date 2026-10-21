@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from email.message import Message
 from email.parser import HeaderParser
 from pathlib import Path
 from typing import Self
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from packaging.utils import canonicalize_name
 
@@ -21,6 +24,26 @@ _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 def strip_control_chars(text: str) -> str:
     """Remove control characters other than tab and newline."""
     return _CONTROL_CHARS.sub("", text)
+
+
+def _direct_url_dir(text: str) -> Path | None:
+    """The local directory a PEP 610 direct_url.json records, if any."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict) or "dir_info" not in data:
+        return None
+    url = data.get("url")
+    if not isinstance(url, str):
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme != "file" or parsed.netloc not in ("", "localhost"):
+        return None
+    try:
+        return Path(url2pathname(parsed.path)).resolve()
+    except (OSError, RuntimeError, ValueError):
+        return None
 
 
 def canonicalize(name: str) -> str:
@@ -136,6 +159,9 @@ class MetadataReader:
     """Reads METADATA and license files for a set of packages.
 
     The source is bound at construction via :meth:`from_site_packages`.
+    ``marker_environment`` holds the environment-marker values where the
+    audited environment differs from the interpreter running license-audit
+    (its Python version), so requirements are evaluated for that environment.
     """
 
     LICENSE_FILE_PATTERNS: tuple[str, ...] = (
@@ -145,15 +171,20 @@ class MetadataReader:
         "NOTICE",
     )
 
-    def __init__(self, source: _Source) -> None:
+    def __init__(
+        self, source: _Source, marker_environment: Mapping[str, str] | None = None
+    ) -> None:
         self._source = source
         self._parser = HeaderParser()
         self._metadata: dict[str, Message | None] = {}
+        self.marker_environment: Mapping[str, str] = dict(marker_environment or {})
 
     @classmethod
-    def from_site_packages(cls, path: Path) -> Self:
+    def from_site_packages(
+        cls, path: Path, marker_environment: Mapping[str, str] | None = None
+    ) -> Self:
         """Reader over an installed site-packages directory."""
-        return cls(_SitePackagesSource(path))
+        return cls(_SitePackagesSource(path), marker_environment)
 
     def read_metadata(self, package_name: str) -> Message | None:
         """Parsed METADATA for `package_name`, or None if absent."""
@@ -193,6 +224,21 @@ class MetadataReader:
     def describe_source(self) -> str:
         """Path or label for the underlying source."""
         return self._source.describe()
+
+    def installed_from(self, directory: Path) -> str | None:
+        """Name of the package installed from `directory`, if one is.
+
+        Read from PEP 610's direct_url.json, which pip, uv, and Poetry write
+        when they install a local project, editable or not.
+        """
+        target = directory.resolve()
+        for name in self.iter_package_names():
+            dist_info = self._source.find_dist_info(name)
+            text = None if dist_info is None else dist_info.read_text("direct_url.json")
+            if text is not None and _direct_url_dir(text) == target:
+                meta = self.read_metadata(name)
+                return str(meta.get("Name") or name) if meta is not None else name
+        return None
 
     def _parse_metadata(self, dist_info: _DistInfo) -> Message | None:
         text = dist_info.read_text("METADATA")

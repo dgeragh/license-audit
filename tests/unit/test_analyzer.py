@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -38,9 +39,12 @@ class TestRun:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
         report = LicenseAuditor().run()
         assert report.project_name is not None
-        assert report.source == "active environment"
+        assert report.source == (
+            f"{sys.prefix} (the environment running license-audit)"
+        )
 
     def test_config_dir_overrides_project_name(
         self,
@@ -61,8 +65,10 @@ class TestDescribeSource:
         info = TargetInfo(site_packages=tmp_path / ".venv", config_dir=tmp_path)
         assert LicenseAuditor._describe_source(info) == str(tmp_path / ".venv")
 
-    def test_active_environment_fallback(self) -> None:
-        assert LicenseAuditor._describe_source(TargetInfo()) == "active environment"
+    def test_running_environment_named_by_path(self) -> None:
+        assert LicenseAuditor._describe_source(TargetInfo()) == (
+            f"{sys.prefix} (the environment running license-audit)"
+        )
 
 
 class TestClassifyPackage:

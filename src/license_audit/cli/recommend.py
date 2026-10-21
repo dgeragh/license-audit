@@ -56,14 +56,14 @@ class CategoryDescriptions:
             "BSD-3-Clause (attribution).",
         ],
         LicenseCategory.WEAK_COPYLEFT: [
-            "You have weak-copyleft dependencies (e.g., LGPL, MPL). "
-            "Pick from the 'Compatible licenses' list above: the OSADL matrix "
-            "takes a strict view of weak-copyleft compatibility, so permissive "
-            "outbound licenses are typically excluded.",
+            "You have weak-copyleft dependencies (e.g., LGPL, MPL). Their terms "
+            "apply to their own files, so your code can use any license in the "
+            "'Compatible licenses' list above, permissive ones included.",
             "",
-            "In practice, dynamic linking or shipping the dependency unmodified "
-            "may allow a broader set of outbound licenses than the matrix suggests. "
-            "Verify any exceptions with legal review.",
+            "If you modify one of those dependencies, share your changes under "
+            "its license. Bundling them into a single executable or vendoring "
+            "their source can carry further obligations; verify those with "
+            "legal review.",
         ],
         LicenseCategory.STRONG_COPYLEFT: [
             "You have strong-copyleft dependencies (e.g., GPL). "

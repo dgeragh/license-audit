@@ -21,6 +21,7 @@ class TestTargetResolver:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
         info = TargetResolver().resolve(None)
         assert info.config_dir == tmp_path
         assert info.site_packages is None
@@ -62,3 +63,78 @@ class TestTargetResolver:
     def test_nonexistent_target_raises(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
             TargetResolver().resolve(tmp_path / "nonexistent")
+
+
+class TestDefaultTarget:
+    """With no target: the project's .venv, then $VIRTUAL_ENV, then ours."""
+
+    @pytest.fixture(autouse=True)
+    def _no_active_venv(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+
+    def test_finds_project_from_subdirectory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n')
+        venv = _make_venv(tmp_path / ".venv")
+        sub = tmp_path / "src" / "x"
+        sub.mkdir(parents=True)
+        monkeypatch.chdir(sub)
+        info = TargetResolver().resolve(None)
+        assert info.site_packages == venv
+        assert info.config_dir == tmp_path
+
+    def test_project_search_stops_at_repository_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "outside"\n')
+        _make_venv(tmp_path / ".venv")
+        repo = tmp_path / "repo"
+        (repo / ".git").mkdir(parents=True)
+        sub = repo / "sub"
+        sub.mkdir()
+        monkeypatch.chdir(sub)
+        info = TargetResolver().resolve(None)
+        assert info.site_packages is None
+        assert info.config_dir == sub
+
+    def test_activated_virtualenv_used_when_project_has_none(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        project = tmp_path / "proj"
+        project.mkdir()
+        (project / "pyproject.toml").write_text('[project]\nname = "x"\n')
+        active = _make_venv(tmp_path / "envs" / "x")
+        monkeypatch.setenv("VIRTUAL_ENV", str(active))
+        monkeypatch.chdir(project)
+        info = TargetResolver().resolve(None)
+        assert info.site_packages == active
+        assert info.config_dir == project
+
+    def test_project_venv_beats_activated_virtualenv(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        venv = _make_venv(tmp_path / ".venv")
+        monkeypatch.setenv("VIRTUAL_ENV", str(_make_venv(tmp_path / "other")))
+        monkeypatch.chdir(tmp_path)
+        assert TargetResolver().resolve(None).site_packages == venv
+
+    def test_stale_virtual_env_falls_back_to_running_environment(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "deleted"))
+        monkeypatch.chdir(tmp_path)
+        assert TargetResolver().resolve(None).site_packages is None
+
+    def test_cwd_venv_wins_over_enclosing_project(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A directory with its own .venv (a requirements.txt project inside
+        a larger repository) is audited as before."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "outer"\n')
+        tool = tmp_path / "tools" / "script"
+        venv = _make_venv(tool / ".venv")
+        monkeypatch.chdir(tool)
+        info = TargetResolver().resolve(None)
+        assert info.site_packages == venv
+        assert info.config_dir == tool

@@ -108,12 +108,59 @@ class TestCheckFailsPolicyViolation:
         report = _make_report(
             packages=[_MIT_PKG, _GPL_PKG],
             incompatible_pairs=[pair],
+            action_items=[
+                ActionItem(
+                    severity="error",
+                    message="Licenses 'GPL-3.0-only' and 'Apache-2.0' are incompatible.",
+                )
+            ],
         )
         with patch("license_audit.cli.check.run_audit", return_value=report) as _m:
             result = CliRunner().invoke(cli, ["check"])
         assert result.exit_code == 1
         assert "FAIL" in result.output
         assert "GPL-3.0-only" in result.output
+
+    def test_incompatible_pairs_do_not_hide_other_violations(self) -> None:
+        pair = IncompatiblePair(license_a="GPL-2.0-only", license_b="Apache-2.0")
+        report = _make_report(
+            packages=[_MIT_PKG, _GPL_PKG],
+            incompatible_pairs=[pair],
+            action_items=[
+                ActionItem(
+                    severity="error",
+                    message="Licenses 'GPL-2.0-only' and 'Apache-2.0' are incompatible.",
+                ),
+                ActionItem(
+                    severity="error",
+                    package="gpl-pkg",
+                    message="Package 'gpl-pkg' uses denied license 'GPL-3.0-only'.",
+                ),
+            ],
+        )
+        with patch("license_audit.cli.check.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["check"])
+        assert result.exit_code == 1
+        assert "are incompatible" in result.output
+        assert "denied license 'GPL-3.0-only'" in result.output
+
+    def test_missing_dependencies_exit_1(self) -> None:
+        report = _make_report(
+            packages=[_MIT_PKG],
+            policy_passed=False,
+            action_items=[
+                ActionItem(
+                    severity="error",
+                    message="Dependencies the project requires aren't installed: ghost.",
+                )
+            ],
+        )
+        report.missing_dependencies = ["ghost"]
+        with patch("license_audit.cli.check.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["check", "--no-fail-on-unknown"])
+        assert result.exit_code == 1
+        assert "aren't installed: ghost" in result.output
+        assert _determine_exit_code(report, [], LicenseAuditConfig()) == 1
 
     def test_exit_code_1_on_policy_failed(self) -> None:
         report = _make_report(

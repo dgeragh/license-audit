@@ -11,11 +11,17 @@
 - `policy_passed` in the JSON report, and the policy line in `analyze` and Markdown reports, fail on incompatible license pairs as `check` does; they reported a pass while `check` exited 1
 - JSON, Markdown, and notices reports on stdout are UTF-8 whatever the console encoding; redirecting one on Windows crashed when a license text held a character outside the code page (pygments, a dependency of license-audit itself, has one)
 - Terminal output replaces characters the console can't encode instead of crashing
+- Long package names, versions, and licenses wrap in a narrow terminal instead of being cut off; at 80 columns, the usual width of CI logs, packages sharing a prefix (`opentelemetry-…`) were indistinguishable
 - protobuf's `3-Clause BSD License` and similar spelled-out BSD and Expat license strings are recognized
 - A license classifier that can't be mapped, listed beside ones that can (docutils' unversioned GPL classifier), is reported in a warning instead of dropped silently
+- A GPL-family license read from classifiers warns when the package's License field allows later versions or adds an exception the classifier leaves out. PyInstaller's `GPLv2-or-later with a special exception` read silently as `GPL-2.0-only`, which conflicted with GPL-3.0
 - A package's parent is the dependency that actually pulls it in. Packages outside the project's own tree were attached in alphabetical order, so a dev tool's dependencies read as direct, and in a uv application (whose project isn't installed) declared dependencies could read as pulled in by another package; direct dependencies now come from `pyproject.toml` too
 - license-audit's own metadata declares the CC-BY-4.0 license of its bundled OSADL data (`MIT AND CC-BY-4.0`), and `THIRD_PARTY_NOTICES.md` ships among the wheel's license files, where notices reports pick it up, instead of installing to a stray `license_audit/` directory at the environment root. The MIT license classifier is dropped in favour of the license expression (PEP 639)
 - Config errors name the `pyproject.toml` and spell keys as written there, without pydantic's model and field names or links; an unknown key lists the valid ones
+- `check` no longer passes on an environment that isn't the project's. A dependency the project requires that isn't installed fails `check`, `policy_passed`, and recommendations, where it was skipped silently: a pipx-installed license-audit, run with the project's `venv/` activated, audited its own environment and passed a project that declared a GPL dependency
+- A project is no longer audited as a dependency of itself when its name isn't in `[project]`: the name is read from `[tool.poetry]` too, or else found from the package installed from the project's directory (a setup.py project installed editable). An unlicensed private Poetry app made `check` exit 2
+- `check` prints every violation; incompatible license pairs hid the denied, disallowed, and over-policy packages, which surfaced only once the pairs were fixed
+- `recommend`'s guidance for weak-copyleft dependencies no longer claims permissive outbound licenses are excluded, right below a list that recommends them
 
 ### Changed
 
@@ -24,11 +30,14 @@
 - The incompatible-pair action item says no outbound license satisfies both licenses instead of claiming the dependencies "cannot coexist"
 - Common permissive licenses the OSADL data leaves out (CC0-1.0, CNRI-Python, ZPL-2.1, CC-BY-4.0, Python-2.0.1, MIT-Modern-Variant, BSD-3-Clause-Clear) are classified built-in, so numpy, regex, and the zope packages no longer read as unknown
 - The minimum versions of click (8.2.0) and license-expression (30.2.0) are ones license-audit works with: under older releases a bare `license-audit` exited 0 and some license expressions were misread. CI now runs the test suite against the oldest allowed dependency versions
+- With no `--target`, the project is found from a subdirectory too (the nearest `pyproject.toml`, up to the repository root), and when it has no `.venv` an activated virtualenv (`$VIRTUAL_ENV`) is audited before the environment running license-audit, which reports now name by path instead of "active environment"
+- Dependency markers are evaluated for the audited virtualenv's Python version, read from its `pyvenv.cfg`, instead of the version running license-audit
 
 ### Added
 
 - Python 3.14 support
 - A versioning and stability page that says what Semantic Versioning covers from 1.0 on
+- `missing_dependencies` in the JSON report: the required dependencies the audited environment lacks
 
 ## 0.14.0 (2026-09-05)
 
