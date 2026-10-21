@@ -8,6 +8,7 @@ allow/deny, policy level) reaches the produced ``AnalysisReport``.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 
@@ -443,6 +444,37 @@ class TestConfigPropagation:
         assert len(warnings) == 1
         assert "GNU General Public License (GPL)" in warnings[0].message
 
+    def test_classifier_reading_narrower_than_license_field_warns(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """PyInstaller's GPLv2 classifier drops the or-later grant and the
+        bootloader exception its License field states."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        site_packages = next(venv.glob("lib/*/site-packages"))
+        dist_info = site_packages / "pyinstaller-6.22.3.dist-info"
+        dist_info.mkdir()
+        (dist_info / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: pyinstaller\nVersion: 6.22.3\n"
+            "License: GPLv2-or-later with a special exception which allows to "
+            "use PyInstaller to build and distribute non-free programs\n"
+            "Classifier: License :: OSI Approved :: GNU General Public License "
+            "v2 (GPLv2)\n"
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        pyinstaller = next(p for p in report.packages if p.name == "pyinstaller")
+        assert pyinstaller.license_expression == "GPL-2.0-only"
+        warnings = [i for i in report.action_items if i.package == "pyinstaller"]
+        assert any(
+            "also allows later versions and adds an exception" in w.message
+            for w in warnings
+        )
+
     def test_deemed_or_branch_keeps_conflicts_visible(
         self,
         tmp_path: Path,
@@ -621,3 +653,95 @@ class TestConfigPropagation:
         report = LicenseAuditor().run(target=venv, config_dir=project)
         assert report.project_name == "from-config"
         assert report.policy_passed is False
+
+
+class TestRequiredDependencies:
+    """A dependency the project requires but the environment lacks fails the
+    audit: it usually means the wrong environment was audited."""
+
+    def test_missing_required_dependency_fails(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "app"\ndependencies = ["click", "html2text>=2024"]\n',
+        )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.missing_dependencies == ["html2text"]
+        assert report.policy_passed is False
+        assert report.recommended_licenses == []
+        first = report.action_items[0]
+        assert first.severity == "error"
+        assert "weren't checked: html2text." in first.message
+
+    def test_long_missing_list_is_bounded(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        deps = ", ".join(f'"dep{i:02}"' for i in range(12))
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            f'[project]\nname = "app"\ndependencies = [{deps}]\n',
+        )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert len(report.missing_dependencies) == 12
+        assert "dep09, and 2 more." in report.action_items[0].message
+
+    def test_extras_groups_and_ignored_packages_not_required(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "app"\ndependencies = ["click", "opencv-python"]\n'
+            '[project.optional-dependencies]\nfast = ["orjson"]\n'
+            '[dependency-groups]\ndev = ["pytest"]\n'
+            "[tool.license-audit.ignored-packages]\n"
+            'opencv-python = "Provided by opencv-python-headless"\n',
+        )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.missing_dependencies == []
+        assert report.policy_passed is True
+        assert report.recommended_licenses
+
+
+class TestProjectIdentity:
+    """The project is never audited as a dependency of itself."""
+
+    def test_poetry_project_name(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[tool.poetry]\nname = "Poetry_App"\nversion = "0.1.0"\n'
+            '[tool.poetry.dependencies]\npython = "^3.11"\nclick = "*"\n',
+        )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause", "poetry-app": ""})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.project_name == "Poetry_App"
+        assert {p.name for p in report.packages} == {"click"}
+        assert report.policy_passed is True
+
+    def test_installed_project_without_pyproject_name(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """A setup.py project installed editable is found by direct_url.json."""
+        (tmp_path / "setup.py").write_text("from setuptools import setup\nsetup()\n")
+        venv = make_venv(tmp_path / ".venv", {"legacy-app": "", "click": "MIT"})
+        dist_info = next(venv.glob("lib/*/site-packages/legacy-app-*.dist-info"))
+        direct_url = {"dir_info": {"editable": True}, "url": tmp_path.as_uri()}
+        (dist_info / "direct_url.json").write_text(json.dumps(direct_url))
+        report = LicenseAuditor().run(target=venv)
+        assert report.project_name == "legacy-app"
+        assert {p.name for p in report.packages} == {"click"}

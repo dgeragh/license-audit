@@ -188,6 +188,7 @@ class AnalysisReport(BaseModel):
     project_name: str = ""
     source: str = ""
     packages: list[PackageLicense] = Field(default_factory=list)
+    missing_dependencies: list[str] = Field(default_factory=list)
     incompatible_pairs: list[IncompatiblePair] = Field(default_factory=list)
     recommended_licenses: list[str] = Field(default_factory=list)
     action_items: list[ActionItem] = Field(default_factory=list)

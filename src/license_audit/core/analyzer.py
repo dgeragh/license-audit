@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from license_audit.config import (
     LicenseAuditConfig,
+    find_project_dir,
     get_project_dependencies,
     get_project_name,
+    get_required_dependencies,
     load_config,
 )
 from license_audit.core.classifier import LicenseClassifier
@@ -20,16 +24,23 @@ from license_audit.core.models import (
     LicenseCategory,
     LicenseSource,
     PackageLicense,
+    license_label,
 )
 from license_audit.core.policy import PolicyEngine
 from license_audit.core.recommender import LicenseRecommender
-from license_audit.environment.analyze import analyze_environment
+from license_audit.environment.analyze import (
+    analyze_environment,
+    missing_requirements,
+)
 from license_audit.environment.venv import (
     current_reader,
     is_venv_dir,
     reader_for_venv,
 )
-from license_audit.licenses.detection import unmapped_license_classifiers
+from license_audit.licenses.detection import (
+    license_field_terms_dropped,
+    unmapped_license_classifiers,
+)
 from license_audit.licenses.expression import (
     CategoryOverrides,
     ExpressionEvaluator,
@@ -50,18 +61,33 @@ class TargetInfo:
 class TargetResolver:
     """Classifies a --target path as a virtualenv or a project directory."""
 
+    @staticmethod
+    def default_project_dir(cwd: Path) -> Path:
+        """Where config comes from when no target is given.
+
+        `cwd` itself when it holds a `.venv`; otherwise the project `cwd`
+        belongs to, so a run from a subdirectory finds it.
+        """
+        if is_venv_dir(cwd / ".venv"):
+            return cwd
+        return find_project_dir(cwd)
+
     def resolve(self, target: Path | None) -> TargetInfo:
         """Resolve `target` into a TargetInfo.
 
-        Raises FileNotFoundError if `target` points nowhere or to a
-        project without a virtualenv, or ValueError for a file target.
+        With no target, audits the project's `.venv`, else the activated
+        virtualenv (`$VIRTUAL_ENV`), else the interpreter running
+        license-audit. Raises FileNotFoundError if `target` points nowhere
+        or to a project without a virtualenv, or ValueError for a file
+        target.
         """
         if target is None:
-            cwd = Path.cwd()
-            venv = cwd / ".venv"
-            if is_venv_dir(venv):
-                return TargetInfo(site_packages=venv, config_dir=cwd)
-            return TargetInfo(config_dir=cwd)
+            project = self.default_project_dir(Path.cwd())
+            active = os.environ.get("VIRTUAL_ENV")
+            for venv in (project / ".venv", Path(active) if active else None):
+                if venv is not None and is_venv_dir(venv):
+                    return TargetInfo(site_packages=venv, config_dir=project)
+            return TargetInfo(config_dir=project)
 
         resolved = target.resolve()
 
@@ -148,9 +174,9 @@ class LicenseAuditor:
 
         if config is None:
             config = load_config(effective_dir)
-        project_name = get_project_name(effective_dir)
-
         reader = self._reader_for(info)
+        project_name = self._project_name(effective_dir, reader)
+
         tree = analyze_environment(
             project_name,
             reader,
@@ -171,6 +197,14 @@ class LicenseAuditor:
 
         dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
         active_packages = [p for p in dep_packages if not p.ignored]
+        ignored = {canonicalize(name) for name in config.ignored_packages}
+        missing = [
+            name
+            for name in missing_requirements(
+                project_name, reader, get_required_dependencies(effective_dir)
+            )
+            if name not in ignored
+        ]
         dep_licenses = [p.license_expression for p in active_packages]
         # Deemed ids (keyed by a whole expression or a component) raise no
         # conflicts and impose no outbound constraint; a deemed-restrictive
@@ -190,32 +224,68 @@ class LicenseAuditor:
         )
         recommended = (
             []
-            if has_unknown or has_deemed_constraint
+            if has_unknown or has_deemed_constraint or missing
             else self._recommender.recommend(dep_licenses, deemed)
         )
         incompatible = self._matrix.find_incompatible_pairs(inbound)
-        action_items = self._policy.build_action_items(
-            dep_packages,
-            incompatible,
-            config,
+        action_items = self._missing_dependency_errors(missing)
+        action_items.extend(
+            self._policy.build_action_items(dep_packages, incompatible, config)
         )
         action_items.extend(self._classification_warnings(unmatched_classifications))
         action_items.extend(self._unmapped_classifier_warnings(dep_packages, reader))
-        # The same verdict `check` reaches: incompatible pairs fail it too.
-        policy_passed = not incompatible and self._policy.check(
-            dep_packages,
-            self._policy.build_policy(config),
+        # The same verdict `check` reaches: incompatible pairs and missing
+        # dependencies fail it too.
+        policy_passed = (
+            not incompatible
+            and not missing
+            and self._policy.check(dep_packages, self._policy.build_policy(config))
         )
 
         return AnalysisReport(
             project_name=project_name,
             source=self._describe_source(info),
             packages=dep_packages,
+            missing_dependencies=missing,
             incompatible_pairs=incompatible,
             recommended_licenses=recommended,
             action_items=action_items,
             policy_passed=policy_passed,
         )
+
+    @staticmethod
+    def _project_name(config_dir: Path | None, reader: MetadataReader) -> str:
+        """The project's name from pyproject.toml, else from an installed copy.
+
+        A project without one there (setup.py-based, say) is still found by
+        the package installed from its directory, so it isn't audited as a
+        dependency of itself.
+        """
+        name = get_project_name(config_dir)
+        if name == "unknown" and config_dir is not None:
+            return reader.installed_from(config_dir) or name
+        return name
+
+    @staticmethod
+    def _missing_dependency_errors(missing: list[str]) -> list[ActionItem]:
+        """One error naming the required dependencies the audit couldn't read."""
+        if not missing:
+            return []
+        shown = ", ".join(missing[:10])
+        if len(missing) > 10:
+            shown += f", and {len(missing) - 10} more"
+        return [
+            ActionItem(
+                severity="error",
+                message=(
+                    "Dependencies the project requires aren't installed in the "
+                    "audited environment, so their licenses weren't checked: "
+                    f"{shown}. Point --target at the environment that has "
+                    "them, run license-audit inside it, or provision this one "
+                    "(e.g. `uv sync`)."
+                ),
+            )
+        ]
 
     @staticmethod
     def _reader_for(info: TargetInfo) -> MetadataReader:
@@ -227,7 +297,7 @@ class LicenseAuditor:
     def _describe_source(info: TargetInfo) -> str:
         if info.site_packages is not None:
             return str(info.site_packages)
-        return "active environment"
+        return f"{sys.prefix} (the environment running license-audit)"
 
     def _classify_packages(self, packages: list[PackageLicense]) -> None:
         for pkg in packages:
@@ -317,7 +387,9 @@ class LicenseAuditor:
     def _unmapped_classifier_warnings(
         packages: list[PackageLicense], reader: MetadataReader
     ) -> list[ActionItem]:
-        """Warn when a license read from classifiers skipped some of them."""
+        """Warn when a license read from classifiers may not be the whole story:
+        it skipped some of them, or the License field states terms they drop.
+        """
         items: list[ActionItem] = []
         for pkg in packages:
             if (
@@ -326,22 +398,39 @@ class LicenseAuditor:
                 or pkg.license_expression == UNKNOWN_LICENSE
             ):
                 continue
-            unmapped = unmapped_license_classifiers(reader.read_metadata(pkg.name))
-            if not unmapped:
-                continue
-            names = ", ".join(f"'{c}'" for c in unmapped)
-            items.append(
-                ActionItem(
-                    severity="warning",
-                    package=pkg.name,
-                    message=(
-                        f"Package '{pkg.name}' also lists license classifiers "
-                        f"that can't be mapped to SPDX ({names}), so its license "
-                        f"was read from the rest as '{pkg.license_expression}'. "
-                        "Check that it applies, or set an override."
-                    ),
+            meta = reader.read_metadata(pkg.name)
+            unmapped = unmapped_license_classifiers(meta)
+            if unmapped:
+                names = ", ".join(f"'{c}'" for c in unmapped)
+                items.append(
+                    ActionItem(
+                        severity="warning",
+                        package=pkg.name,
+                        message=(
+                            f"Package '{pkg.name}' also lists license classifiers "
+                            f"that can't be mapped to SPDX ({names}), so its "
+                            f"license was read from the rest as "
+                            f"'{pkg.license_expression}'. Check that it applies, "
+                            "or set an override."
+                        ),
+                    )
                 )
-            )
+            dropped = license_field_terms_dropped(meta, pkg.license_expression)
+            if dropped and meta is not None:
+                items.append(
+                    ActionItem(
+                        severity="warning",
+                        package=pkg.name,
+                        message=(
+                            f"Package '{pkg.name}' declares "
+                            f"'{license_label(meta.get('License') or '')}', which "
+                            "can't be mapped to SPDX, so its license was read "
+                            f"from classifiers as '{pkg.license_expression}'. The "
+                            f"declared text also {' and '.join(dropped)}; set an "
+                            "override with the exact terms."
+                        ),
+                    )
+                )
         return items
 
     @staticmethod

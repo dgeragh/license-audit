@@ -23,11 +23,11 @@ PyPI packages use inconsistent license strings. license-audit normalizes 60+ com
 
 ## You must provision the environment first
 
-license-audit reads an already-installed environment; it does not resolve or install dependencies. Run `uv sync`, `poetry install`, `pip install -e .`, or equivalent before auditing. Only what's installed is audited, so a partial install yields a partial audit.
+license-audit reads an already-installed environment; it does not resolve or install dependencies. Run `uv sync`, `poetry install`, `pip install -e .`, or equivalent before auditing. Only what's installed is audited: a dependency the project requires that isn't installed fails the check rather than passing unread, but optional extras and dependency groups you didn't install are simply left out (see [required dependencies](../user-guide/configuration.md#required-dependencies)).
 
-## Environment markers track the host
+## Environment markers track the audited environment
 
-Dependency markers (platform, Python version, extras) are evaluated against the current runtime. Dependencies that are conditional on a different platform or Python version aren't included.
+Dependency markers are evaluated for the audited virtualenv's Python version, read from its `pyvenv.cfg`, and for the current platform. Dependencies that are conditional on a different platform aren't included.
 
 ## Not legal advice
 

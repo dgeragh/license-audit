@@ -25,13 +25,14 @@ Version history:
 |---|---|---|
 | `schema_version` | integer | Always `2` for this schema version |
 | `tool_version` | string | Version of license-audit that produced the report |
-| `project_name` | string | Name of the audited project, the literal string `unknown` when it can't be determined |
-| `source` | string | Human-readable description of the audit target |
+| `project_name` | string | Name of the audited project from `pyproject.toml` (`[project]`, else `[tool.poetry]`) or the package installed from the project's directory, the literal string `unknown` when it can't be determined |
+| `source` | string | Human-readable description of the audit target, naming the environment by path |
 | `packages` | array of [PackageLicense](#packagelicense) | One entry per audited package |
+| `missing_dependencies` | array of string | Packages the project requires that aren't installed in the audited environment, so their licenses weren't checked (see [required dependencies](../user-guide/configuration.md#required-dependencies)). Any entry fails the policy and withholds recommendations |
 | `incompatible_pairs` | array of [IncompatiblePair](#incompatiblepair) | License pairs found incompatible |
 | `recommended_licenses` | array of string | Recommended outbound licenses as SPDX ids, most permissive first |
 | `action_items` | array of [ActionItem](#actionitem) | Follow-ups the user should address |
-| `policy_passed` | boolean or null | Policy gate result, the same verdict `check` reaches: `false` on an incompatible pair, a policy violation, or an unknown license while `fail-on-unknown` is on. Always set by current versions; `null` is reserved |
+| `policy_passed` | boolean or null | Policy gate result, the same verdict `check` reaches: `false` on an incompatible pair, a missing required dependency, a policy violation, or an unknown license while `fail-on-unknown` is on. Always set by current versions; `null` is reserved |
 
 ## PackageLicense
 

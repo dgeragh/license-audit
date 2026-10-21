@@ -318,3 +318,59 @@ class TestOutputEncoding:
                 ["--target", str(tmp_path), *command], "ascii", columns=40
             )
             assert result.returncode == 0, result.stderr
+
+
+class TestDefaultTarget:
+    """Without --target, the project's environment is found, or the run
+    fails rather than passing on an environment that isn't the project's."""
+
+    @staticmethod
+    def _run_in(
+        cwd: Path, args: list[str], virtual_env: Path | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+        # Wide enough that Rich never wraps a long temp path mid-way.
+        env["COLUMNS"] = "1000"
+        if virtual_env is not None:
+            env["VIRTUAL_ENV"] = str(virtual_env)
+        return subprocess.run(
+            [_binary(), *args],
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+
+    def test_activated_virtualenv_is_audited(
+        self, tmp_path: Path, make_venv: VenvBuilder
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "app"\ndependencies = ["html2text"]\n'
+        )
+        venv = make_venv(tmp_path / "venv", {"html2text": "GPL-3.0-or-later"})
+        result = self._run_in(tmp_path, ["check"], virtual_env=venv)
+        assert result.returncode == 1, result.stderr
+        assert "'html2text' uses strong-copyleft" in result.stderr
+
+    def test_environment_without_the_project_fails(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "app"\ndependencies = ["surely-not-installed-xyz"]\n'
+        )
+        result = self._run_in(tmp_path, ["check", "--no-fail-on-unknown"])
+        assert result.returncode == 1, result.stderr
+        assert "the environment running license-audit" in result.stderr
+        assert "surely-not-installed-xyz" in result.stderr
+
+    def test_subdirectory_audits_project_venv(
+        self, tmp_path: Path, make_venv: VenvBuilder
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "app"\ndependencies = ["click"]\n'
+        )
+        make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        sub = tmp_path / "src" / "app"
+        sub.mkdir(parents=True)
+        result = self._run_in(sub, ["check"])
+        assert result.returncode == 0, result.stderr
+        assert f"Source: {tmp_path / '.venv'}" in result.stderr

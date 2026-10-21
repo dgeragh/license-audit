@@ -193,3 +193,43 @@ class TestTerminalRendererMarkupSafety:
         report = AnalysisReport(project_name="my[x]proj[/bold]")
         TerminalRenderer(console=console).render(report)
         assert "my[x]proj[/bold]" in buf.getvalue()
+
+
+class TestNarrowTerminal:
+    def test_long_values_fold_instead_of_truncating(self) -> None:
+        names = [
+            "opentelemetry-instrumentation-asgi",
+            "opentelemetry-instrumentation-fastapi",
+        ]
+        report = AnalysisReport(
+            project_name="p",
+            packages=[
+                PackageLicense(
+                    name=name,
+                    version="0.66b1",
+                    license_expression="Apache-2.0 OR BSD-3-Clause-Clear",
+                    license_source=LicenseSource.PEP639,
+                    category=LicenseCategory.PERMISSIVE,
+                    parent=name,
+                )
+                for name in names
+            ],
+        )
+        buf = StringIO()
+        console = Console(file=buf, width=80)
+        TerminalRenderer(console=console).render(report)
+        output = buf.getvalue()
+        assert "…" not in output
+        # Reassemble each row's folded cells; a row starts with a new name.
+        rows: list[list[str]] = []
+        for line in output.splitlines():
+            if not line.startswith("│"):
+                continue
+            cells = [cell.strip() for cell in line.split("│")[1:-1]]
+            if cells[0].startswith("opentelemetry"):
+                rows.append(cells)
+            else:
+                rows[-1] = [a + b for a, b in zip(rows[-1], cells, strict=True)]
+        assert [row[0] for row in rows] == names
+        licenses = {row[2].replace(" ", "") for row in rows}
+        assert licenses == {"Apache-2.0ORBSD-3-Clause-Clear"}

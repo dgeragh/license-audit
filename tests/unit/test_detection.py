@@ -13,6 +13,7 @@ from license_audit.licenses.detection import (
     _try_license_field,
     _try_pep639,
     detect_license,
+    license_field_terms_dropped,
     unmapped_license_classifiers,
 )
 from license_audit.util import MetadataReader
@@ -263,6 +264,48 @@ class TestUnmappedLicenseClassifiers:
         assert unmapped_license_classifiers(None) == []
         meta = _make_metadata(Classifier=["License :: OSI Approved :: MIT License"])
         assert unmapped_license_classifiers(meta) == []
+
+
+class TestLicenseFieldTermsDropped:
+    def test_pyinstaller(self) -> None:
+        meta = _make_metadata(
+            License="GPLv2-or-later with a special exception which allows to use "
+            "PyInstaller to build and distribute non-free programs"
+        )
+        assert license_field_terms_dropped(meta, "GPL-2.0-only") == [
+            "allows later versions",
+            "adds an exception",
+        ]
+
+    def test_gpl_text_granting_later_versions(self) -> None:
+        meta = _make_metadata(
+            License="either version 2 of the License, or (at your option) "
+            "any later version."
+        )
+        assert license_field_terms_dropped(meta, "LGPL-2.1-only") == [
+            "allows later versions"
+        ]
+        assert license_field_terms_dropped(
+            _make_metadata(License="GPLv3+"), "GPL-3.0-only"
+        ) == ["allows later versions"]
+
+    def test_reading_that_keeps_the_terms(self) -> None:
+        meta = _make_metadata(License="GPL v2 or later, with the Classpath exception")
+        assert (
+            license_field_terms_dropped(
+                meta, "GPL-2.0-or-later WITH Classpath-exception-2.0"
+            )
+            == []
+        )
+
+    def test_only_gpl_family_readings_checked(self) -> None:
+        """BSD license texts often mention exceptions for bundled code."""
+        meta = _make_metadata(
+            License="BSD 3-Clause License ... with the GCC Runtime Library Exception"
+        )
+        assert license_field_terms_dropped(meta, "BSD-3-Clause") == []
+        assert license_field_terms_dropped(None, "GPL-2.0-only") == []
+        assert license_field_terms_dropped(_make_metadata(), "GPL-2.0-only") == []
 
 
 class TestDetectFromMetadata:

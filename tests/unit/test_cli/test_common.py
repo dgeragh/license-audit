@@ -150,3 +150,18 @@ class TestRunAudit:
             pytest.raises(click.ClickException, match="denied"),
         ):
             run_audit(tmp_path, LicenseAuditConfig())
+
+
+class TestDefaultConfigDir:
+    def test_subdirectory_reads_project_config(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.license-audit]\npolicy = "weak-copyleft"\n',
+        )
+        sub = tmp_path / "docs"
+        sub.mkdir()
+        monkeypatch.chdir(sub)
+        _target, config, config_dir = resolve_config(_ctx())  # type: ignore[arg-type]
+        assert config_dir == tmp_path
+        assert config.policy == PolicyLevel.WEAK_COPYLEFT

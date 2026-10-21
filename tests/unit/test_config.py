@@ -7,8 +7,10 @@ from pydantic import ValidationError
 
 from license_audit.config import (
     LicenseAuditConfig,
+    find_project_dir,
     get_project_dependencies,
     get_project_name,
+    get_required_dependencies,
     load_config,
 )
 
@@ -243,6 +245,22 @@ class TestGetProjectName:
         (tmp_path / "pyproject.toml").mkdir()
         assert get_project_name(tmp_path) == "unknown"
 
+    def test_poetry_name(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.poetry]\nname = "poetry-app"\nversion = "0.1.0"\n'
+        )
+        assert get_project_name(tmp_path) == "poetry-app"
+
+    def test_project_name_wins_over_poetry(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "pep621"\n[tool.poetry]\nname = "legacy"\n'
+        )
+        assert get_project_name(tmp_path) == "pep621"
+
+    def test_blank_name_is_unknown(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = " "\n')
+        assert get_project_name(tmp_path) == "unknown"
+
 
 class TestGetProjectDependencies:
     def test_reads_every_declared_table(self, tmp_path: Path) -> None:
@@ -290,3 +308,68 @@ class TestGetProjectDependencies:
             'group = ["not", "a", "table"]\n'
         )
         assert get_project_dependencies(tmp_path) == []
+
+
+class TestGetRequiredDependencies:
+    def test_only_unconditional_tables(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            "[project]\n"
+            'dependencies = ["requests>=2", "tomli; python_version < \'3.11\'"]\n'
+            "[project.optional-dependencies]\n"
+            'fast = ["orjson"]\n'
+            "[dependency-groups]\n"
+            'dev = ["pytest"]\n'
+            "[tool.poetry.dependencies]\n"
+            'python = "^3.11"\n'
+            'click = "^8.2"\n'
+            'rich = { version = "^13", extras = ["jupyter"] }\n'
+            'explicit = { version = "*", optional = false }\n'
+            'extra-only = { version = "*", optional = true }\n'
+            'windows-only = { version = "*", markers = "sys_platform == \'win32\'" }\n'
+            'old-python = { version = "*", python = "<3.11" }\n'
+            'linux-only = { version = "*", platform = "linux" }\n'
+            'either = [{ version = "1", python = "<3.12" }, { version = "2" }]\n'
+            "[tool.poetry.group.dev.dependencies]\n"
+            'mypy = "*"\n'
+        )
+        assert get_required_dependencies(tmp_path) == [
+            "requests>=2",
+            "tomli; python_version < '3.11'",
+            "click",
+            "rich",
+            "explicit",
+        ]
+
+    def test_missing_or_malformed_pyproject_requires_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        assert get_required_dependencies(tmp_path) == []
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\ndependencies = "requests"\n'
+        )
+        assert get_required_dependencies(tmp_path) == []
+
+
+class TestFindProjectDir:
+    def test_nearest_pyproject(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("")
+        nested = tmp_path / "pkg" / "sub"
+        nested.mkdir(parents=True)
+        (tmp_path / "pkg" / "pyproject.toml").write_text("")
+        assert find_project_dir(nested) == tmp_path / "pkg"
+
+    def test_stops_at_repository_root(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("")
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / ".git").write_text("gitdir: elsewhere\n")  # a worktree's .git file
+        sub = repo / "sub"
+        sub.mkdir()
+        assert find_project_dir(sub) == sub
+
+    def test_repository_root_itself_can_be_the_project(self, tmp_path: Path) -> None:
+        (tmp_path / ".hg").mkdir()
+        (tmp_path / "pyproject.toml").write_text("")
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        assert find_project_dir(sub) == tmp_path

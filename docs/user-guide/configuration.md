@@ -2,7 +2,7 @@
 
 license-audit is configured via `[tool.license-audit]` in your `pyproject.toml`.
 
-Configuration is loaded from the target's location: a project directory uses its own `pyproject.toml`, and a virtualenv uses the `pyproject.toml` beside it. Use `--config` to read config from elsewhere, which is handy when the virtualenv lives outside your project. If no config is found, defaults apply.
+Configuration is loaded from the target's location: a project directory uses its own `pyproject.toml`, and a virtualenv uses the `pyproject.toml` beside it. With no target, it comes from the project you run license-audit in, found from a subdirectory too (see [target resolution](#target-resolution)). Use `--config` to read config from elsewhere, which is handy when the virtualenv lives outside your project. If no config is found, defaults apply.
 
 ## Options
 
@@ -63,7 +63,7 @@ The CLI `--target` flag overrides this setting:
 license-audit --target /path/to/other check
 ```
 
-When `target` is unset and `--target` is omitted, license-audit falls back to analyzing the active Python environment (see "Target resolution" below).
+When `target` is unset and `--target` is omitted, license-audit looks for the project's environment itself (see "Target resolution" below).
 
 ### `overrides`
 
@@ -87,7 +87,7 @@ pandas-stubs = "Stubs only, not redistributed"
 internal-tool = "Vendored, excluded from dist"
 ```
 
-Ignored packages are skipped by `check`'s policy evaluation (no exit 1 or 2), excluded from incompatible-pair analysis (so they don't constrain recommendations), and still listed in every report (terminal, markdown, JSON, notices) with an `ignored` marker plus the reason (notices shows the marker only).
+Ignored packages are skipped by `check`'s policy evaluation (no exit 1 or 2), excluded from incompatible-pair analysis (so they don't constrain recommendations), and still listed in every report (terminal, markdown, JSON, notices) with an `ignored` marker plus the reason (notices shows the marker only). An ignored package the project requires may also be absent from the environment, for example one replaced by a differently named build such as `opencv-python-headless` (see [required dependencies](#required-dependencies)).
 
 The reason is required and must be non-empty; empty reasons are rejected at config load. Package names are canonicalized per PEP 503, so `pandas-stubs`, `pandas_stubs`, and `Pandas.Stubs` all match.
 
@@ -119,17 +119,23 @@ license-audit always reads an **installed environment**. Provision your dependen
 
 | Target | Behavior |
 |--------|----------|
-| *(none)* | Audit `./.venv` if present, otherwise the Python environment running license-audit |
+| *(none)* | Audit the project's `.venv`; otherwise the activated virtualenv (`$VIRTUAL_ENV`); otherwise the Python environment running license-audit |
 | Project directory | Audit `<dir>/.venv` (errors if there is no virtualenv to read) |
 | Virtualenv directory | Audit that virtualenv directly |
 | A file | Rejected; point at a project directory or virtualenv instead |
 
+With no target, the project is the current directory when it holds a `.venv`, otherwise the nearest directory from the current one up to the repository root (one holding `.git` or `.hg`) that holds a `pyproject.toml`, so running from a subdirectory finds it. Reports name the audited environment by path under **Source**.
+
 `--config` decouples where config and the project name come from. By default they follow the target (a project directory, or a virtualenv's parent); pass `--config path/to/pyproject.toml` to override, which is useful when the virtualenv lives outside your project. The path must be a `pyproject.toml` or a directory holding one; anything else is rejected rather than silently falling back to defaults.
+
+### Required dependencies
+
+Whatever environment is audited, it must hold the dependencies the project requires: `[project]` dependencies, Poetry's main dependencies, and, when the project is installed, its own requirements. A missing one fails `check` (exit `1`) and the policy, and withholds recommendations, since its license couldn't be read; it usually means license-audit audited an environment other than the project's. Optional extras and dependency groups are never required, so `uv sync --no-dev` audits cleanly. Requirements are evaluated for the audited environment's Python version, read from its `pyvenv.cfg`. To exempt a dependency the environment deliberately lacks, list it under [`ignored-packages`](#ignored-packages).
 
 Examples:
 
 ```bash
-license-audit analyze                                   # ./.venv, else the active environment
+license-audit analyze                                   # the project's .venv, else $VIRTUAL_ENV
 uv run license-audit analyze                            # the project's own environment
 license-audit --target /path/to/project analyze         # that project's .venv
 license-audit --target /path/to/.venv analyze           # an existing virtualenv

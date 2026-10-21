@@ -89,6 +89,7 @@ def deemed_constraint_packages(report: AnalysisReport) -> list[PackageLicense]:
 class NoRecommendationReason(StrEnum):
     """Why a report has no recommended licenses."""
 
+    MISSING_DEPENDENCIES = "missing-dependencies"
     UNKNOWN_LICENSES = "unknown-licenses"
     DEEMED_CONSTRAINT = "deemed-constraint"
     NO_COMMON_LICENSE = "no-common-license"
@@ -109,6 +110,19 @@ def explain_no_recommendation(
     """Explain why `report` has no recommended licenses, or None if it does."""
     if report.recommended_licenses:
         return None
+
+    if report.missing_dependencies:
+        names = ", ".join(report.missing_dependencies)
+        return NoRecommendationExplanation(
+            reason=NoRecommendationReason.MISSING_DEPENDENCIES,
+            headline="Cannot recommend a license",
+            detail=(
+                f"{len(report.missing_dependencies)} required dependency(ies) "
+                f"aren't installed in the audited environment ({names}), so "
+                "their licenses are unknown. Audit the environment that has "
+                "them and re-run."
+            ),
+        )
 
     unknown = [
         p
