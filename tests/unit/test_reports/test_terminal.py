@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from io import StringIO
 
+import pytest
 from rich.console import Console
 
 from license_audit.core.models import (
@@ -196,7 +197,10 @@ class TestTerminalRendererMarkupSafety:
 
 
 class TestNarrowTerminal:
-    def test_long_values_fold_instead_of_truncating(self) -> None:
+    # Legacy Windows consoles draw the table with a different box, whose
+    # header row uses the same separator as the data rows.
+    @pytest.mark.parametrize("legacy_windows", [False, True])
+    def test_long_values_fold_instead_of_truncating(self, legacy_windows: bool) -> None:
         names = [
             "opentelemetry-instrumentation-asgi",
             "opentelemetry-instrumentation-fastapi",
@@ -216,11 +220,12 @@ class TestNarrowTerminal:
             ],
         )
         buf = StringIO()
-        console = Console(file=buf, width=80)
+        console = Console(file=buf, width=80, legacy_windows=legacy_windows)
         TerminalRenderer(console=console).render(report)
         output = buf.getvalue()
         assert "…" not in output
-        # Reassemble each row's folded cells; a row starts with a new name.
+        # Reassemble each row's folded cells; a row starts with a new name,
+        # and anything before the first one is the header.
         rows: list[list[str]] = []
         for line in output.splitlines():
             if not line.startswith("│"):
@@ -228,7 +233,7 @@ class TestNarrowTerminal:
             cells = [cell.strip() for cell in line.split("│")[1:-1]]
             if cells[0].startswith("opentelemetry"):
                 rows.append(cells)
-            else:
+            elif rows:
                 rows[-1] = [a + b for a, b in zip(rows[-1], cells, strict=True)]
         assert [row[0] for row in rows] == names
         licenses = {row[2].replace(" ", "") for row in rows}
