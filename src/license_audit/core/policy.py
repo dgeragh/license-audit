@@ -8,6 +8,7 @@ from license_audit.core.models import (
     CATEGORY_RANK,
     UNKNOWN_LICENSE,
     ActionItem,
+    IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
     LicensePolicy,
@@ -108,6 +109,7 @@ class PolicyEngine:
         packages: list[PackageLicense],
         incompatible: list[IncompatiblePair],
         config: LicenseAuditConfig,
+        groups: list[IncompatibleGroup] | None = None,
     ) -> list[ActionItem]:
         """Produce action items for unknown, incompatible, denied, and copyleft issues.
 
@@ -137,6 +139,15 @@ class PolicyEngine:
                         f"incompatible: no outbound license satisfies both under "
                         f"the OSADL compatibility data."
                     ),
+                ),
+            )
+
+        for group in groups or []:
+            items.append(
+                ActionItem(
+                    severity="error",
+                    package="",
+                    message=self.group_message(group),
                 ),
             )
 
@@ -256,6 +267,23 @@ class PolicyEngine:
                 ),
             )
         return items
+
+    @staticmethod
+    def group_message(group: IncompatibleGroup) -> str:
+        """Why `group`'s licenses conflict, though no pair of them does."""
+        if len(group.licenses) == 1:
+            return (
+                f"No outbound license satisfies '{group.licenses[0]}' under the "
+                "OSADL compatibility data: each of its alternatives combines "
+                "licenses that conflict."
+            )
+        *rest, last = (f"'{lic}'" for lic in group.licenses)
+        names = f"{', '.join(rest)}{',' if len(rest) > 1 else ''} and {last}"
+        return (
+            f"Licenses {names} are incompatible together: "
+            "each pair can share an outbound license, but no outbound license "
+            "satisfies all of them under the OSADL compatibility data."
+        )
 
     @staticmethod
     def is_unknown(pkg: PackageLicense) -> bool:

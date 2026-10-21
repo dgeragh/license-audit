@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from itertools import combinations
+
 from license_audit._data import OSADLDataStore
 from license_audit.core.compatibility import CompatibilityMatrix, Inbound
-from license_audit.core.models import Verdict
+from license_audit.core.models import IncompatibleGroup, Verdict
 
 
 def _inbound(*ids: str) -> list[Inbound]:
@@ -228,6 +230,13 @@ class TestCheckDependencyVerdict:
         matrix = CompatibilityMatrix(store=_StubStore(self._MATRIX))
         assert matrix.find_compatible_outbound(_inbound("Lic-A")) == ["Lic-A"]
 
+    def test_counted_when_asked_for_what_the_check_allows(self) -> None:
+        matrix = CompatibilityMatrix(store=_StubStore(self._MATRIX))
+        allowed = matrix.find_compatible_outbound(
+            _inbound("Lic-A", "Lic-B"), matrix.COMPATIBLE_VERDICTS
+        )
+        assert allowed == ["Lic-A"]
+
 
 class TestInstanceIsolation:
     def test_instances_can_share_a_store(self) -> None:
@@ -241,3 +250,84 @@ class TestInstanceIsolation:
         b = CompatibilityMatrix()
         # Each owns its own default store; neither holds process-wide state.
         assert a is not b
+
+
+class TestFindIncompatibleGroups:
+    def test_three_licenses_no_pair_explains(self) -> None:
+        # Each pair shares an outbound license; no license satisfies all three.
+        units = _inbound("EUPL-1.1", "Apache-2.0", "PSF-2.0")
+        matrix = CompatibilityMatrix()
+        assert matrix.find_incompatible_pairs(units) == []
+        assert matrix.find_incompatible_groups(units) == [
+            IncompatibleGroup(licenses=["EUPL-1.1", "Apache-2.0", "PSF-2.0"]),
+        ]
+
+    def test_group_keeps_only_the_licenses_it_needs(self) -> None:
+        units = _inbound("MIT", "EUPL-1.1", "BSD-3-Clause", "Apache-2.0", "PSF-2.0")
+        assert CompatibilityMatrix().find_incompatible_groups(units) == [
+            IncompatibleGroup(licenses=["EUPL-1.1", "Apache-2.0", "PSF-2.0"]),
+        ]
+
+    def test_none_when_a_pair_explains_the_conflict(self) -> None:
+        units = _inbound("GPL-2.0-only", "Apache-2.0", "MIT")
+        assert CompatibilityMatrix().find_incompatible_groups(units) == []
+
+    def test_none_when_an_outbound_license_fits(self) -> None:
+        units = _inbound("GPL-3.0-only", "Apache-2.0", "PSF-2.0")
+        assert CompatibilityMatrix().find_incompatible_groups(units) == []
+
+    def test_dual_license_no_alternative_of_which_fits(self) -> None:
+        unit = Inbound((("GPL-2.0-only", "Apache-2.0"), ("GPL-3.0-only", "EPL-1.0")))
+        assert CompatibilityMatrix().find_incompatible_groups([unit]) == [
+            IncompatibleGroup(licenses=[unit.label]),
+        ]
+
+    def test_every_hidden_triple_in_the_bundled_data_is_reported(self) -> None:
+        """The conflict check finds a conflict exactly when no outbound license
+        passes it, so `check` can't pass a tree `recommend` calls conflicting.
+        Over OSADL ids, the only conflicts no pair explains are triples."""
+        matrix = CompatibilityMatrix()
+        verdicts = matrix.COMPATIBLE_VERDICTS
+        ids = matrix.known_licenses()
+        allowed = {
+            lic: matrix.outbound_for(Inbound(((lic,),)), verdicts) for lic in ids
+        }
+        hidden = [
+            trio
+            for trio in combinations(ids, 3)
+            if all(allowed[a] & allowed[b] for a, b in combinations(trio, 2))
+            and not allowed[trio[0]] & allowed[trio[1]] & allowed[trio[2]]
+        ]
+        assert hidden
+        for trio in hidden:
+            groups = matrix.find_incompatible_groups(_inbound(*trio))
+            assert groups == [IncompatibleGroup(licenses=list(trio))], trio
+
+
+class TestWithExceptionBase:
+    def test_copyleft_exception_form_checked_as_its_base(self) -> None:
+        matrix = CompatibilityMatrix()
+        verdicts = matrix.COMPATIBLE_VERDICTS
+        exception = Inbound((("GPL-2.0-or-later WITH Bootloader-exception",),))
+        base = Inbound((("GPL-2.0-or-later",),))
+        assert matrix.outbound_for(exception, verdicts) == matrix.outbound_for(
+            base, verdicts
+        )
+        assert "MIT" not in matrix.find_compatible_outbound([exception])
+
+    def test_permissive_exception_form_constrains_nothing(self) -> None:
+        # The LLVM exception exists to make Apache-2.0 code usable in GPL-2.0.
+        result = CompatibilityMatrix().find_incompatible_pairs(
+            _inbound("Apache-2.0 WITH LLVM-exception", "GPL-2.0-only"),
+        )
+        assert result == []
+
+    def test_exception_form_in_the_matrix_uses_its_own_entry(self) -> None:
+        matrix = CompatibilityMatrix()
+        classpath = "GPL-2.0-only WITH Classpath-exception-2.0"
+        assert classpath in matrix.known_licenses()
+        assert matrix.outbound_for(
+            Inbound(((classpath,),)), matrix.COMPATIBLE_VERDICTS
+        ) != matrix.outbound_for(
+            Inbound((("GPL-2.0-only",),)), matrix.COMPATIBLE_VERDICTS
+        )

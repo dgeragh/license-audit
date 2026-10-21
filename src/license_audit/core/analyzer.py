@@ -222,22 +222,32 @@ class LicenseAuditor:
             p.category_overridden and p.category != LicenseCategory.PERMISSIVE
             for p in active_packages
         )
+        withheld = has_unknown or has_deemed_constraint or bool(missing)
         recommended = (
+            [] if withheld else self._recommender.recommend(dep_licenses, deemed)
+        )
+        # Only when nothing is a definite fit, so recommendations, review
+        # licenses, and conflicts never contradict each other: exactly one
+        # of them describes the outbound licenses the check allows.
+        review = (
             []
-            if has_unknown or has_deemed_constraint or missing
-            else self._recommender.recommend(dep_licenses, deemed)
+            if withheld or recommended
+            else self._recommender.review(dep_licenses, deemed)
         )
         incompatible = self._matrix.find_incompatible_pairs(inbound)
+        groups = self._matrix.find_incompatible_groups(inbound)
         action_items = self._missing_dependency_errors(missing)
         action_items.extend(
-            self._policy.build_action_items(dep_packages, incompatible, config)
+            self._policy.build_action_items(dep_packages, incompatible, config, groups)
         )
+        action_items.extend(self._review_warnings(review))
         action_items.extend(self._classification_warnings(unmatched_classifications))
         action_items.extend(self._unmapped_classifier_warnings(dep_packages, reader))
-        # The same verdict `check` reaches: incompatible pairs and missing
+        # The same verdict `check` reaches: incompatible licenses and missing
         # dependencies fail it too.
         policy_passed = (
             not incompatible
+            and not groups
             and not missing
             and self._policy.check(dep_packages, self._policy.build_policy(config))
         )
@@ -248,7 +258,9 @@ class LicenseAuditor:
             packages=dep_packages,
             missing_dependencies=missing,
             incompatible_pairs=incompatible,
+            incompatible_groups=groups,
             recommended_licenses=recommended,
+            review_licenses=review,
             action_items=action_items,
             policy_passed=policy_passed,
         )
@@ -283,6 +295,23 @@ class LicenseAuditor:
                     f"{shown}. Point --target at the environment that has "
                     "them, run license-audit inside it, or provision this one "
                     "(e.g. `uv sync`)."
+                ),
+            )
+        ]
+
+    @staticmethod
+    def _review_warnings(review: list[str]) -> list[ActionItem]:
+        """Warn that the only outbound licenses that fit need review."""
+        if not review:
+            return []
+        return [
+            ActionItem(
+                severity="warning",
+                message=(
+                    "No outbound license is a definite fit for every dependency "
+                    "under the OSADL compatibility data. These fit once you "
+                    "confirm how the dependencies are combined (OSADL's "
+                    f'"Check dependency" verdict): {", ".join(review)}.'
                 ),
             )
         ]

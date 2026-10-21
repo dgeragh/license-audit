@@ -20,9 +20,13 @@ def _determine_exit_code(
     unknown_pkgs: list[PackageLicense],
     config: LicenseAuditConfig,
 ) -> int:
-    # Incompatible pairs always fail the check, and so does a required
+    # Incompatible licenses always fail the check, and so does a required
     # dependency the audit couldn't read: its license is unchecked.
-    if report.incompatible_pairs or report.missing_dependencies:
+    if (
+        report.incompatible_pairs
+        or report.incompatible_groups
+        or report.missing_dependencies
+    ):
         return 1
     # A definite policy violation exits 1 even when unknowns are present,
     # so exit code 2 can't hide a real violation behind "fix your unknowns

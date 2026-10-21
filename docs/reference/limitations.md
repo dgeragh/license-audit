@@ -15,6 +15,10 @@ The OSADL matrix answers whether code under one license can be incorporated into
 - A permissive or weak-copyleft dependency (MIT, LGPL, MPL) never constrains a permissive or weak-copyleft outbound license, because its obligations stay with its own files.
 - A strong- or network-copyleft dependency (GPL, AGPL) makes the combined work copyleft, so it needs a strong- or network-copyleft outbound license, and every other dependency is held to the matrix verdict for that license.
 
+OSADL marks some combinations "Check dependency": they work or not depending on how the code is combined (GPL-2.0-only with LGPL-2.1, AGPL-3.0 with GPL-3.0). These never fail `check`, but they aren't recommended outright; when they are the only fit, `recommend` lists them as needing review and `check` warns.
+
+A `WITH` exception form OSADL has no entry for is checked as its base license when the base is strong or network copyleft (`GPL-2.0-or-later WITH Bootloader-exception` as `GPL-2.0-or-later`), matching its category: an exception only adds permissions, so the base is a safe upper bound. If an exception frees your project from the base's terms, record that in `[tool.license-audit.license-classifications]`. Exception forms of permissive and weak-copyleft licenses constrain nothing.
+
 One verdict departs from OSADL: PSF-2.0 (typing-extensions, among others) counts as usable in GPL-family works, as the FSF's license list states, where OSADL says it is not. The matrix is otherwise a strict reading of compatibility, so treat its conflicts as a default guardrail, not a final answer.
 
 ## License strings on PyPI are messy

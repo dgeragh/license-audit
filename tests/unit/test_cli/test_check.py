@@ -12,6 +12,7 @@ from license_audit.config import LicenseAuditConfig
 from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
+    IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
     LicenseSource,
@@ -120,6 +121,13 @@ class TestCheckFailsPolicyViolation:
         assert result.exit_code == 1
         assert "FAIL" in result.output
         assert "GPL-3.0-only" in result.output
+
+    def test_exit_code_1_on_incompatible_group(self) -> None:
+        report = _make_report(packages=[_MIT_PKG])
+        report.incompatible_groups = [
+            IncompatibleGroup(licenses=["EUPL-1.1", "Apache-2.0", "PSF-2.0"])
+        ]
+        assert _determine_exit_code(report, [], LicenseAuditConfig()) == 1
 
     def test_incompatible_pairs_do_not_hide_other_violations(self) -> None:
         pair = IncompatiblePair(license_a="GPL-2.0-only", license_b="Apache-2.0")

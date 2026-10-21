@@ -75,6 +75,29 @@ class LicenseRecommender:
         compatible = self._matrix.find_compatible_outbound(inbound)
         return sorted(compatible, key=self._sort_key)
 
+    def review(
+        self,
+        dependency_licenses: list[str],
+        overrides: CategoryOverrides | None = None,
+    ) -> list[str]:
+        """Outbound licenses that fit only through a "Check dependency" verdict.
+
+        OSADL gives that verdict where compatibility depends on how the code
+        is combined. The compatibility check accepts these, so together with
+        `recommend` they are every outbound license it allows. Most
+        permissive first.
+        """
+        inbound = self.resolve_inbound(dependency_licenses, overrides)
+        if not inbound:
+            return []
+        definite = set(self._matrix.find_compatible_outbound(inbound))
+        allowed = self._matrix.find_compatible_outbound(
+            inbound, self._matrix.COMPATIBLE_VERDICTS
+        )
+        return sorted(
+            (lic for lic in allowed if lic not in definite), key=self._sort_key
+        )
+
     def _sort_key(self, lic: str) -> tuple[int, float, str]:
         category_rank = CATEGORY_RANK.get(self._classifier.classify(lic), 5)
         preference = self._preferred_index.get(lic, math.inf)

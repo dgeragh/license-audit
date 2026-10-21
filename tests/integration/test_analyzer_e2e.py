@@ -253,6 +253,87 @@ class TestConfigPropagation:
         assert report.incompatible_pairs
         assert report.policy_passed is False
 
+    def test_review_only_fit_passes_and_says_so(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """GPL-2.0-only beside LGPL-2.1-only fits GPL-2.0-only only through
+        OSADL's "Check dependency" verdict: the check passes, and instead of
+        reporting conflicting requirements the report lists it for review."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"gpl": "GPL-2.0-only", "lgpl": "LGPL-2.1-only"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.policy_passed is True
+        assert report.incompatible_pairs == []
+        assert report.incompatible_groups == []
+        assert report.recommended_licenses == []
+        assert report.review_licenses == ["GPL-2.0-only"]
+        assert any(
+            item.severity == "warning" and "definite fit" in item.message
+            for item in report.action_items
+        )
+
+    def test_conflict_no_pair_explains_fails_policy_passed(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """EUPL-1.1, Apache-2.0, and PSF-2.0 pair up fine, but no outbound
+        license satisfies all three, so the check fails on the group."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"eupl": "EUPL-1.1", "requests": "Apache-2.0", "typing-ext": "PSF-2.0"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs == []
+        assert [g.licenses for g in report.incompatible_groups] == [
+            ["EUPL-1.1", "Apache-2.0", "PSF-2.0"],
+        ]
+        assert report.recommended_licenses == []
+        assert report.review_licenses == []
+        assert report.policy_passed is False
+        assert any(
+            item.severity == "error" and "incompatible together" in item.message
+            for item in report.action_items
+        )
+
+    @pytest.mark.parametrize(
+        "license_expression",
+        [
+            "GPL-2.0-or-later WITH Bootloader-exception",
+            "GPL-3.0-only OR Elastic-2.0",
+        ],
+    )
+    def test_copyleft_category_and_recommendations_agree(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+        license_expression: str,
+    ) -> None:
+        """A license that classifies as strong copyleft constrains the outbound
+        license the same way: no permissive license is recommended for it."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"dep": license_expression, "mit": "MIT"})
+        report = LicenseAuditor().run(target=tmp_path)
+        dep = next(p for p in report.packages if p.name == "dep")
+        assert dep.category == LicenseCategory.STRONG_COPYLEFT
+        assert report.recommended_licenses
+        assert "MIT" not in report.recommended_licenses
+
     def test_less_permissive_dual_license_branch_avoids_conflict(
         self,
         tmp_path: Path,

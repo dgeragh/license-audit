@@ -11,6 +11,7 @@ from rich.markup import escape
 from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
+    IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
     PackageLicense,
@@ -92,6 +93,7 @@ class NoRecommendationReason(StrEnum):
     MISSING_DEPENDENCIES = "missing-dependencies"
     UNKNOWN_LICENSES = "unknown-licenses"
     DEEMED_CONSTRAINT = "deemed-constraint"
+    NEEDS_REVIEW = "needs-review"
     NO_COMMON_LICENSE = "no-common-license"
 
 
@@ -157,6 +159,20 @@ def explain_no_recommendation(
             ),
         )
 
+    if report.review_licenses:
+        return NoRecommendationExplanation(
+            reason=NoRecommendationReason.NEEDS_REVIEW,
+            headline="No definite fit",
+            detail=(
+                "No outbound license is a definite fit for every dependency "
+                "under the OSADL compatibility data. These fit once you confirm "
+                'how the dependencies are combined (OSADL\'s "Check dependency" '
+                f"verdict): {', '.join(report.review_licenses)}."
+            ),
+        )
+
+    # Reached only with an incompatible pair or group: whatever the check
+    # allows is listed above, as recommended or review licenses.
     return NoRecommendationExplanation(
         reason=NoRecommendationReason.NO_COMMON_LICENSE,
         headline="No compatible outbound license found",
@@ -240,3 +256,25 @@ class IncompatiblePairFormatter:
     def markdown_row(cls, pair: IncompatiblePair) -> str:
         """Markdown table row for a compatibility table."""
         return f"| {pair.license_a} | {pair.license_b} |"
+
+
+class IncompatibleGroupFormatter:
+    """Formats incompatible license groups for terminal and markdown output."""
+
+    ICON = "\\[x]"
+    COLOR = "red"
+
+    @staticmethod
+    def text(group: IncompatibleGroup) -> str:
+        """The group's licenses joined into one line."""
+        return " + ".join(group.licenses)
+
+    @classmethod
+    def rich(cls, group: IncompatibleGroup) -> str:
+        """Rich-markup line for `console.print`."""
+        return f"  [{cls.COLOR}]{cls.ICON}[/{cls.COLOR}] {cls.text(group)}"
+
+    @classmethod
+    def markdown_item(cls, group: IncompatibleGroup) -> str:
+        """Markdown bullet for the compatibility section."""
+        return f"- {cls.text(group)}"

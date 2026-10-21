@@ -9,6 +9,7 @@ from license_audit._data import OSADLDataStore
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import (
     CompatibilityResult,
+    IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
     Verdict,
@@ -61,6 +62,10 @@ class CompatibilityMatrix:
     # Categories whose obligations stay with the library's own files.
     LIBRARY_SCOPED: frozenset[LicenseCategory] = frozenset(
         {LicenseCategory.PERMISSIVE, LicenseCategory.WEAK_COPYLEFT}
+    )
+    # Categories whose obligations reach the whole combined work.
+    WORK_SCOPED: frozenset[LicenseCategory] = frozenset(
+        {LicenseCategory.STRONG_COPYLEFT, LicenseCategory.NETWORK_COPYLEFT}
     )
 
     # OSADL marks PSF-2.0 code unusable in GPL-family works, but the FSF lists
@@ -122,11 +127,13 @@ class CompatibilityMatrix:
 
         See the class docstring for when an id is admitted. Ids absent from
         the matrix impose nothing here; they surface as UNKNOWN elsewhere.
+        A copyleft `WITH` form the matrix lacks is the exception, see
+        `_entry`.
         """
         matrix = self._store.matrix()
         result: set[str] = set()
         for alt in inbound.alternatives:
-            known = [lic for lic in alt if lic in matrix]
+            known = [entry for lic in alt if (entry := self._entry(lic)) is not None]
             result.update(
                 outbound
                 for outbound in matrix
@@ -139,12 +146,26 @@ class CompatibilityMatrix:
         category = self._category(inbound)
         if category in self.LIBRARY_SCOPED:
             return allowed or self._category(outbound) in self.LIBRARY_SCOPED
-        if category in (
-            LicenseCategory.STRONG_COPYLEFT,
-            LicenseCategory.NETWORK_COPYLEFT,
-        ):
+        if category in self.WORK_SCOPED:
             return allowed and self._category(outbound) not in self.LIBRARY_SCOPED
         return allowed
+
+    def _entry(self, lic: str) -> str | None:
+        """The matrix id `lic` is checked as, or None when the matrix lacks it.
+
+        A strong- or network-copyleft `X WITH exception` form the OSADL data
+        has no entry for is checked as `X`, the base its category already
+        comes from: an exception only adds permissions, so the base is a safe
+        upper bound. Imposing nothing would recommend permissive licenses for
+        a project that same category says must be copyleft.
+        """
+        matrix = self._store.matrix()
+        if lic in matrix:
+            return lic
+        base, sep, _ = lic.partition(" WITH ")
+        if sep and base in matrix and self._category(base) in self.WORK_SCOPED:
+            return base
+        return None
 
     def _category(self, lic: str) -> LicenseCategory:
         category = self._categories.get(lic)
@@ -153,12 +174,20 @@ class CompatibilityMatrix:
             self._categories[lic] = category
         return category
 
-    def find_compatible_outbound(self, inbound: Iterable[Inbound]) -> list[str]:
-        """Outbound licenses that satisfy every dependency, in matrix order."""
+    def find_compatible_outbound(
+        self,
+        inbound: Iterable[Inbound],
+        verdicts: frozenset[str] = RECOMMEND_VERDICTS,
+    ) -> list[str]:
+        """Outbound licenses that satisfy every dependency, in matrix order.
+
+        Pass COMPATIBLE_VERDICTS for every license the compatibility check
+        accepts, "Check dependency" cells included.
+        """
         matrix = self._store.matrix()
         compatible = set(matrix)
         for unit in inbound:
-            compatible &= self.outbound_for(unit, self.RECOMMEND_VERDICTS)
+            compatible &= self.outbound_for(unit, verdicts)
         return [lic for lic in matrix if lic in compatible]
 
     def find_incompatible_pairs(
@@ -173,3 +202,34 @@ class CompatibilityMatrix:
                 if not outbound[i] & outbound_b:
                     pairs.append(IncompatiblePair(license_a=a.label, license_b=b.label))
         return pairs
+
+    def find_incompatible_groups(
+        self, inbound: Iterable[Inbound]
+    ) -> list[IncompatibleGroup]:
+        """A conflict no incompatible pair accounts for.
+
+        Every pair of dependencies can share an outbound license, yet none
+        satisfies them all (EUPL-1.1, Apache-2.0, and PSF-2.0), or a
+        dual-licensed dependency can't be satisfied under any alternative.
+        Returns one group whose every member is needed for the conflict, or
+        nothing when an outbound license satisfies every dependency or a pair
+        already explains why none does. So with `find_incompatible_pairs`, a
+        conflict is found exactly when no outbound license passes the
+        compatibility check.
+        """
+        units = list(dict.fromkeys(inbound))
+        allowed = {u: self.outbound_for(u, self.COMPATIBLE_VERDICTS) for u in units}
+
+        def fits(group: list[Inbound]) -> bool:
+            matrix = set(self._store.matrix())
+            return bool(matrix.intersection(*(allowed[u] for u in group)))
+
+        if fits(units) or self.find_incompatible_pairs(units):
+            return []
+        # Drop each dependency the rest still conflict without.
+        group = units
+        for unit in units:
+            rest = [u for u in group if u != unit]
+            if not fits(rest):
+                group = rest
+        return [IncompatibleGroup(licenses=[unit.label for unit in group])]

@@ -210,6 +210,17 @@ class TestInbound:
             Inbound((("GPL-3.0-only",),)),
         ]
 
+    def test_unknown_alternative_not_relied_on(self) -> None:
+        # The category comes from GPL-3.0-only; so does the constraint.
+        assert ExpressionEvaluator().inbound("GPL-3.0-only OR Elastic-2.0") == [
+            Inbound((("GPL-3.0-only",),)),
+        ]
+
+    def test_unknown_alternatives_kept_when_nothing_else_remains(self) -> None:
+        assert ExpressionEvaluator().inbound("Elastic-2.0 OR BUSL-1.1") == [
+            Inbound((("Elastic-2.0",), ("BUSL-1.1",))),
+        ]
+
     def test_override_emptying_a_branch_lifts_the_constraint(self) -> None:
         overrides = {"foo-1.0": LicenseCategory.PERMISSIVE}
         assert ExpressionEvaluator().inbound("GPL-3.0-only OR Foo-1.0", overrides) == []

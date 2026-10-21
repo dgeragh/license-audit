@@ -24,6 +24,23 @@
       "title": "ActionItem",
       "type": "object"
     },
+    "IncompatibleGroup": {
+      "description": "Dependency licenses no outbound license satisfies together, though\nevery pair of them can share one.\n\nA group of one is a dual-licensed dependency none of whose alternatives\nany outbound license satisfies.",
+      "properties": {
+        "licenses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Licenses",
+          "type": "array"
+        }
+      },
+      "required": [
+        "licenses"
+      ],
+      "title": "IncompatibleGroup",
+      "type": "object"
+    },
     "IncompatiblePair": {
       "description": "Two dependency licenses with no common outbound license.\n\nThe pair is unordered; `license_a`/`license_b` carry no meaning\nbeyond which was encountered first.",
       "properties": {
@@ -188,11 +205,25 @@
       "title": "Incompatible Pairs",
       "type": "array"
     },
+    "incompatible_groups": {
+      "items": {
+        "$ref": "#/$defs/IncompatibleGroup"
+      },
+      "title": "Incompatible Groups",
+      "type": "array"
+    },
     "recommended_licenses": {
       "items": {
         "type": "string"
       },
       "title": "Recommended Licenses",
+      "type": "array"
+    },
+    "review_licenses": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Review Licenses",
       "type": "array"
     },
     "action_items": {
