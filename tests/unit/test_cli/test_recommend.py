@@ -313,3 +313,18 @@ class TestRecommendGuidance:
         assert "-> MIT" in output
         assert "permissive ones included" in output
         assert "excluded" not in output
+
+
+class TestRecommendIncompatibleGroups:
+    def test_incompatible_group_shown(self) -> None:
+        from license_audit.core.models import IncompatibleGroup
+
+        report = _make_report(packages=[_GPL_PKG], recommended_licenses=[])
+        report.incompatible_groups = [
+            IncompatibleGroup(licenses=["EUPL-1.1", "Apache-2.0", "PSF-2.0"])
+        ]
+        with patch("license_audit.cli.recommend.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert result.exit_code == 0
+        assert "Conflicting together" in result.output
+        assert "EUPL-1.1 + Apache-2.0 + PSF-2.0" in result.output

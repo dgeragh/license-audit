@@ -21,6 +21,7 @@
 - `check` no longer passes on an environment that isn't the project's. A dependency the project requires that isn't installed fails `check`, `policy_passed`, and recommendations, where it was skipped silently: a pipx-installed license-audit, run with the project's `venv/` activated, audited its own environment and passed a project that declared a GPL dependency
 - A project is no longer audited as a dependency of itself when its name isn't in `[project]`: the name is read from `[tool.poetry]` too, or else found from the package installed from the project's directory (a setup.py project installed editable). An unlicensed private Poetry app made `check` exit 2
 - `check` prints every violation; incompatible license pairs hid the denied, disallowed, and over-policy packages, which surfaced only once the pairs were fixed
+- `check` fails when no outbound license satisfies every dependency, though each pair of them can share one; EUPL-1.1, Apache-2.0, and PSF-2.0 passed `check` while `recommend` found no license. The licenses are reported as incompatible together
 - `recommend`'s guidance for weak-copyleft dependencies no longer claims permissive outbound licenses are excluded, right below a list that recommends them
 
 ### Changed
@@ -38,6 +39,7 @@
 - Python 3.14 support
 - A versioning and stability page that says what Semantic Versioning covers from 1.0 on
 - `missing_dependencies` in the JSON report: the required dependencies the audited environment lacks
+- `incompatible_groups` in the JSON report
 
 ## 0.14.0 (2026-09-05)
 

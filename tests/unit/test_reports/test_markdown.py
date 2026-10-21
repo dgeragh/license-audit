@@ -2,6 +2,7 @@
 
 from license_audit.core.models import (
     AnalysisReport,
+    IncompatibleGroup,
     LicenseCategory,
     LicenseSource,
     PackageLicense,
@@ -339,3 +340,19 @@ class TestLicensesRequiringReview:
         review_section = result.split("## Licenses Requiring Review")[1]
         assert "WHOLE LICENSE BODY embedded in metadata field" in review_section
         assert "License text not available" not in review_section
+
+
+class TestIncompatibleGroups:
+    def test_group_listed_under_compatibility(self) -> None:
+        report = AnalysisReport(
+            project_name="p",
+            incompatible_groups=[
+                IncompatibleGroup(licenses=["EUPL-1.1", "Apache-2.0", "PSF-2.0"])
+            ],
+            policy_passed=False,
+        )
+        result = MarkdownRenderer().render(report)
+        assert "Licenses incompatible together" in result
+        assert "- EUPL-1.1 + Apache-2.0 + PSF-2.0" in result
+        assert "No incompatible license pairs found" not in result
+        assert "no common outbound license together" in result

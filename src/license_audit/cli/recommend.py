@@ -17,6 +17,7 @@ from license_audit.core.models import (
 )
 from license_audit.reports._format import (
     ActionItemFormatter,
+    IncompatibleGroupFormatter,
     IncompatiblePairFormatter,
     NoRecommendationReason,
     explain_no_recommendation,
@@ -169,6 +170,10 @@ def _render_recommendations(console: Console, report: AnalysisReport) -> None:
             console.print("\n[bold]Conflicting pairs:[/bold]")
             for pair in report.incompatible_pairs:
                 console.print(IncompatiblePairFormatter.rich(pair))
+        if conflict and report.incompatible_groups:
+            console.print("\n[bold]Conflicting together:[/bold]")
+            for group in report.incompatible_groups:
+                console.print(IncompatibleGroupFormatter.rich(group))
         return
 
     top = report.recommended_licenses[:5]

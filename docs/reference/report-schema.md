@@ -30,9 +30,10 @@ Version history:
 | `packages` | array of [PackageLicense](#packagelicense) | One entry per audited package |
 | `missing_dependencies` | array of string | Packages the project requires that aren't installed in the audited environment, so their licenses weren't checked (see [required dependencies](../user-guide/configuration.md#required-dependencies)). Any entry fails the policy and withholds recommendations |
 | `incompatible_pairs` | array of [IncompatiblePair](#incompatiblepair) | License pairs found incompatible |
+| `incompatible_groups` | array of [IncompatibleGroup](#incompatiblegroup) | Licenses no outbound license satisfies together although every pair of them can, reported when no incompatible pair explains the conflict |
 | `recommended_licenses` | array of string | Recommended outbound licenses as SPDX ids, most permissive first |
 | `action_items` | array of [ActionItem](#actionitem) | Follow-ups the user should address |
-| `policy_passed` | boolean or null | Policy gate result, the same verdict `check` reaches: `false` on an incompatible pair, a missing required dependency, a policy violation, or an unknown license while `fail-on-unknown` is on. Always set by current versions; `null` is reserved |
+| `policy_passed` | boolean or null | Policy gate result, the same verdict `check` reaches: `false` on an incompatible pair or group, a missing required dependency, a policy violation, or an unknown license while `fail-on-unknown` is on. Always set by current versions; `null` is reserved |
 
 ## PackageLicense
 
@@ -60,6 +61,14 @@ A package whose license could not be mapped to SPDX keeps its raw string in `dec
 | `license_b` | string | The other dependency license |
 
 The pair is unordered: `license_a`/`license_b` carry no meaning beyond which license was encountered first. A dual-licensed dependency whose every alternative conflicts is named by its full OR expression.
+
+## IncompatibleGroup
+
+| Field | Type | Description |
+|---|---|---|
+| `licenses` | array of string | Dependency licenses no outbound license satisfies together. Removing any one of them leaves a combination some outbound license satisfies |
+
+A group of one is a dual-licensed dependency none of whose alternatives any outbound license satisfies.
 
 ## ActionItem
 

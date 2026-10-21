@@ -163,6 +163,17 @@ class IncompatiblePair(BaseModel):
     license_b: str
 
 
+class IncompatibleGroup(BaseModel):
+    """Dependency licenses no outbound license satisfies together, though
+    every pair of them can share one.
+
+    A group of one is a dual-licensed dependency none of whose alternatives
+    any outbound license satisfies.
+    """
+
+    licenses: list[str]
+
+
 class ActionItem(BaseModel):
     """An action the user should take."""
 
@@ -190,6 +201,7 @@ class AnalysisReport(BaseModel):
     packages: list[PackageLicense] = Field(default_factory=list)
     missing_dependencies: list[str] = Field(default_factory=list)
     incompatible_pairs: list[IncompatiblePair] = Field(default_factory=list)
+    incompatible_groups: list[IncompatibleGroup] = Field(default_factory=list)
     recommended_licenses: list[str] = Field(default_factory=list)
     action_items: list[ActionItem] = Field(default_factory=list)
     policy_passed: bool | None = None

@@ -9,6 +9,7 @@ from license_audit._data import OSADLDataStore
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import (
     CompatibilityResult,
+    IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
     Verdict,
@@ -153,12 +154,20 @@ class CompatibilityMatrix:
             self._categories[lic] = category
         return category
 
-    def find_compatible_outbound(self, inbound: Iterable[Inbound]) -> list[str]:
-        """Outbound licenses that satisfy every dependency, in matrix order."""
+    def find_compatible_outbound(
+        self,
+        inbound: Iterable[Inbound],
+        verdicts: frozenset[str] = RECOMMEND_VERDICTS,
+    ) -> list[str]:
+        """Outbound licenses that satisfy every dependency, in matrix order.
+
+        Pass COMPATIBLE_VERDICTS for every license the compatibility check
+        accepts, "Check dependency" cells included.
+        """
         matrix = self._store.matrix()
         compatible = set(matrix)
         for unit in inbound:
-            compatible &= self.outbound_for(unit, self.RECOMMEND_VERDICTS)
+            compatible &= self.outbound_for(unit, verdicts)
         return [lic for lic in matrix if lic in compatible]
 
     def find_incompatible_pairs(
@@ -173,3 +182,34 @@ class CompatibilityMatrix:
                 if not outbound[i] & outbound_b:
                     pairs.append(IncompatiblePair(license_a=a.label, license_b=b.label))
         return pairs
+
+    def find_incompatible_groups(
+        self, inbound: Iterable[Inbound]
+    ) -> list[IncompatibleGroup]:
+        """A conflict no incompatible pair accounts for.
+
+        Every pair of dependencies can share an outbound license, yet none
+        satisfies them all (EUPL-1.1, Apache-2.0, and PSF-2.0), or a
+        dual-licensed dependency can't be satisfied under any alternative.
+        Returns one group whose every member is needed for the conflict, or
+        nothing when an outbound license satisfies every dependency or a pair
+        already explains why none does. So with `find_incompatible_pairs`, a
+        conflict is found exactly when no outbound license passes the
+        compatibility check.
+        """
+        units = list(dict.fromkeys(inbound))
+        allowed = {u: self.outbound_for(u, self.COMPATIBLE_VERDICTS) for u in units}
+
+        def fits(group: list[Inbound]) -> bool:
+            matrix = set(self._store.matrix())
+            return bool(matrix.intersection(*(allowed[u] for u in group)))
+
+        if fits(units) or self.find_incompatible_pairs(units):
+            return []
+        # Drop each dependency the rest still conflict without.
+        group = units
+        for unit in units:
+            rest = [u for u in group if u != unit]
+            if not fits(rest):
+                group = rest
+        return [IncompatibleGroup(licenses=[unit.label for unit in group])]

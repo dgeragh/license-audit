@@ -11,6 +11,7 @@ from license_audit.core.models import (
 )
 from license_audit.reports._format import (
     ActionItemFormatter,
+    IncompatibleGroupFormatter,
     IncompatiblePairFormatter,
     NoRecommendationReason,
     SummaryStats,
@@ -125,19 +126,29 @@ class MarkdownRenderer:
         return "\n".join(lines) + "\n"
 
     def _compatibility_analysis(self, report: AnalysisReport) -> str:
-        if not report.incompatible_pairs:
+        if not report.incompatible_pairs and not report.incompatible_groups:
             return (
                 "\n## Compatibility Analysis\n\nNo incompatible license pairs found.\n"
             )
 
-        lines = [
-            "\n## Compatibility Analysis\n",
-            "**WARNING: Incompatible license pairs detected!**\n",
-            "| License A | License B |",
-            "|-----------|-----------|",
-        ]
-        for pair in report.incompatible_pairs:
-            lines.append(IncompatiblePairFormatter.markdown_row(pair))
+        lines = ["\n## Compatibility Analysis\n"]
+        if report.incompatible_pairs:
+            lines += [
+                "**WARNING: Incompatible license pairs detected!**\n",
+                "| License A | License B |",
+                "|-----------|-----------|",
+            ]
+            for pair in report.incompatible_pairs:
+                lines.append(IncompatiblePairFormatter.markdown_row(pair))
+        if report.incompatible_groups:
+            if report.incompatible_pairs:
+                lines.append("")
+            lines.append(
+                "**WARNING: Licenses incompatible together!** Each pair can "
+                "share an outbound license, but none satisfies all of them:\n"
+            )
+            for group in report.incompatible_groups:
+                lines.append(IncompatibleGroupFormatter.markdown_item(group))
         return "\n".join(lines) + "\n"
 
     def _recommendations(self, report: AnalysisReport) -> str:
@@ -155,6 +166,15 @@ class MarkdownRenderer:
                 lines.append(
                     f"The following license pairs have no common outbound "
                     f"license: {pairs}."
+                )
+            if conflict and report.incompatible_groups:
+                groups = "; ".join(
+                    IncompatibleGroupFormatter.text(g)
+                    for g in report.incompatible_groups
+                )
+                lines.append(
+                    f"These licenses have no common outbound license together: "
+                    f"{groups}."
                 )
             return "\n".join(lines) + "\n"
 

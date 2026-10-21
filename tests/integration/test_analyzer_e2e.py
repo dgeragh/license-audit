@@ -253,6 +253,34 @@ class TestConfigPropagation:
         assert report.incompatible_pairs
         assert report.policy_passed is False
 
+    def test_conflict_no_pair_explains_fails_policy_passed(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """EUPL-1.1, Apache-2.0, and PSF-2.0 pair up fine, but no outbound
+        license satisfies all three, so the check fails on the group."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"eupl": "EUPL-1.1", "requests": "Apache-2.0", "typing-ext": "PSF-2.0"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.incompatible_pairs == []
+        assert [g.licenses for g in report.incompatible_groups] == [
+            ["EUPL-1.1", "Apache-2.0", "PSF-2.0"],
+        ]
+        assert report.recommended_licenses == []
+        assert report.policy_passed is False
+        assert any(
+            item.severity == "error" and "incompatible together" in item.message
+            for item in report.action_items
+        )
+
     def test_less_permissive_dual_license_branch_avoids_conflict(
         self,
         tmp_path: Path,

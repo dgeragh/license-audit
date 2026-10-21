@@ -10,6 +10,7 @@ from rich.text import Text
 from license_audit.core.models import AnalysisReport, LicenseCategory, license_label
 from license_audit.reports._format import (
     ActionItemFormatter,
+    IncompatibleGroupFormatter,
     IncompatiblePairFormatter,
     NoRecommendationReason,
     SummaryStats,
@@ -98,13 +99,18 @@ class TerminalRenderer:
         self._console.print()
 
     def _render_compatibility(self, report: AnalysisReport) -> None:
-        if not report.incompatible_pairs:
-            return
-
-        self._console.print("[bold red]Incompatible License Pairs:[/bold red]")
-        for pair in report.incompatible_pairs:
-            self._console.print(IncompatiblePairFormatter.rich(pair))
-        self._console.print()
+        if report.incompatible_pairs:
+            self._console.print("[bold red]Incompatible License Pairs:[/bold red]")
+            for pair in report.incompatible_pairs:
+                self._console.print(IncompatiblePairFormatter.rich(pair))
+            self._console.print()
+        if report.incompatible_groups:
+            self._console.print(
+                "[bold red]Licenses Incompatible Together:[/bold red]",
+            )
+            for group in report.incompatible_groups:
+                self._console.print(IncompatibleGroupFormatter.rich(group))
+            self._console.print()
 
     def _render_recommendations(self, report: AnalysisReport) -> None:
         explanation = explain_no_recommendation(report)
@@ -115,9 +121,11 @@ class TerminalRenderer:
                 f"[{style}]{explanation.headline}:[/{style}] "
                 f"{escape(explanation.detail)}",
             )
-            if conflict and report.incompatible_pairs:
+            if conflict:
                 for pair in report.incompatible_pairs:
                     self._console.print(IncompatiblePairFormatter.rich(pair))
+                for group in report.incompatible_groups:
+                    self._console.print(IncompatibleGroupFormatter.rich(group))
             self._console.print()
             return
 

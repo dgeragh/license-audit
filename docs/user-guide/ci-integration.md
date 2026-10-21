@@ -9,7 +9,7 @@ It audits your installed environment, so install dependencies before running it.
 | Code | Meaning |
 |------|---------|
 | `0` | All dependencies pass the policy |
-| `1` | Policy violation (incompatible pairs, denied licenses, or category exceeded), a required dependency missing from the environment (usually the wrong environment was audited), or the check could not run (bad arguments, no environment found, invalid config) |
+| `1` | Policy violation (incompatible licenses, denied licenses, or category exceeded), a required dependency missing from the environment (usually the wrong environment was audited), or the check could not run (bad arguments, no environment found, invalid config) |
 | `2` | Unknown licenses detected and no other violation (when `fail-on-unknown = true`) |
 
 A definite violation always takes precedence: a run with both a violation and unknown licenses exits `1`, so exit `2` reliably means the unknowns are the only remaining problem. Anything that stops the check from running also exits `1`, never `2`. All `check` output goes to stderr; stdout stays clean for redirection.

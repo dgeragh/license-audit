@@ -11,6 +11,7 @@ from rich.markup import escape
 from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
+    IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
     PackageLicense,
@@ -240,3 +241,25 @@ class IncompatiblePairFormatter:
     def markdown_row(cls, pair: IncompatiblePair) -> str:
         """Markdown table row for a compatibility table."""
         return f"| {pair.license_a} | {pair.license_b} |"
+
+
+class IncompatibleGroupFormatter:
+    """Formats incompatible license groups for terminal and markdown output."""
+
+    ICON = "\\[x]"
+    COLOR = "red"
+
+    @staticmethod
+    def text(group: IncompatibleGroup) -> str:
+        """The group's licenses joined into one line."""
+        return " + ".join(group.licenses)
+
+    @classmethod
+    def rich(cls, group: IncompatibleGroup) -> str:
+        """Rich-markup line for `console.print`."""
+        return f"  [{cls.COLOR}]{cls.ICON}[/{cls.COLOR}] {cls.text(group)}"
+
+    @classmethod
+    def markdown_item(cls, group: IncompatibleGroup) -> str:
+        """Markdown bullet for the compatibility section."""
+        return f"- {cls.text(group)}"
