@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.1 (2026-11-16)
+
+### Changed
+
+- Bumped `click`, `mkdocs-include-markdown-plugin`, `mkdocs-material`, `mypy`, `platformdirs`, `pydantic`, `pytest`, and `ruff` dependencies via Dependabot
+
 ## 0.15.0 (2026-10-21)
 
 ### Fixed
