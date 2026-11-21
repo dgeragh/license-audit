@@ -232,13 +232,25 @@ class MetadataReader:
         when they install a local project, editable or not.
         """
         target = directory.resolve()
-        for name in self.iter_package_names():
-            dist_info = self._source.find_dist_info(name)
-            text = None if dist_info is None else dist_info.read_text("direct_url.json")
-            if text is not None and _direct_url_dir(text) == target:
+        for name, local in self._local_installs():
+            if local == target:
                 meta = self.read_metadata(name)
                 return str(meta.get("Name") or name) if meta is not None else name
         return None
+
+    def installed_within(self, directory: Path) -> set[str]:
+        root = directory.resolve()
+        return {
+            name for name, local in self._local_installs() if local.is_relative_to(root)
+        }
+
+    def _local_installs(self) -> Iterator[tuple[str, Path]]:
+        for name in self.iter_package_names():
+            dist_info = self._source.find_dist_info(name)
+            text = None if dist_info is None else dist_info.read_text("direct_url.json")
+            local = None if text is None else _direct_url_dir(text)
+            if local is not None:
+                yield name, local
 
     def _parse_metadata(self, dist_info: _DistInfo) -> Message | None:
         text = dist_info.read_text("METADATA")

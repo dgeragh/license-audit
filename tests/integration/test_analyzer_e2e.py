@@ -903,6 +903,33 @@ class TestRequiredDependencies:
 
 
 class TestProjectIdentity:
+    def test_workspace_members_are_part_of_the_project(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "acme-app"\nversion = "0.1"\n'
+            'dependencies = ["acme-core", "click"]\n',
+        )
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        member = tmp_path / "packages" / "core"
+        member.mkdir(parents=True)
+        dist_info = next(venv.glob("lib/*/site-packages")) / "acme_core-0.1.dist-info"
+        dist_info.mkdir()
+        (dist_info / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: acme-core\nVersion: 0.1\n"
+            "Requires-Dist: click\n"
+        )
+        (dist_info / "direct_url.json").write_text(
+            json.dumps({"url": member.resolve().as_uri(), "dir_info": {}})
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert [p.name for p in report.packages] == ["click"]
+        assert report.missing_dependencies == []
+        assert report.policy_passed is True
+
     """The project is never audited as a dependency of itself."""
 
     def test_poetry_project_name(

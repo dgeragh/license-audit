@@ -195,7 +195,10 @@ class LicenseAuditor:
         self._collect_license_text(packages, reader)
         self._apply_ignores(packages, config.ignored_packages)
 
-        dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
+        own = {canonicalize(project_name)}
+        if effective_dir is not None:
+            own |= reader.installed_within(effective_dir)
+        dep_packages = [p for p in packages if p.name not in own]
         active_packages = [p for p in dep_packages if not p.ignored]
         ignored = {canonicalize(name) for name in config.ignored_packages}
         missing = [

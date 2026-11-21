@@ -11,6 +11,7 @@
 - A classification for one component of a compound license marks the package as classified only when it decides the category, and no longer withholds recommendations otherwise. Deeming `MPL-2.0` permissive withheld them for an `MPL-2.0 AND GPL-3.0-or-later` dependency, calling it classified as non-permissive
 - A license classified weak-copyleft no longer withholds recommendations, as it constrains no permissive or weak-copyleft outbound license. The README's own `"CC-BY-SA-4.0" = "weak-copyleft"` example left every project using it without recommendations
 - License classifiers in different categories, read as a choice between them, are reported in a warning. A package listing the MIT and GPLv3 classifiers read as `GPL-3.0-only OR MIT` and passed a permissive policy without a word
+- Packages installed from a directory inside the project, such as uv workspace members, count as part of the project rather than as dependencies. A workspace whose members declare no license made `check` exit 2
 
 ### Changed
 

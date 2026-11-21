@@ -389,6 +389,21 @@ class TestInstalledFrom:
         self._direct_url(dist, tmp_path.resolve().as_uri(), editable=False)
         assert MetadataReader.from_site_packages(sp).installed_from(tmp_path) == "app"
 
+    def test_installed_within_finds_local_installs_under_directory(
+        self, tmp_path: Path
+    ) -> None:
+        project = tmp_path / "project"
+        member_dir = project / "packages" / "core"
+        member_dir.mkdir(parents=True)
+        sp = tmp_path / "sp"
+        member = _make_dist_info(sp, "acme_core", "0.1")
+        self._direct_url(member, member_dir.resolve().as_uri())
+        elsewhere = _make_dist_info(sp, "elsewhere", "1.0")
+        self._direct_url(elsewhere, (tmp_path / "other").resolve().as_uri())
+        _make_dist_info(sp, "plain", "1.0")
+        reader = MetadataReader.from_site_packages(sp)
+        assert reader.installed_within(project) == {"acme-core"}
+
     def test_other_sources_ignored(self, tmp_path: Path) -> None:
         sp = tmp_path / "sp"
         archive = _make_dist_info(sp, "archive", "1.0")
