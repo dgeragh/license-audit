@@ -101,16 +101,12 @@ class _Source(ABC):
     @abstractmethod
     def iter_package_names(self) -> Iterator[str]: ...
 
-    @abstractmethod
-    def describe(self) -> str:
-        """Human-readable label for error messages and logs."""
-
 
 class _SitePackagesSource(_Source):
-    """Reads dist-infos out of an installed site-packages directory."""
+    """Reads dist-infos out of installed site-packages directories, earlier first."""
 
-    def __init__(self, path: Path) -> None:
-        self._path = path
+    def __init__(self, *paths: Path) -> None:
+        self._paths = paths
         self._entries: list[tuple[str, Path]] | None = None
         self._index: dict[str, Path] = {}
 
@@ -122,9 +118,6 @@ class _SitePackagesSource(_Source):
     def iter_package_names(self) -> Iterator[str]:
         for name, _ in self._scan():
             yield name
-
-    def describe(self) -> str:
-        return str(self._path)
 
     def _scan(self) -> list[tuple[str, Path]]:
         # Scanned once: re-globbing and re-sorting the directory on every
@@ -142,10 +135,11 @@ class _SitePackagesSource(_Source):
     def _metadata_dirs(self) -> Iterator[Path]:
         # glob() yields in directory order, which differs between filesystems;
         # sorting keeps report output identical across machines.
-        for pattern in ("*.dist-info", "*.egg-info"):
-            for path in sorted(self._path.glob(pattern)):
-                if path.is_dir():
-                    yield path
+        for directory in self._paths:
+            for pattern in ("*.dist-info", "*.egg-info"):
+                for path in sorted(directory.glob(pattern)):
+                    if path.is_dir():
+                        yield path
 
     @staticmethod
     def _dist_info_name(dir_name: str) -> str:
@@ -181,10 +175,10 @@ class MetadataReader:
 
     @classmethod
     def from_site_packages(
-        cls, path: Path, marker_environment: Mapping[str, str] | None = None
+        cls, *paths: Path, marker_environment: Mapping[str, str] | None = None
     ) -> Self:
-        """Reader over an installed site-packages directory."""
-        return cls(_SitePackagesSource(path), marker_environment)
+        """Reader over installed site-packages directories, earlier first."""
+        return cls(_SitePackagesSource(*paths), marker_environment)
 
     def read_metadata(self, package_name: str) -> Message | None:
         """Parsed METADATA for `package_name`, or None if absent."""
@@ -221,10 +215,6 @@ class MetadataReader:
         """Canonical names of every package in the source."""
         return self._source.iter_package_names()
 
-    def describe_source(self) -> str:
-        """Path or label for the underlying source."""
-        return self._source.describe()
-
     def installed_from(self, directory: Path) -> str | None:
         """Name of the package installed from `directory`, if one is.
 
@@ -232,13 +222,25 @@ class MetadataReader:
         when they install a local project, editable or not.
         """
         target = directory.resolve()
-        for name in self.iter_package_names():
-            dist_info = self._source.find_dist_info(name)
-            text = None if dist_info is None else dist_info.read_text("direct_url.json")
-            if text is not None and _direct_url_dir(text) == target:
+        for name, local in self._local_installs():
+            if local == target:
                 meta = self.read_metadata(name)
                 return str(meta.get("Name") or name) if meta is not None else name
         return None
+
+    def installed_within(self, directory: Path) -> set[str]:
+        root = directory.resolve()
+        return {
+            name for name, local in self._local_installs() if local.is_relative_to(root)
+        }
+
+    def _local_installs(self) -> Iterator[tuple[str, Path]]:
+        for name in self.iter_package_names():
+            dist_info = self._source.find_dist_info(name)
+            text = None if dist_info is None else dist_info.read_text("direct_url.json")
+            local = None if text is None else _direct_url_dir(text)
+            if local is not None:
+                yield name, local
 
     def _parse_metadata(self, dist_info: _DistInfo) -> Message | None:
         text = dist_info.read_text("METADATA")

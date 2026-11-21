@@ -121,7 +121,7 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         assert names >= set(chain)
 
     def test_dependency_cycle_does_not_recurse_forever(self, tmp_path: Path) -> None:
-        """If A depends on B and B depends back on A, we still terminate."""
+        """If A depends on B and B depends back on A, the walk still terminates."""
         _make_dist_info(
             tmp_path, "a", "1.0", license_expression="MIT", requires=["b>=1.0"]
         )
@@ -240,7 +240,7 @@ class TestAnalyzeEnvironmentFakeSitePackages:
             "rootpkg",
             "1.0",
             license_expression="MIT",
-            requires=["installed_dep>=1.0", "ghost>=1.0"],
+            requires=["installed_dep>=1.0", "absent>=1.0"],
         )
         _make_dist_info(
             tmp_path, "installed_dep", "1.0", license_expression="Apache-2.0"
@@ -248,7 +248,7 @@ class TestAnalyzeEnvironmentFakeSitePackages:
         reader = MetadataReader.from_site_packages(tmp_path)
         names = {p.name for p in analyze_environment("rootpkg", reader).flatten()}
         assert "installed-dep" in names
-        assert "ghost" not in names
+        assert "absent" not in names
 
     def test_unevaluable_marker_dep_rescued_as_direct(self, tmp_path: Path) -> None:
         # packaging < 26 raises on platform_release markers against a Linux
@@ -352,10 +352,10 @@ class TestParentAttribution:
         tree = analyze_environment(
             "synth_root",
             reader,
-            declared=('legacy; python_version < "3.0"', "ghost", "!!!"),
+            declared=('legacy; python_version < "3.0"', "absent", "!!!"),
         )
         names = {p.name for p in tree.flatten()}
-        assert "ghost" not in names
+        assert "absent" not in names
         assert "legacy" in names
 
 
@@ -373,14 +373,18 @@ class TestMissingRequirements:
         _make_dist_info(tmp_path, "present", "1.0", license_expression="MIT")
         reader = MetadataReader.from_site_packages(tmp_path)
         missing = missing_requirements(
-            "app", reader, ["present>=1", "Ghost_Pkg[extra]>=2", "app[cli]", "!!!"]
+            "app", reader, ["present>=1", "Absent_Pkg[extra]>=2", "app[cli]", "!!!"]
         )
-        assert missing == ["ghost-pkg"]
+        assert missing == ["absent-pkg"]
 
     def test_markers_evaluated_for_audited_environment(self, tmp_path: Path) -> None:
         required = ['backport; python_version < "3.13"']
-        old = MetadataReader.from_site_packages(tmp_path, {"python_version": "3.12"})
-        new = MetadataReader.from_site_packages(tmp_path, {"python_version": "3.13"})
+        old = MetadataReader.from_site_packages(
+            tmp_path, marker_environment={"python_version": "3.12"}
+        )
+        new = MetadataReader.from_site_packages(
+            tmp_path, marker_environment={"python_version": "3.13"}
+        )
         assert missing_requirements("app", old, required) == ["backport"]
         assert missing_requirements("app", new, required) == []
 
@@ -407,7 +411,7 @@ class TestMarkerEnvironmentWalk:
         _make_dist_info(tmp_path, "backport", "1.0", license_expression="MIT")
         for version, parent in (("3.12", "rootpkg"), ("3.13", "backport")):
             reader = MetadataReader.from_site_packages(
-                tmp_path, {"python_version": version}
+                tmp_path, marker_environment={"python_version": version}
             )
             tree = analyze_environment("app", reader, declared=["rootpkg"])
             parents = {p.name: p.parent for p in tree.flatten()}

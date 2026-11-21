@@ -6,7 +6,6 @@ from typing import Any
 
 from license_expression import (
     ExpressionError,
-    LicenseWithExceptionSymbol,
     Licensing,
     get_spdx_licensing,
 )
@@ -239,20 +238,3 @@ class SpdxNormalizer:
             return self._licensing.parse(expr)
         except _PARSE_ERRORS:
             return None
-
-    def get_simple_licenses(self, expr: str) -> list[str]:
-        """Split a compound expression into its component license ids.
-
-        Deprecated ids are promoted to their modern equivalents. If the
-        expression can't be parsed, returns it unchanged as a single-item list.
-        """
-        parsed = self.parse_expression(expr)
-        if parsed is None:
-            return [expr]
-
-        return [
-            str(sym)
-            if isinstance(sym, LicenseWithExceptionSymbol)
-            else self.DEPRECATED_SPDX.get(str(sym.key), str(sym.key))
-            for sym in parsed.symbols
-        ]

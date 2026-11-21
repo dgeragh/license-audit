@@ -151,12 +151,12 @@ class TestExitCodes:
 
     def test_missing_target_exits_one_not_two(self, tmp_path: Path) -> None:
         # Click's own usage code is 2, which a CI script reads as "unknowns only".
-        result = _run(["--target", str(tmp_path / "nope"), "check"])
+        result = _run(["--target", str(tmp_path / "missing"), "check"])
         assert result.returncode == 1
         assert "does not exist" in result.stderr
 
     def test_unknown_option_exits_one(self) -> None:
-        result = _run(["check", "--bogus"])
+        result = _run(["check", "--not-an-option"])
         assert result.returncode == 1
 
     def test_no_arguments_prints_usage_and_exits_one(self) -> None:
@@ -307,7 +307,7 @@ class TestOutputEncoding:
         tmp_path: Path,
         make_venv: VenvBuilder,
     ) -> None:
-        # A narrow console makes Rich truncate cells with a non-ASCII "…".
+        # A narrow console makes Rich truncate cells with a non-ASCII ellipsis (U+2026).
         _make_pyproject(tmp_path / "pyproject.toml")
         make_venv(
             tmp_path / ".venv",

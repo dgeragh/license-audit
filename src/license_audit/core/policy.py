@@ -7,6 +7,7 @@ from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import (
     CATEGORY_RANK,
     UNKNOWN_LICENSE,
+    ActionCode,
     ActionItem,
     IncompatibleGroup,
     IncompatiblePair,
@@ -123,6 +124,7 @@ class PolicyEngine:
             if self.is_unknown(pkg):
                 items.append(
                     ActionItem(
+                        code=ActionCode.UNKNOWN_LICENSE,
                         severity="warning",
                         package=pkg.name,
                         message=self.unknown_message(pkg),
@@ -132,6 +134,7 @@ class PolicyEngine:
         for pair in incompatible:
             items.append(
                 ActionItem(
+                    code=ActionCode.INCOMPATIBLE_LICENSES,
                     severity="error",
                     package="",
                     message=(
@@ -145,6 +148,7 @@ class PolicyEngine:
         for group in groups or []:
             items.append(
                 ActionItem(
+                    code=ActionCode.INCOMPATIBLE_GROUP,
                     severity="error",
                     package="",
                     message=self.group_message(group),
@@ -161,6 +165,7 @@ class PolicyEngine:
             if self.exceeds_rank(pkg, max_rank):
                 items.append(
                     ActionItem(
+                        code=ActionCode.POLICY_EXCEEDED,
                         severity="error",
                         package=pkg.name,
                         message=(
@@ -176,6 +181,7 @@ class PolicyEngine:
             ):
                 items.append(
                     ActionItem(
+                        code=ActionCode.COPYLEFT_DEPENDENCY,
                         severity="warning",
                         package=pkg.name,
                         message=(
@@ -222,6 +228,7 @@ class PolicyEngine:
             )
             items.append(
                 ActionItem(
+                    code=ActionCode.DENIED_LICENSE,
                     severity="error",
                     package=pkg.name,
                     message=(
@@ -256,6 +263,7 @@ class PolicyEngine:
                 continue
             items.append(
                 ActionItem(
+                    code=ActionCode.LICENSE_NOT_ALLOWED,
                     severity="error",
                     package=pkg.name,
                     message=(
@@ -303,7 +311,9 @@ class PolicyEngine:
                 f"Package '{pkg.name}' declares license "
                 f"'{license_label(pkg.declared_license)}', which is not a "
                 f"recognized SPDX identifier. Review its license text in the "
-                f"report to determine the correct classification. {suffix}"
+                f"report, then record a category in "
+                f"[tool.license-audit.license-classifications], or set its SPDX "
+                f"license in [tool.license-audit.overrides] if it has one."
             )
 
         if pkg.license_expression == UNKNOWN_LICENSE:

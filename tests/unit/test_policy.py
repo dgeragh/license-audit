@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from license_audit.config import LicenseAuditConfig
 from license_audit.core.models import (
+    ActionCode,
+    IncompatibleGroup,
+    IncompatiblePair,
     LicenseCategory,
     LicensePolicy,
     LicenseSource,
@@ -489,6 +492,21 @@ class TestBuildActionItems:
         assert "not a recognized SPDX identifier" in msg
         assert "Review its license text" in msg
 
+    def test_declared_license_warning_points_to_classifications(self) -> None:
+        pkg = PackageLicense(
+            name="psycopg2-binary",
+            version="2.9",
+            license_expression="UNKNOWN",
+            declared_license="LGPL with exceptions",
+            license_source=LicenseSource.METADATA,
+            category=LicenseCategory.UNKNOWN,
+        )
+        msg = PolicyEngine().unknown_message(pkg)
+        assert (
+            "record a category in [tool.license-audit.license-classifications]" in msg
+        )
+        assert "Add an override" not in msg
+
     def test_and_expression_names_unclassifiable_component(self) -> None:
         """Pkg with a parseable expression where only one AND component is
         UNKNOWN should call out that component by name, not the whole expr."""
@@ -592,3 +610,44 @@ class TestMessagesStayOnOneLine:
         message = PolicyEngine().unknown_message(_MULTILINE)
         assert "\n" not in message
         assert "Vendor License Section 1." in message
+
+
+class TestActionCodes:
+    def test_each_policy_item_has_its_code(self) -> None:
+        unknown = PackageLicense(
+            name="unknown", version="1", category=LicenseCategory.UNKNOWN
+        )
+        gpl = PackageLicense(
+            name="gpl",
+            version="1",
+            license_expression="GPL-3.0-only",
+            category=LicenseCategory.STRONG_COPYLEFT,
+        )
+        config = LicenseAuditConfig(
+            denied_licenses=["GPL-3.0-only"], allowed_licenses=["MIT"]
+        )
+        items = PolicyEngine().build_action_items(
+            [unknown, gpl],
+            [IncompatiblePair(license_a="A", license_b="B")],
+            config,
+            [IncompatibleGroup(licenses=["A", "B", "C"])],
+        )
+        assert {(i.package, i.code) for i in items} == {
+            ("unknown", ActionCode.UNKNOWN_LICENSE),
+            ("", ActionCode.INCOMPATIBLE_LICENSES),
+            ("", ActionCode.INCOMPATIBLE_GROUP),
+            ("gpl", ActionCode.DENIED_LICENSE),
+            ("gpl", ActionCode.LICENSE_NOT_ALLOWED),
+            ("gpl", ActionCode.POLICY_EXCEEDED),
+        }
+
+    def test_allowed_copyleft_has_its_code(self) -> None:
+        gpl = PackageLicense(
+            name="gpl",
+            version="1",
+            license_expression="GPL-3.0-only",
+            category=LicenseCategory.STRONG_COPYLEFT,
+        )
+        config = LicenseAuditConfig(policy=PolicyLevel.STRONG_COPYLEFT)
+        items = PolicyEngine().build_action_items([gpl], [], config)
+        assert [i.code for i in items] == [ActionCode.COPYLEFT_DEPENDENCY]

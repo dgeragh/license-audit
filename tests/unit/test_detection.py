@@ -169,11 +169,11 @@ class TestTryLicenseField:
         assert _try_license_field(meta) is None
 
     def test_unrecognized_license_preserves_raw_string(self) -> None:
-        meta = _make_metadata(License="Weird Custom Terms v3")
+        meta = _make_metadata(License="Custom Terms v3")
         result = _try_license_field(meta)
         assert result is not None
         assert result.expression == "UNKNOWN"
-        assert result.declared_license == "Weird Custom Terms v3"
+        assert result.declared_license == "Custom Terms v3"
         assert result.source == LicenseSource.METADATA
 
     def test_malformed_expression_is_declared_not_raised(self) -> None:

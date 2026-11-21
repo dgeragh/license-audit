@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from license_audit.core.models import (
+    ActionCode,
     ActionItem,
     AnalysisReport,
     IncompatiblePair,
@@ -17,6 +18,7 @@ from license_audit.reports._format import (
     NoRecommendationReason,
     SummaryStats,
     category_label,
+    deemed_constraint_packages,
     explain_no_recommendation,
     fenced_code_block,
     markdown_license_cell,
@@ -177,7 +179,10 @@ class TestFencedCodeBlock:
 class TestMarkdownLicenseCell:
     def test_escapes_pipes_to_protect_table(self) -> None:
         # A pipe in a declared license would otherwise add phantom columns.
-        assert markdown_license_cell("Foo | Bar License") == "Foo \\| Bar License"
+        assert (
+            markdown_license_cell("Custom | Internal License")
+            == "Custom \\| Internal License"
+        )
 
     def test_clean_expression_passes_through(self) -> None:
         assert markdown_license_cell("Apache-2.0 OR MIT") == "Apache-2.0 OR MIT"
@@ -185,21 +190,33 @@ class TestMarkdownLicenseCell:
 
 class TestActionItemFormatterRich:
     def test_warning_uses_yellow(self) -> None:
-        item = ActionItem(severity="warning", message="watch out")
+        item = ActionItem(
+            code=ActionCode.COPYLEFT_DEPENDENCY,
+            severity="warning",
+            message="Review the copyleft dependency.",
+        )
         result = ActionItemFormatter.rich(item)
         assert "[yellow]" in result
-        assert "watch out" in result
+        assert "Review the copyleft dependency." in result
 
     def test_error_uses_red(self) -> None:
-        item = ActionItem(severity="error", message="nope")
+        item = ActionItem(
+            code=ActionCode.POLICY_EXCEEDED,
+            severity="error",
+            message="Policy violated.",
+        )
         result = ActionItemFormatter.rich(item)
         assert "[red]" in result
-        assert "nope" in result
+        assert "Policy violated." in result
 
     def test_message_is_escaped(self) -> None:
         """Rich markup characters in the message are escaped to avoid
         accidentally styling user-supplied text."""
-        item = ActionItem(severity="warning", message="[x] not markup")
+        item = ActionItem(
+            code=ActionCode.COPYLEFT_DEPENDENCY,
+            severity="warning",
+            message="[x] not markup",
+        )
         result = ActionItemFormatter.rich(item)
         # Escaped form prefixes open-brackets with a backslash.
         assert r"\[x]" in result
@@ -207,22 +224,39 @@ class TestActionItemFormatterRich:
 
 class TestActionItemFormatterMarkdown:
     def test_warning_label(self) -> None:
-        item = ActionItem(severity="warning", message="heads up")
+        item = ActionItem(
+            code=ActionCode.COPYLEFT_DEPENDENCY,
+            severity="warning",
+            message="Review the license.",
+        )
         result = ActionItemFormatter.markdown(item)
         assert result.startswith("- [Warning]")
-        assert "heads up" in result
+        assert "Review the license." in result
 
     def test_error_label(self) -> None:
-        item = ActionItem(severity="error", message="broken")
+        item = ActionItem(
+            code=ActionCode.POLICY_EXCEEDED,
+            severity="error",
+            message="Policy violated.",
+        )
         result = ActionItemFormatter.markdown(item)
         assert result.startswith("- [Error]")
 
     def test_package_prefix_when_set(self) -> None:
-        item = ActionItem(severity="error", package="foo", message="x")
-        assert "**foo**: x" in ActionItemFormatter.markdown(item)
+        item = ActionItem(
+            code=ActionCode.POLICY_EXCEEDED,
+            severity="error",
+            package="requests",
+            message="Review the license.",
+        )
+        assert "**requests**: Review the license." in (
+            ActionItemFormatter.markdown(item)
+        )
 
     def test_no_prefix_when_package_empty(self) -> None:
-        item = ActionItem(severity="error", message="x")
+        item = ActionItem(
+            code=ActionCode.POLICY_EXCEEDED, severity="error", message="x"
+        )
         assert "**" not in ActionItemFormatter.markdown(item)
 
 
@@ -251,10 +285,10 @@ class TestExplainNoRecommendation:
 
     def test_missing_dependencies_branch_wins(self) -> None:
         report = AnalysisReport(
-            missing_dependencies=["ghost", "phantom"],
+            missing_dependencies=["absent-a", "absent-b"],
             packages=[
                 PackageLicense(
-                    name="mystery",
+                    name="unknown-pkg",
                     version="1.0",
                     category=LicenseCategory.UNKNOWN,
                 )
@@ -265,13 +299,13 @@ class TestExplainNoRecommendation:
         assert explanation.reason is NoRecommendationReason.MISSING_DEPENDENCIES
         assert explanation.headline == "Cannot recommend a license"
         assert "2 required dependency(ies)" in explanation.detail
-        assert "ghost, phantom" in explanation.detail
+        assert "absent-a, absent-b" in explanation.detail
 
     def test_unknown_branch(self) -> None:
         report = AnalysisReport(
             packages=[
                 PackageLicense(
-                    name="mystery",
+                    name="unknown-pkg",
                     version="1.0",
                     category=LicenseCategory.UNKNOWN,
                 )
@@ -281,7 +315,7 @@ class TestExplainNoRecommendation:
         assert explanation is not None
         assert explanation.reason is NoRecommendationReason.UNKNOWN_LICENSES
         assert explanation.headline == "Cannot recommend a license"
-        assert "mystery" in explanation.detail
+        assert "unknown-pkg" in explanation.detail
 
     def test_deemed_branch(self) -> None:
         report = AnalysisReport(
@@ -299,7 +333,23 @@ class TestExplainNoRecommendation:
         assert explanation.reason is NoRecommendationReason.DEEMED_CONSTRAINT
         assert explanation.headline == "Cannot recommend a license"
         assert "outbound compatibility can't be computed" in explanation.detail
+        assert "strong copyleft, network copyleft, or proprietary" in (
+            explanation.detail
+        )
         assert "vendor-sdk" in explanation.detail
+
+    def test_classified_weak_copyleft_is_no_deemed_constraint(self) -> None:
+        weak, proprietary = (
+            PackageLicense(
+                name=name, version="1.0", category=category, category_overridden=True
+            )
+            for name, category in (
+                ("weak", LicenseCategory.WEAK_COPYLEFT),
+                ("vendor", LicenseCategory.PROPRIETARY),
+            )
+        )
+        report = AnalysisReport(packages=[weak, proprietary])
+        assert deemed_constraint_packages(report) == [proprietary]
 
     def test_review_branch(self) -> None:
         report = AnalysisReport(review_licenses=["GPL-2.0-only"])
@@ -316,9 +366,12 @@ class TestExplainNoRecommendation:
                 PackageLicense(
                     name="gpl-pkg",
                     version="1.0",
-                    license_expression="GPL-3.0-only",
+                    license_expression="GPL-2.0-only",
                     category=LicenseCategory.STRONG_COPYLEFT,
                 )
+            ],
+            incompatible_pairs=[
+                IncompatiblePair(license_a="GPL-2.0-only", license_b="Apache-2.0")
             ],
         )
         explanation = explain_no_recommendation(report)
@@ -327,11 +380,39 @@ class TestExplainNoRecommendation:
         assert explanation.headline == "No compatible outbound license found"
         assert "override" in explanation.detail
 
+    def test_unchecked_license_branch(self) -> None:
+        # No conflict, yet nothing to recommend: a license the data can't
+        # check rules out the copyleft outbound license gpl-pkg needs.
+        report = AnalysisReport(
+            packages=[
+                PackageLicense(
+                    name="gpl-pkg",
+                    version="1.0",
+                    license_expression="GPL-3.0-only",
+                    category=LicenseCategory.STRONG_COPYLEFT,
+                ),
+                PackageLicense(
+                    name="mit-pkg",
+                    version="1.0",
+                    license_expression="MIT",
+                    category=LicenseCategory.PERMISSIVE,
+                ),
+            ],
+        )
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.UNCHECKED_LICENSE
+        assert explanation.headline == "Cannot recommend a license"
+        assert "1 dependency(ies) need" in explanation.detail
+        assert "(gpl-pkg)" in explanation.detail
+        assert "license-classifications" in explanation.detail
+        assert "OSADL compatibility matrix" in explanation.detail
+
     def test_unknown_wins_over_deemed(self) -> None:
         report = AnalysisReport(
             packages=[
                 PackageLicense(
-                    name="mystery",
+                    name="unknown-pkg",
                     version="1.0",
                     category=LicenseCategory.UNKNOWN,
                 ),

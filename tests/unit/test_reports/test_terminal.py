@@ -13,6 +13,7 @@ from license_audit.core.models import (
     IncompatiblePair,
     LicenseCategory,
     LicenseSource,
+    OsadlData,
     PackageLicense,
 )
 from license_audit.reports.terminal import TerminalRenderer
@@ -111,6 +112,18 @@ class TestTerminalRenderer:
         assert "Source:" in buf.getvalue()
         assert "/abs/.venv" in buf.getvalue()
 
+    def test_osadl_data_in_header(self) -> None:
+        console, buf = _make_console()
+        TerminalRenderer(console=console).render(
+            AnalysisReport(
+                project_name="p",
+                osadl_data=OsadlData(
+                    origin="bundled", timestamp="2026-02-12T16:31:00+0000"
+                ),
+            ),
+        )
+        assert "OSADL data: 2026-02-12 (bundled)" in buf.getvalue()
+
 
 class TestCategoryColors:
     def test_every_category_has_a_color(self) -> None:
@@ -189,6 +202,20 @@ class TestTerminalRendererMarkupSafety:
         TerminalRenderer(console=console).render(report)
         assert "/home/[user]/.venv" in buf.getvalue()
 
+    def test_package_name_version_and_parent_with_markup_preserved(self) -> None:
+        console, buf = _make_console()
+        report = AnalysisReport(
+            project_name="p",
+            packages=[
+                PackageLicense(name="[b]n", version="[/x]", parent="[/p]"),
+                PackageLicense(name="[i]gone", version="1.0", ignored=True),
+            ],
+        )
+        TerminalRenderer(console=console).render(report)
+        output = buf.getvalue()
+        for text in ("[b]n", "[/x]", "[/p]", "[i]gone"):
+            assert text in output
+
     def test_project_name_with_markup_preserved(self) -> None:
         # An unmatched closing tag raised MarkupError before it was escaped.
         console, buf = _make_console()
@@ -224,7 +251,7 @@ class TestNarrowTerminal:
         console = Console(file=buf, width=80, legacy_windows=legacy_windows)
         TerminalRenderer(console=console).render(report)
         output = buf.getvalue()
-        assert "…" not in output
+        assert "\u2026" not in output
         # Reassemble each row's folded cells; a row starts with a new name,
         # and anything before the first one is the header.
         rows: list[list[str]] = []

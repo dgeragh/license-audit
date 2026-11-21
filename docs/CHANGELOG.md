@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- OSADL data that isn't shaped like the compatibility matrix or copyleft table, such as a refreshed copy in another format, is rejected with an error instead of being read as no data. A cached matrix in another shape made `check` pass a GPL-2.0-only and Apache-2.0 conflict
+- `refresh` checks both OSADL downloads before writing either, so a failed or malformed download leaves the existing data in place instead of pairing a new matrix with an old copyleft table
+- The bundled OSADL data is used when it's newer than the copy `refresh` saved, instead of the saved copy whatever its age, so upgrading license-audit updates the data a run uses
+- A `pyproject.toml` whose `tool` key isn't a table reports a config error instead of a traceback
+- A classification for one component of a compound license marks the package as classified only when it decides the category, and a component classified permissive no longer withholds recommendations. Deeming `MPL-2.0` permissive withheld them for an `MPL-2.0 AND GPL-3.0-or-later` dependency, calling it classified as non-permissive
+- A license classified weak-copyleft no longer withholds recommendations: they list the permissive and weak-copyleft licenses it doesn't constrain, and leave out the strong- and network-copyleft ones it can't be checked against. The README's own `"CC-BY-SA-4.0" = "weak-copyleft"` example left every project using it without recommendations
+- Recommendations rest on the category of a license the OSADL compatibility matrix leaves out, as they do for a classified license, instead of treating it as no constraint: a weak-copyleft one (OFL-1.1, Ubuntu-font-1.0) limits them to permissive and weak-copyleft licenses, and a stronger one withholds them. A dependency under AGPL-1.0-only got MIT recommended
+- License classifiers in different categories, read as a choice between them, are reported in a warning. A package listing the MIT and GPLv3 classifiers read as `GPL-3.0-only OR MIT` and passed a permissive policy without a word
+- Packages installed from a directory inside the project, such as uv workspace members, count as part of the project rather than as dependencies. A workspace whose members declare no license made `check` exit 2
+- The action item for a declared license that isn't SPDX points to `license-classifications` instead of `overrides`, which rejects a value that isn't SPDX
+- Rich markup in a package's name or version, such as `[/x]` in its `Version` metadata, prints as written instead of crashing `analyze`, `check`, and `recommend`
+- A virtualenv holding more than one `lib/pythonX.Y` directory is audited from the one for its Python version, read from `pyvenv.cfg`, instead of whichever the filesystem listed first; a stale directory left by an older Python was audited instead and reported the real dependencies missing
+- Auditing the environment running license-audit, when no virtualenv is found, reads its platform-specific site-packages and user site-packages too, not only the pure-Python one: compiled packages in a separate `lib64` (Fedora and RHEL system Pythons) and `pip install --user` packages went unaudited
+
+### Changed
+
+- `[tool.license-audit]` keys must be spelled in kebab-case, as documented. `fail_on_unknown` was accepted too, and with both spellings present the later one silently won
+- `fail-on-unknown` takes a TOML boolean; `"no"`, `"false"`, and `0` read as `false` before
+- The JSON Schema lists the two values of an action item's `severity`, `warning` and `error`, instead of allowing any string
+- The bundled OSADL data is the 2026-10-22 release. Apache-2.0 code in a GPL-1.0-or-later or GPL-2.0-or-later work is "Check dependency" instead of "No", so dependencies that only fit together under GPL-2.0-or-later, such as EUPL-1.1, Apache-2.0, and PSF-2.0, pass `check` with GPL-2.0-or-later listed for review instead of failing. CC-BY-SA-3.0 is weak-copyleft instead of unknown, CDLA-Permissive-2.0 and OLFL-1.3 are permissive, and CC-BY-2.5 and CC-BY-3.0 stay permissive but leave the compatibility matrix
+
+### Removed
+
+- The `py.typed` marker and the `Typing :: Typed` and `Topic :: Software Development :: Libraries` classifiers. The command line is license-audit's interface; its Python modules are internal, as the versioning page says
+
+### Added
+
+- Reports name the OSADL data they used, by date and as bundled or refreshed: `osadl_data` in the JSON report, and a line under the source in `analyze`, `check`, `recommend`, and Markdown reports
+- `code` on each action item in the JSON report, a stable name for what it's about (`denied-license`, `incompatible-licenses`, and so on), so tools needn't parse its message
+
 ## 0.15.1 (2026-11-16)
 
 ### Changed
@@ -17,7 +51,7 @@
 - `policy_passed` in the JSON report, and the policy line in `analyze` and Markdown reports, fail on incompatible license pairs as `check` does; they reported a pass while `check` exited 1
 - JSON, Markdown, and notices reports on stdout are UTF-8 whatever the console encoding; redirecting one on Windows crashed when a license text held a character outside the code page (pygments, a dependency of license-audit itself, has one)
 - Terminal output replaces characters the console can't encode instead of crashing
-- Long package names, versions, and licenses wrap in a narrow terminal instead of being cut off; at 80 columns, the usual width of CI logs, packages sharing a prefix (`opentelemetry-…`) were indistinguishable
+- Long package names, versions, and licenses wrap in a narrow terminal instead of being cut off; at 80 columns, the usual width of CI logs, packages sharing a prefix (`opentelemetry-...`) were indistinguishable
 - protobuf's `3-Clause BSD License` and similar spelled-out BSD and Expat license strings are recognized
 - A license classifier that can't be mapped, listed beside ones that can (docutils' unversioned GPL classifier), is reported in a warning instead of dropped silently
 - A GPL-family license read from classifiers warns when the package's License field allows later versions or adds an exception the classifier leaves out. PyInstaller's `GPLv2-or-later with a special exception` read silently as `GPL-2.0-only`, which conflicted with GPL-3.0
@@ -261,7 +295,7 @@
 ### Changed
 
 - Improved terminal rendering for `recommend`, `check`, and `report` commands with clearer formatting and shared layout helpers
-- Streamlined README and user guide, including an expanded CI integration guide
+- Simplified README and user guide, including an expanded CI integration guide
 - Internal refactor of the analyzer, policy engine, classifier, data store, SPDX normalizer, recommender, sources, and environment provisioning into class-based implementations (no change to CLI behavior or output contracts)
 
 ## 0.1.1 (2026-04-13)

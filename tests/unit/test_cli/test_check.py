@@ -10,12 +10,14 @@ from license_audit.cli.check import _determine_exit_code
 from license_audit.cli.main import cli
 from license_audit.config import LicenseAuditConfig
 from license_audit.core.models import (
+    ActionCode,
     ActionItem,
     AnalysisReport,
     IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
     LicenseSource,
+    OsadlData,
     PackageLicense,
     PolicyLevel,
 )
@@ -53,7 +55,7 @@ _GPL_PKG = PackageLicense(
 )
 
 _UNKNOWN_PKG = PackageLicense(
-    name="mystery-pkg",
+    name="unknown-pkg",
     version="0.1.0",
     license_expression="UNKNOWN",
     license_source=LicenseSource.UNKNOWN,
@@ -111,6 +113,7 @@ class TestCheckFailsPolicyViolation:
             incompatible_pairs=[pair],
             action_items=[
                 ActionItem(
+                    code=ActionCode.INCOMPATIBLE_LICENSES,
                     severity="error",
                     message="Licenses 'GPL-3.0-only' and 'Apache-2.0' are incompatible.",
                 )
@@ -136,10 +139,12 @@ class TestCheckFailsPolicyViolation:
             incompatible_pairs=[pair],
             action_items=[
                 ActionItem(
+                    code=ActionCode.INCOMPATIBLE_LICENSES,
                     severity="error",
                     message="Licenses 'GPL-2.0-only' and 'Apache-2.0' are incompatible.",
                 ),
                 ActionItem(
+                    code=ActionCode.DENIED_LICENSE,
                     severity="error",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' uses denied license 'GPL-3.0-only'.",
@@ -158,16 +163,17 @@ class TestCheckFailsPolicyViolation:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.MISSING_DEPENDENCIES,
                     severity="error",
-                    message="Dependencies the project requires aren't installed: ghost.",
+                    message="Dependencies the project requires aren't installed: absent-pkg.",
                 )
             ],
         )
-        report.missing_dependencies = ["ghost"]
+        report.missing_dependencies = ["absent-pkg"]
         with patch("license_audit.cli.check.run_audit", return_value=report):
             result = CliRunner().invoke(cli, ["check", "--no-fail-on-unknown"])
         assert result.exit_code == 1
-        assert "aren't installed: ghost" in result.output
+        assert "aren't installed: absent-pkg" in result.output
         assert _determine_exit_code(report, [], LicenseAuditConfig()) == 1
 
     def test_exit_code_1_on_policy_failed(self) -> None:
@@ -176,6 +182,7 @@ class TestCheckFailsPolicyViolation:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.POLICY_EXCEEDED,
                     severity="error",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' uses strong-copyleft license 'GPL-3.0-only', which violates the 'permissive' policy.",
@@ -195,11 +202,13 @@ class TestCheckFailsPolicyViolation:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.COPYLEFT_DEPENDENCY,
                     severity="warning",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' uses strong-copyleft license; review carefully.",
                 ),
                 ActionItem(
+                    code=ActionCode.POLICY_EXCEEDED,
                     severity="error",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' uses strong-copyleft license 'GPL-3.0-only', which violates the 'permissive' policy.",
@@ -223,6 +232,7 @@ class TestExitCodePrecedence:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.POLICY_EXCEEDED,
                     severity="error",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' violates the 'permissive' policy.",
@@ -273,7 +283,7 @@ class TestCheckFailsUnknown:
             result = CliRunner().invoke(cli, ["check"])
         assert result.exit_code == 2
         assert "UNKNOWN" in result.output
-        assert "mystery-pkg" in result.output
+        assert "unknown-pkg" in result.output
 
     def test_no_fail_on_unknown_skips_exit_2(self) -> None:
         report = _make_report(packages=[_MIT_PKG, _UNKNOWN_PKG])
@@ -324,6 +334,7 @@ class TestCheckPolicyFlag:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.POLICY_EXCEEDED,
                     severity="error",
                     package="gpl-pkg",
                     message="Policy violation.",
@@ -369,7 +380,7 @@ class TestCheckPolicyFlag:
         assert "Invalid value" in result.output
 
     def test_policy_flag_overrides_config(self) -> None:
-        """--policy flag should override whatever is in pyproject.toml."""
+        """--policy overrides the policy set in pyproject.toml."""
         report = _make_report(packages=[_MIT_PKG])
         with patch("license_audit.cli.check.run_audit", return_value=report) as mock:
             result = CliRunner().invoke(cli, ["--policy", "network-copyleft", "check"])
@@ -394,6 +405,16 @@ class TestCheckFailOnUnknownFlag:
         assert result.exit_code == 2
 
 
+class TestCheckMarkupSafety:
+    def test_unknown_package_name_with_markup_preserved(self) -> None:
+        pkg = _UNKNOWN_PKG.model_copy(update={"name": "[/x]"})
+        report = _make_report(packages=[pkg])
+        with patch("license_audit.cli.check.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["check"])
+        assert result.exit_code == 2
+        assert "[/x]" in result.stderr
+
+
 class TestCheckSource:
     def test_source_displayed(self) -> None:
         report = _make_report(packages=[_MIT_PKG])
@@ -404,13 +425,22 @@ class TestCheckSource:
         assert "Source:" in result.stderr
         assert "/abs/.venv" in result.stderr
 
+    def test_osadl_data_displayed(self) -> None:
+        report = _make_report(packages=[_MIT_PKG])
+        report.osadl_data = OsadlData(
+            origin="bundled", timestamp="2026-02-12T16:31:00+0000"
+        )
+        with patch("license_audit.cli.check.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["check"])
+        assert "OSADL data: 2026-02-12 (bundled)" in result.stderr
+
 
 class TestCheckIgnoredPackages:
     """Ignored packages are exempted from policy evaluation entirely."""
 
     def test_ignored_unknown_does_not_trigger_exit_2(self) -> None:
         ignored_unknown = PackageLicense(
-            name="mystery-pkg",
+            name="unknown-pkg",
             version="0.1.0",
             license_expression="UNKNOWN",
             license_source=LicenseSource.UNKNOWN,

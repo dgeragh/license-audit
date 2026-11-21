@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
 from license_audit.core.models import (
+    ActionItem,
     DependencyNode,
     LicenseCategory,
     LicenseSource,
@@ -40,7 +44,7 @@ class TestDisplayLicense:
         assert pkg.display_license == "Proprietary License"
 
     def test_undetected_license_falls_back_to_unknown(self) -> None:
-        pkg = PackageLicense(name="mystery", version="1.0.0")
+        pkg = PackageLicense(name="unknown-pkg", version="1.0.0")
         assert pkg.declared_license is None
         assert pkg.display_license == "UNKNOWN"
 
@@ -81,3 +85,22 @@ class TestDependencyNodeFlatten:
         tree = _node("root", _node("a"))
         root_pkg = next(p for p in tree.flatten() if p.name == "root")
         assert root_pkg.parent == ""
+
+
+class TestActionItem:
+    @pytest.mark.parametrize("severity", ["warning", "error"])
+    def test_accepts_warning_and_error(self, severity: str) -> None:
+        item = ActionItem.model_validate(
+            {"code": "unknown-license", "severity": severity, "message": "m"}
+        )
+        assert item.severity == severity
+
+    def test_rejects_unknown_codes(self) -> None:
+        with pytest.raises(ValidationError):
+            ActionItem.model_validate({"code": "other", "message": "m"})
+
+    def test_rejects_other_severities(self) -> None:
+        with pytest.raises(ValidationError):
+            ActionItem.model_validate(
+                {"code": "unknown-license", "severity": "info", "message": "m"}
+            )

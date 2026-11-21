@@ -19,6 +19,7 @@ from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import (
     UNKNOWN_LICENSE,
+    ActionCode,
     ActionItem,
     AnalysisReport,
     LicenseCategory,
@@ -124,7 +125,7 @@ class TargetResolver:
 class LicenseAuditor:
     """Runs the full audit pipeline and returns an AnalysisReport.
 
-    Each collaborator is injectable so tests can swap pieces, but a plain
+    Each collaborator can be injected for testing, and a plain
     `LicenseAuditor().run(target=Path('.'))` works without any setup.
     """
 
@@ -195,7 +196,10 @@ class LicenseAuditor:
         self._collect_license_text(packages, reader)
         self._apply_ignores(packages, config.ignored_packages)
 
-        dep_packages = [p for p in packages if p.name != canonicalize(project_name)]
+        own = {canonicalize(project_name)}
+        if effective_dir is not None and (effective_dir / "pyproject.toml").is_file():
+            own |= reader.installed_within(effective_dir)
+        dep_packages = [p for p in packages if p.name not in own]
         active_packages = [p for p in dep_packages if not p.ignored]
         ignored = {canonicalize(name) for name in config.ignored_packages}
         missing = [
@@ -207,8 +211,8 @@ class LicenseAuditor:
         ]
         dep_licenses = [p.license_expression for p in active_packages]
         # Deemed ids (keyed by a whole expression or a component) raise no
-        # conflicts and impose no outbound constraint; a deemed-restrictive
-        # one is handled by the `has_deemed_constraint` gate below.
+        # conflicts and impose no outbound constraint; recommendations rest on
+        # their category instead, below.
         inbound = [
             unit
             for expr in dep_licenses
@@ -218,13 +222,27 @@ class LicenseAuditor:
         has_unknown = any(
             p.category == LicenseCategory.UNKNOWN for p in active_packages
         )
-        has_deemed_constraint = any(
-            p.category_overridden and p.category != LicenseCategory.PERMISSIVE
-            for p in active_packages
+        # A license the compatibility data can't check, deemed or left out of
+        # the OSADL matrix, can only vouch for what its category guarantees: a
+        # permissive license constrains no outbound license, and a
+        # weak-copyleft one no permissive or weak-copyleft one. Nothing vouches
+        # for an outbound license beside a stronger one.
+        unchecked = self._unchecked(dep_licenses, deemed)
+        categories = {p.category for p in active_packages if p.category_overridden}
+        categories.update(
+            category
+            for expr in dep_licenses
+            for category in self._expression.classified_categories(expr, unchecked)
         )
-        withheld = has_unknown or has_deemed_constraint or bool(missing)
+        has_unchecked_constraint = bool(categories - CompatibilityMatrix.LIBRARY_SCOPED)
+        library_scoped = LicenseCategory.WEAK_COPYLEFT in categories
+        withheld = has_unknown or has_unchecked_constraint or bool(missing)
         recommended = (
-            [] if withheld else self._recommender.recommend(dep_licenses, deemed)
+            []
+            if withheld
+            else self._limit(
+                self._recommender.recommend(dep_licenses, unchecked), library_scoped
+            )
         )
         # Only when nothing is a definite fit, so recommendations, review
         # licenses, and conflicts never contradict each other: exactly one
@@ -232,7 +250,9 @@ class LicenseAuditor:
         review = (
             []
             if withheld or recommended
-            else self._recommender.review(dep_licenses, deemed)
+            else self._limit(
+                self._recommender.review(dep_licenses, unchecked), library_scoped
+            )
         )
         incompatible = self._matrix.find_incompatible_pairs(inbound)
         groups = self._matrix.find_incompatible_groups(inbound)
@@ -243,6 +263,7 @@ class LicenseAuditor:
         action_items.extend(self._review_warnings(review))
         action_items.extend(self._classification_warnings(unmatched_classifications))
         action_items.extend(self._unmapped_classifier_warnings(dep_packages, reader))
+        action_items.extend(self._mixed_classifier_warnings(dep_packages))
         # The same verdict `check` reaches: incompatible licenses and missing
         # dependencies fail it too.
         policy_passed = (
@@ -255,6 +276,7 @@ class LicenseAuditor:
         return AnalysisReport(
             project_name=project_name,
             source=self._describe_source(info),
+            osadl_data=self._matrix.osadl_data(),
             packages=dep_packages,
             missing_dependencies=missing,
             incompatible_pairs=incompatible,
@@ -269,14 +291,43 @@ class LicenseAuditor:
     def _project_name(config_dir: Path | None, reader: MetadataReader) -> str:
         """The project's name from pyproject.toml, else from an installed copy.
 
-        A project without one there (setup.py-based, say) is still found by
-        the package installed from its directory, so it isn't audited as a
-        dependency of itself.
+        A project without one there, such as a setup.py project, is still
+        found by the package installed from its directory, so it isn't audited
+        as a dependency of itself.
         """
         name = get_project_name(config_dir)
         if name == "unknown" and config_dir is not None:
             return reader.installed_from(config_dir) or name
         return name
+
+    def _unchecked(
+        self, expressions: list[str], deemed: CategoryOverrides
+    ) -> CategoryOverrides:
+        """`deemed`, plus the licenses in `expressions` the OSADL matrix leaves out.
+
+        Their category stands in for a compatibility check, as a deemed one
+        does. A license with no category is left to read as unknown.
+        """
+        uncovered = {
+            normalize_license_key(lic): category
+            for expr in expressions
+            for alt in self._expression.alternatives(expr)
+            for lic in alt
+            if not self._matrix.covers(lic)
+            and (category := self._classifier.classify(lic))
+            is not LicenseCategory.UNKNOWN
+        }
+        return uncovered | deemed
+
+    def _limit(self, licenses: list[str], library_scoped: bool) -> list[str]:
+        """`licenses`, only the permissive and weak-copyleft ones if `library_scoped`."""
+        if not library_scoped:
+            return licenses
+        return [
+            lic
+            for lic in licenses
+            if self._classifier.classify(lic) in CompatibilityMatrix.LIBRARY_SCOPED
+        ]
 
     @staticmethod
     def _missing_dependency_errors(missing: list[str]) -> list[ActionItem]:
@@ -288,6 +339,7 @@ class LicenseAuditor:
             shown += f", and {len(missing) - 10} more"
         return [
             ActionItem(
+                code=ActionCode.MISSING_DEPENDENCIES,
                 severity="error",
                 message=(
                     "Dependencies the project requires aren't installed in the "
@@ -306,6 +358,7 @@ class LicenseAuditor:
             return []
         return [
             ActionItem(
+                code=ActionCode.REVIEW_LICENSES,
                 severity="warning",
                 message=(
                     "No outbound license is a definite fit for every dependency "
@@ -394,7 +447,9 @@ class LicenseAuditor:
             pkg.category = self._expression.classify(
                 pkg.license_expression, overrides=deemed
             )
-            pkg.category_overridden = True
+            pkg.category_overridden = any(
+                deemed[key] == pkg.category for key in present
+            )
         return present
 
     @staticmethod
@@ -402,6 +457,7 @@ class LicenseAuditor:
         """Warn about classification entries that matched no package."""
         return [
             ActionItem(
+                code=ActionCode.UNMATCHED_CLASSIFICATION,
                 severity="warning",
                 message=(
                     f"License classification '{name}' matched no package. "
@@ -416,8 +472,8 @@ class LicenseAuditor:
     def _unmapped_classifier_warnings(
         packages: list[PackageLicense], reader: MetadataReader
     ) -> list[ActionItem]:
-        """Warn when a license read from classifiers may not be the whole story:
-        it skipped some of them, or the License field states terms they drop.
+        """Warn when a license read from classifiers may be incomplete: it
+        skipped some of them, or the License field states terms they drop.
         """
         items: list[ActionItem] = []
         for pkg in packages:
@@ -433,6 +489,7 @@ class LicenseAuditor:
                 names = ", ".join(f"'{c}'" for c in unmapped)
                 items.append(
                     ActionItem(
+                        code=ActionCode.UNMAPPED_CLASSIFIER,
                         severity="warning",
                         package=pkg.name,
                         message=(
@@ -448,6 +505,7 @@ class LicenseAuditor:
             if dropped and meta is not None:
                 items.append(
                     ActionItem(
+                        code=ActionCode.DROPPED_LICENSE_TERMS,
                         severity="warning",
                         package=pkg.name,
                         message=(
@@ -457,6 +515,35 @@ class LicenseAuditor:
                             f"from classifiers as '{pkg.license_expression}'. The "
                             f"declared text also {' and '.join(dropped)}; set an "
                             "override with the exact terms."
+                        ),
+                    )
+                )
+        return items
+
+    def _mixed_classifier_warnings(
+        self, packages: list[PackageLicense]
+    ) -> list[ActionItem]:
+        items: list[ActionItem] = []
+        for pkg in packages:
+            if pkg.ignored or pkg.license_source != LicenseSource.CLASSIFIER:
+                continue
+            ids = [
+                lic
+                for alt in self._expression.alternatives(pkg.license_expression)
+                for lic in alt
+            ]
+            if len({self._classifier.classify(lic) for lic in ids}) > 1:
+                items.append(
+                    ActionItem(
+                        code=ActionCode.MIXED_CLASSIFIERS,
+                        severity="warning",
+                        package=pkg.name,
+                        message=(
+                            f"Package '{pkg.name}' lists license classifiers in "
+                            f"different categories ({', '.join(ids)}), read as a "
+                            f"choice between them: '{pkg.license_expression}'. If "
+                            "it requires them all, set an override with the exact "
+                            "terms."
                         ),
                     )
                 )

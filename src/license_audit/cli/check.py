@@ -12,7 +12,7 @@ from license_audit.cli._common import resolve_config, run_audit
 from license_audit.config import LicenseAuditConfig
 from license_audit.core.models import AnalysisReport, PackageLicense
 from license_audit.core.policy import PolicyEngine
-from license_audit.reports._format import ActionItemFormatter
+from license_audit.reports._format import ActionItemFormatter, osadl_label
 
 
 def _determine_exit_code(
@@ -60,7 +60,7 @@ def _print_result(
         names = [p.name for p in unknown_pkgs]
         console.print(
             f"[bold yellow]UNKNOWN:[/bold yellow] {len(names)} package(s) "
-            f"with unclassified licenses: {', '.join(names)}"
+            f"with unclassified licenses: {escape(', '.join(names))}"
         )
 
     # Warnings print regardless of pass/fail.
@@ -109,6 +109,8 @@ def check_cmd(ctx: click.Context, fail_on_unknown: bool | None) -> None:
 
     if report.source:
         console.print(f"[dim]Source:[/dim] {escape(report.source)}")
+    if (data := osadl_label(report)) is not None:
+        console.print(f"[dim]OSADL data:[/dim] {data}")
     exit_code = _determine_exit_code(report, unknown_pkgs, config)
     _print_result(console, report, unknown_pkgs, exit_code)
     sys.exit(exit_code)

@@ -89,6 +89,32 @@ class TestLoadConfig:
         with pytest.raises(ValueError, match="fail-on-unkown: unknown key"):
             load_config(tmp_path)
 
+    def test_snake_case_key_rejected(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.license-audit]\nfail-on-unknown = true\nfail_on_unknown = false\n"
+        )
+        with pytest.raises(ValueError, match="fail_on_unknown: unknown key"):
+            load_config(tmp_path)
+
+    def test_snake_case_key_reported_with_other_errors(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.license-audit]\npolicy = "lenient"\ndenied_licenses = ["MIT"]\n'
+        )
+        with pytest.raises(ValueError) as caught:
+            load_config(tmp_path)
+        assert "  denied_licenses: unknown key" in str(caught.value)
+        assert "  policy: Input should be" in str(caught.value)
+
+    @pytest.mark.parametrize("value", ['"no"', '"false"', "0"])
+    def test_non_boolean_fail_on_unknown_rejected(
+        self, tmp_path: Path, value: str
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            f"[tool.license-audit]\nfail-on-unknown = {value}\n"
+        )
+        with pytest.raises(ValueError, match="fail-on-unknown: Input should be a"):
+            load_config(tmp_path)
+
     def test_errors_read_as_pyproject_keys(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text(
             "[tool.license-audit]\n"
@@ -110,8 +136,15 @@ class TestLoadConfig:
         assert "pydantic" not in message
         assert "LicenseAuditConfig" not in message
 
+    def test_non_table_tool_rejected(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text('tool = "not a table"\n')
+        with pytest.raises(ValueError, match=r"^\[tool\] must be a table$"):
+            load_config(tmp_path)
+
     def test_non_table_section_rejected(self, tmp_path: Path) -> None:
-        (tmp_path / "pyproject.toml").write_text('[tool]\n"license-audit" = "oops"\n')
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool]\n"license-audit" = "not a table"\n'
+        )
         with pytest.raises(ValueError, match="must be a table"):
             load_config(tmp_path)
 
@@ -301,7 +334,7 @@ class TestGetProjectDependencies:
 
     def test_wrongly_shaped_tables_ignored(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text(
-            'project = "oops"\n'
+            'project = "not a table"\n'
             "[dependency-groups]\n"
             'dev = "pytest"\n'
             "[tool.poetry]\n"

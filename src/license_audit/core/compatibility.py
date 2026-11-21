@@ -8,11 +8,10 @@ from dataclasses import dataclass
 from license_audit._data import OSADLDataStore
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import (
-    CompatibilityResult,
     IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
-    Verdict,
+    OsadlData,
 )
 
 
@@ -44,14 +43,6 @@ class CompatibilityMatrix:
     verdict for that license. Ids without a category keep the plain verdict.
     """
 
-    VERDICT_MAP: dict[str, Verdict] = {
-        "Yes": Verdict.COMPATIBLE,
-        "No": Verdict.INCOMPATIBLE,
-        "Unknown": Verdict.UNKNOWN,
-        "Check dependency": Verdict.CHECK_DEPENDENCY,
-        "Same": Verdict.SAME,
-    }
-
     # "Check dependency" counts as compatible for incompatibility detection
     # (lenient: a reviewable pairing is not a definite conflict) but not for
     # recommendations, which shouldn't suggest an outbound license OSADL
@@ -69,7 +60,7 @@ class CompatibilityMatrix:
     )
 
     # OSADL marks PSF-2.0 code unusable in GPL-family works, but the FSF lists
-    # the PSF License as GPL-compatible, and it is everywhere in Python
+    # the PSF License as GPL-compatible, and it is common in Python packages
     # (typing-extensions), so its verdict there is read as "Yes".
     GPL_COMPATIBLE: frozenset[str] = frozenset({"PSF-2.0"})
     GPL_FAMILY: frozenset[str] = frozenset(
@@ -103,6 +94,9 @@ class CompatibilityMatrix:
         """All licenses the matrix can answer for."""
         return self._store.known_licenses()
 
+    def osadl_data(self) -> OsadlData:
+        return OsadlData(origin=self._store.origin(), timestamp=self._store.timestamp())
+
     def raw_verdict(self, outbound: str, inbound: str) -> str:
         """Raw OSADL string (e.g. 'Yes', 'No', 'Same').
 
@@ -116,19 +110,18 @@ class CompatibilityMatrix:
             return "Unknown"
         return row.get(inbound, "Unknown")
 
-    def is_compatible(self, inbound: str, outbound: str) -> CompatibilityResult:
-        """Check whether a project licensed `outbound` can use a dep licensed `inbound`."""
-        raw = self.raw_verdict(outbound, inbound)
-        verdict = self.VERDICT_MAP.get(raw, Verdict.UNKNOWN)
-        return CompatibilityResult(inbound=inbound, outbound=outbound, verdict=verdict)
+    def covers(self, lic: str) -> bool:
+        """True when the matrix can check `lic` (see `_entry`)."""
+        return self._entry(lic) is not None
 
     def outbound_for(self, inbound: Inbound, verdicts: frozenset[str]) -> set[str]:
         """Outbound licenses that admit every id of some alternative.
 
         See the class docstring for when an id is admitted. Ids absent from
-        the matrix impose nothing here; they surface as UNKNOWN elsewhere.
-        A copyleft `WITH` form the matrix lacks is the exception, see
-        `_entry`.
+        the matrix impose nothing here: one without a category surfaces as
+        UNKNOWN elsewhere, and recommendations rest on the category of one
+        with a category. A copyleft `WITH` form the matrix lacks is the
+        exception, see `_entry`.
         """
         matrix = self._store.matrix()
         result: set[str] = set()
@@ -209,7 +202,7 @@ class CompatibilityMatrix:
         """A conflict no incompatible pair accounts for.
 
         Every pair of dependencies can share an outbound license, yet none
-        satisfies them all (EUPL-1.1, Apache-2.0, and PSF-2.0), or a
+        satisfies them all (EUPL-1.1, Apache-2.0, and MPL-1.1), or a
         dual-licensed dependency can't be satisfied under any alternative.
         Returns one group whose every member is needed for the conflict, or
         nothing when an outbound license satisfies every dependency or a pair

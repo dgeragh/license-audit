@@ -144,21 +144,6 @@ class TestRecommendCompoundExpressions:
         assert result == ["GPL-2.0-only"]
 
 
-class TestFindMinimum:
-    def test_permissive(self) -> None:
-        result = LicenseRecommender().find_minimum(["MIT", "BSD-3-Clause"])
-        assert result is not None
-
-    def test_gpl(self) -> None:
-        result = LicenseRecommender().find_minimum(["MIT", "GPL-3.0-only"])
-        assert result is not None
-        assert result != "MIT"
-
-    def test_empty(self) -> None:
-        result = LicenseRecommender().find_minimum([])
-        assert result is not None
-
-
 class TestReview:
     def test_check_dependency_only_fit_needs_review(self) -> None:
         # OSADL: GPL-2.0-only takes in LGPL-2.1 code only after review.

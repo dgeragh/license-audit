@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import site
+import sysconfig
 from pathlib import Path
 
 import pytest
@@ -21,11 +23,31 @@ def _make_venv(path: Path) -> Path:
 
 
 class TestCurrentReader:
-    def test_points_at_site_packages(self) -> None:
-        reader = current_reader()
-        described = Path(reader.describe_source())
-        assert described.exists()
-        assert "site-packages" in str(described)
+    def test_reads_the_running_environment(self) -> None:
+        assert "pytest" in set(current_reader().iter_package_names())
+
+    @pytest.mark.parametrize(
+        ("user_site", "expected"),
+        [(True, {"pure", "compiled", "mine"}), (False, {"pure", "compiled"})],
+    )
+    def test_reads_platlib_and_user_site(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        user_site: bool,
+        expected: set[str],
+    ) -> None:
+        dirs = {name: tmp_path / name for name in ("purelib", "platlib", "user")}
+        for directory, package in zip(
+            dirs.values(), ("pure", "compiled", "mine"), strict=True
+        ):
+            dist = directory / f"{package}-1.0.dist-info"
+            dist.mkdir(parents=True)
+            (dist / "METADATA").write_text(f"Name: {package}\nVersion: 1.0\n")
+        monkeypatch.setattr(sysconfig, "get_path", lambda name: str(dirs[name]))
+        monkeypatch.setattr(site, "ENABLE_USER_SITE", user_site)
+        monkeypatch.setattr(site, "getusersitepackages", lambda: str(dirs["user"]))
+        assert set(current_reader().iter_package_names()) == expected
 
 
 class TestReaderForVenv:
@@ -33,10 +55,7 @@ class TestReaderForVenv:
         venv_path = Path(__file__).parents[3] / ".venv"
         if not venv_path.exists():
             pytest.skip(".venv not found")
-        reader = reader_for_venv(venv_path)
-        described = Path(reader.describe_source())
-        assert described.exists()
-        assert any(described.glob("*.dist-info"))
+        assert "pytest" in set(reader_for_venv(venv_path).iter_package_names())
 
     def test_missing_venv(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
@@ -69,6 +88,27 @@ class TestFindSitePackages:
 
     def test_missing_returns_none(self, tmp_path: Path) -> None:
         assert find_site_packages(tmp_path) is None
+
+    def test_prefers_the_pyvenv_python_version(self, tmp_path: Path) -> None:
+        for version in ("3.10", "3.12", "3.13"):
+            (tmp_path / "lib" / f"python{version}" / "site-packages").mkdir(
+                parents=True
+            )
+        (tmp_path / "pyvenv.cfg").write_text("version_info = 3.12.1.final.0\n")
+        assert find_site_packages(tmp_path) == (
+            tmp_path / "lib" / "python3.12" / "site-packages"
+        )
+
+    def test_without_a_known_version_picks_the_first_in_order(
+        self, tmp_path: Path
+    ) -> None:
+        for version in ("3.12", "3.10"):
+            (tmp_path / "lib" / f"python{version}" / "site-packages").mkdir(
+                parents=True
+            )
+        assert find_site_packages(tmp_path) == (
+            tmp_path / "lib" / "python3.10" / "site-packages"
+        )
 
 
 class TestMarkerEnvironment:

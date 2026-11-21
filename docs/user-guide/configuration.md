@@ -1,6 +1,6 @@
 # Configuration
 
-license-audit is configured via `[tool.license-audit]` in your `pyproject.toml`.
+license-audit is configured via `[tool.license-audit]` in your `pyproject.toml`. Keys are spelled in kebab-case as shown below; any other key, `fail_on_unknown` included, is an error.
 
 Configuration is loaded from the target's location: a project directory uses its own `pyproject.toml`, and a virtualenv uses the `pyproject.toml` beside it. With no target, it comes from the project you run license-audit in, found from a subdirectory too (see [target resolution](#target-resolution)). Use `--config` to read config from elsewhere, which is handy when the virtualenv lives outside your project. If no config is found, defaults apply.
 
@@ -8,7 +8,7 @@ Configuration is loaded from the target's location: a project directory uses its
 
 ### `fail-on-unknown`
 
-Whether the `check` command fails when a dependency has an undetectable license. Default: `true`.
+Whether the `check` command fails when a dependency has an undetectable license, as a TOML boolean (`true` or `false`). Default: `true`.
 
 ### `policy`
 
@@ -39,10 +39,10 @@ SPDX identifiers that fail the policy check regardless of `policy` or `allowed-l
 
 Two things both lists share:
 
-- Entries are normalized to canonical SPDX at config load — aliases and deprecated ids (`"apache"`, `"GPL-2.0"`) match their canonical forms, and an entry that isn't a single recognized SPDX identifier is rejected.
+- Entries are normalized to canonical SPDX at config load: aliases and deprecated ids (`"apache"`, `"GPL-2.0"`) match their canonical forms, and an entry that isn't a single recognized SPDX identifier is rejected.
 - For an `OR` expression, the package passes if at least one alternative satisfies the lists: the license lets your project pick that branch. `MIT OR GPL-3.0-only` passes with `GPL-3.0-only` denied, because you can use the package under MIT. `AND` components must all satisfy the lists.
 
-Packages whose license can't be detected or classified are governed by `fail-on-unknown`, not by these lists — there is no identifier to match.
+Packages whose license can't be detected or classified are governed by `fail-on-unknown`, not by these lists, since there is no identifier to match.
 
 ### Choosing dependency groups
 
@@ -109,7 +109,7 @@ A key also matches a component **inside** an AND/OR expression. The deemed categ
 
 Once classified, the package is governed by the deemed category: it passes `--fail-on-unknown`, is evaluated against your `policy` by that category (so deeming something `strong-copyleft` still fails a `permissive` policy), and no longer blocks outbound recommendations. Reports tag the category with a `(classified)` marker to record that it's your judgement rather than detected from OSADL data.
 
-A classified package is dropped from pairwise compatibility analysis, since you've asserted its category directly. Deeming `MPL-2.0` permissive, for example, also waives any MPL incompatibility warnings. A deemed *permissive* license imposes no outbound constraint, so recommendations proceed normally; deeming something *copyleft/proprietary* leaves a constraint that is excluded from compatibility analysis, so recommendations are withheld with an explanation (the JSON report just leaves the list empty) rather than risk suggesting an incompatible outbound license.
+A classified package is dropped from pairwise compatibility analysis, since you've asserted its category directly. Deeming `MPL-2.0` permissive, for example, also waives any MPL incompatibility warnings. Recommendations then rest on the category alone, for a whole license or a component of one the dependency relies on. A license deemed *permissive* constrains no outbound license, so recommendations proceed normally. One deemed *weak-copyleft* constrains no permissive or weak-copyleft outbound license but can't be checked against a strong- or network-copyleft one, so recommendations are limited to permissive and weak-copyleft licenses. Deeming something *strong-copyleft*, *network-copyleft*, or *proprietary* leaves a constraint nothing can be checked against, so recommendations are withheld. Withheld recommendations come with an explanation (the JSON report just leaves the list empty) rather than risk suggesting an incompatible outbound license.
 
 Use `license-classifications` to assert a category and have it apply everywhere; use `overrides` when you want a license treated as a genuine SPDX equivalent and kept in full compatibility analysis.
 

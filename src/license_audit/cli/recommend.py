@@ -21,6 +21,7 @@ from license_audit.reports._format import (
     IncompatiblePairFormatter,
     NoRecommendationReason,
     explain_no_recommendation,
+    osadl_label,
 )
 
 _classifier = LicenseClassifier()
@@ -112,6 +113,8 @@ def recommend_cmd(ctx: click.Context) -> None:
     console.rule(f"[bold]License Recommendation: {escape(report.project_name)}[/bold]")
     if report.source:
         console.print(f"[dim]Source:[/dim] {escape(report.source)}")
+    if (data := osadl_label(report)) is not None:
+        console.print(f"[dim]OSADL data:[/dim] {data}")
     console.print()
 
     if not report.packages:
@@ -149,7 +152,7 @@ def _render_constraint(
     if pkg and category != LicenseCategory.PERMISSIVE:
         console.print(
             f"[bold yellow]Most restrictive dependency:[/bold yellow] "
-            f"{pkg.name} ({escape(pkg.display_license)})"
+            f"{escape(pkg.name)} ({escape(pkg.display_license)})"
         )
         desc = CategoryDescriptions.describe(category)
         if desc:

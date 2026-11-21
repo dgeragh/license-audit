@@ -8,9 +8,12 @@ from click.testing import CliRunner
 
 from license_audit.cli.main import cli
 from license_audit.core.models import (
+    ActionCode,
     AnalysisReport,
+    IncompatiblePair,
     LicenseCategory,
     LicenseSource,
+    OsadlData,
     PackageLicense,
 )
 
@@ -66,6 +69,9 @@ class TestRecommendCli:
             packages=[_GPL_PKG],
             recommended_licenses=[],
         )
+        report.incompatible_pairs = [
+            IncompatiblePair(license_a="GPL-3.0-only", license_b="CDDL-1.0")
+        ]
         with patch("license_audit.cli.recommend.run_audit", return_value=report) as _m:
             result = CliRunner().invoke(cli, ["recommend"])
         assert result.exit_code == 0
@@ -93,6 +99,7 @@ class TestRecommendActionItems:
         )
         report.action_items = [
             ActionItem(
+                code=ActionCode.COPYLEFT_DEPENDENCY,
                 severity="warning",
                 package="gpl-pkg",
                 message="Copyleft license detected.",
@@ -140,6 +147,21 @@ class TestRecommendPolicyFlag:
         assert config.policy == "network-copyleft"
 
 
+class TestRecommendMarkupSafety:
+    def test_most_restrictive_package_name_with_markup_preserved(self) -> None:
+        pkg = PackageLicense(
+            name="[/x]",
+            version="1.0",
+            license_expression="GPL-3.0-only",
+            category=LicenseCategory.STRONG_COPYLEFT,
+        )
+        report = _make_report(packages=[pkg], recommended_licenses=["GPL-3.0-only"])
+        with patch("license_audit.cli.recommend.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert result.exit_code == 0
+        assert "[/x] (GPL-3.0-only)" in result.output
+
+
 class TestRecommendSource:
     def test_source_displayed(self) -> None:
         report = _make_report(packages=[_MIT_PKG], recommended_licenses=["MIT"])
@@ -150,9 +172,18 @@ class TestRecommendSource:
         assert "Source:" in result.output
         assert "/abs/.venv" in result.output
 
+    def test_osadl_data_displayed(self) -> None:
+        report = _make_report(packages=[_MIT_PKG], recommended_licenses=["MIT"])
+        report.osadl_data = OsadlData(
+            origin="refreshed", timestamp="2026-02-12T16:31:00+0000"
+        )
+        with patch("license_audit.cli.recommend.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert "OSADL data: 2026-02-12 (refreshed)" in result.output
+
 
 _UNKNOWN_PKG = PackageLicense(
-    name="weird-license-pkg",
+    name="unclassified-pkg",
     version="1.0.0",
     license_expression="BSD-3-Clause AND CC0-1.0",
     license_source=LicenseSource.PEP639,
@@ -170,7 +201,7 @@ class TestRecommendUnknownPackages:
             result = CliRunner().invoke(cli, ["recommend"])
         assert result.exit_code == 0
         assert "Cannot recommend a license" in result.output
-        assert "weird-license-pkg" in result.output
+        assert "unclassified-pkg" in result.output
         assert "No compatible" not in result.output
 
     def test_ignored_unknown_doesnt_block(self) -> None:

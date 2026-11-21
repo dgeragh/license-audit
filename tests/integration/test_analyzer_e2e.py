@@ -15,7 +15,11 @@ from pathlib import Path
 import pytest
 
 from license_audit.core.analyzer import LicenseAuditor
-from license_audit.core.models import LicenseCategory
+from license_audit.core.models import ActionCode, LicenseCategory
+from license_audit.reports._format import (
+    NoRecommendationReason,
+    explain_no_recommendation,
+)
 
 VenvBuilder = Callable[[Path, dict[str, str]], Path]
 
@@ -283,7 +287,7 @@ class TestConfigPropagation:
         tmp_path: Path,
         make_venv: VenvBuilder,
     ) -> None:
-        """EUPL-1.1, Apache-2.0, and PSF-2.0 pair up fine, but no outbound
+        """EUPL-1.1, Apache-2.0, and MPL-1.1 pair up fine, but no outbound
         license satisfies all three, so the check fails on the group."""
         _write_pyproject(
             tmp_path / "pyproject.toml",
@@ -292,12 +296,12 @@ class TestConfigPropagation:
         )
         make_venv(
             tmp_path / ".venv",
-            {"eupl": "EUPL-1.1", "requests": "Apache-2.0", "typing-ext": "PSF-2.0"},
+            {"eupl": "EUPL-1.1", "requests": "Apache-2.0", "xmpl": "MPL-1.1"},
         )
         report = LicenseAuditor().run(target=tmp_path)
         assert report.incompatible_pairs == []
         assert [g.licenses for g in report.incompatible_groups] == [
-            ["EUPL-1.1", "Apache-2.0", "PSF-2.0"],
+            ["EUPL-1.1", "Apache-2.0", "MPL-1.1"],
         ]
         assert report.recommended_licenses == []
         assert report.review_licenses == []
@@ -378,6 +382,187 @@ class TestConfigPropagation:
             for p in report.incompatible_pairs
         )
         assert report.recommended_licenses == []
+
+    def test_weak_copyleft_classification_keeps_recommendations(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "weak-copyleft"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"CC-BY-SA-4.0" = "weak-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"sharealike": "CC-BY-SA-4.0", "plain": "MIT"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.recommended_licenses[0] == "MIT"
+        assert "MPL-2.0" in report.recommended_licenses
+        # Nothing checks CC-BY-SA-4.0 against a copyleft outbound license.
+        assert not {"GPL-2.0-only", "GPL-3.0-only", "AGPL-3.0-only"} & set(
+            report.recommended_licenses
+        )
+        assert report.policy_passed is True
+
+    def test_weak_copyleft_classification_beside_copyleft_withholds(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"CC-BY-SA-4.0" = "weak-copyleft"\n',
+        )
+        make_venv(
+            tmp_path / ".venv", {"sharealike": "CC-BY-SA-4.0", "gpl": "GPL-3.0-only"}
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.recommended_licenses == []
+        assert report.review_licenses == []
+        assert report.incompatible_pairs == []
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.UNCHECKED_LICENSE
+        assert "(gpl)" in explanation.detail
+
+    def test_weak_copyleft_component_beside_copyleft_withholds(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"CC-BY-SA-4.0" = "weak-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"mixed": "CC-BY-SA-4.0 AND GPL-2.0-only"})
+        report = LicenseAuditor().run(target=tmp_path)
+        mixed = next(p for p in report.packages if p.name == "mixed")
+        assert mixed.category_overridden is False
+        # GPL-2.0-only alone would recommend GPL-2.0-only.
+        assert report.recommended_licenses == []
+
+    def test_strong_copyleft_component_that_does_not_decide_withholds(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "network-copyleft"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"CC-BY-SA-4.0" = "strong-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"mixed": "CC-BY-SA-4.0 AND AGPL-3.0-only"})
+        report = LicenseAuditor().run(target=tmp_path)
+        mixed = next(p for p in report.packages if p.name == "mixed")
+        assert mixed.category == LicenseCategory.NETWORK_COPYLEFT
+        assert mixed.category_overridden is False
+        # AGPL-3.0-only alone would recommend AGPL-3.0-only.
+        assert report.recommended_licenses == []
+
+    def test_weak_copyleft_license_the_matrix_leaves_out_limits_recommendations(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "weak-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"font": "OFL-1.1", "plain": "MIT"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.recommended_licenses[0] == "MIT"
+        assert "MPL-2.0" in report.recommended_licenses
+        assert not {"GPL-2.0-only", "GPL-3.0-only", "AGPL-3.0-only"} & set(
+            report.recommended_licenses
+        )
+
+    def test_cc_by_sa_3_beside_copyleft_withholds(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """OSADL categorizes CC-BY-SA-3.0 as weak copyleft without rating its
+        compatibility, so nothing checks it against the GPL outbound license."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n',
+        )
+        make_venv(
+            tmp_path / ".venv", {"sharealike": "CC-BY-SA-3.0", "gpl": "GPL-3.0-only"}
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        sharealike = next(p for p in report.packages if p.name == "sharealike")
+        assert sharealike.category == LicenseCategory.WEAK_COPYLEFT
+        assert report.policy_passed is True
+        assert report.recommended_licenses == []
+        assert report.review_licenses == []
+
+    def test_network_copyleft_license_the_matrix_leaves_out_withholds(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "network-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"old_agpl": "AGPL-1.0-only"})
+        report = LicenseAuditor().run(target=tmp_path)
+        # Imposing nothing recommended MIT for network-copyleft code.
+        assert report.recommended_licenses == []
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.UNCHECKED_LICENSE
+        assert "(old-agpl)" in explanation.detail
+
+    def test_alternative_the_matrix_leaves_out_is_not_relied_on(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(tmp_path / ".venv", {"dual": "AGPL-1.0-only OR MIT"})
+        report = LicenseAuditor().run(target=tmp_path)
+        # The MIT alternative is checked, so it alone decides recommendations.
+        assert report.recommended_licenses[0] == "MIT"
+        assert "GPL-3.0-only" in report.recommended_licenses
+
+    def test_permissive_component_classification_keeps_recommendations(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"MPL-2.0" = "permissive"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"mixed": "MPL-2.0 AND GPL-3.0-or-later", "gpl": "GPL-3.0-or-later"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        mixed = next(p for p in report.packages if p.name == "mixed")
+        assert mixed.category == LicenseCategory.STRONG_COPYLEFT
+        assert mixed.category_overridden is False
+        assert report.recommended_licenses[:2] == ["GPL-3.0-only", "GPL-3.0-or-later"]
 
     def test_classification_matching_nothing_warns(
         self,
@@ -523,7 +708,34 @@ class TestConfigPropagation:
         assert docutils.license_expression == "BSD-3-Clause OR Unlicense"
         warnings = [i for i in report.action_items if i.package == "docutils"]
         assert len(warnings) == 1
+        assert warnings[0].code == ActionCode.UNMAPPED_CLASSIFIER
         assert "GNU General Public License (GPL)" in warnings[0].message
+
+    def test_classifiers_in_different_categories_warn(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        dist_info = next(venv.glob("lib/*/site-packages")) / "mixed-1.0.dist-info"
+        dist_info.mkdir()
+        (dist_info / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: mixed\nVersion: 1.0\n"
+            "Classifier: License :: OSI Approved :: MIT License\n"
+            "Classifier: License :: OSI Approved :: "
+            "GNU General Public License v3 (GPLv3)\n"
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        mixed = next(p for p in report.packages if p.name == "mixed")
+        assert mixed.license_expression == "GPL-3.0-only OR MIT"
+        assert mixed.category == LicenseCategory.PERMISSIVE
+        warnings = [i for i in report.action_items if i.package == "mixed"]
+        assert len(warnings) == 1
+        assert "read as a choice between them" in warnings[0].message
 
     def test_classifier_reading_narrower_than_license_field_warns(
         self,
@@ -553,6 +765,7 @@ class TestConfigPropagation:
         warnings = [i for i in report.action_items if i.package == "pyinstaller"]
         assert any(
             "also allows later versions and adds an exception" in w.message
+            and w.code == ActionCode.DROPPED_LICENSE_TERMS
             for w in warnings
         )
 
@@ -736,6 +949,50 @@ class TestConfigPropagation:
         assert report.policy_passed is False
 
 
+class TestOSADLData:
+    def test_report_names_the_data_used(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "license_audit._data.store.platformdirs.user_cache_dir",
+            lambda *_: str(tmp_path / "cache"),
+        )
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        report = LicenseAuditor().run(target=venv)
+        assert report.osadl_data is not None
+        assert report.osadl_data.origin == "bundled"
+        assert report.osadl_data.timestamp.startswith("20")
+
+    def test_malformed_cache_fails_instead_of_hiding_conflicts(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        cache = tmp_path / "cache" / "osadl"
+        cache.mkdir(parents=True)
+        (cache / "osadl_matrix.json").write_text(
+            json.dumps(
+                {
+                    "timestamp": "2027-01-01T00:00:00+0000",
+                    "licenses": {"MIT": {"MIT": "Same"}},
+                }
+            )
+        )
+        monkeypatch.setattr(
+            "license_audit._data.store.platformdirs.user_cache_dir",
+            lambda *_: str(cache.parent),
+        )
+        venv = make_venv(
+            tmp_path / ".venv", {"gpl2": "GPL-2.0-only", "apache": "Apache-2.0"}
+        )
+        with pytest.raises(ValueError, match="not valid OSADL data"):
+            LicenseAuditor().run(target=venv)
+
+
 class TestRequiredDependencies:
     """A dependency the project requires but the environment lacks fails the
     audit: it usually means the wrong environment was audited."""
@@ -794,6 +1051,53 @@ class TestRequiredDependencies:
 
 
 class TestProjectIdentity:
+    def test_local_installs_count_without_a_project(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        source = tmp_path / "src" / "vendored"
+        source.mkdir(parents=True)
+        dist_info = next(venv.glob("lib/*/site-packages")) / "vendored-1.0.dist-info"
+        dist_info.mkdir()
+        (dist_info / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: vendored\nVersion: 1.0\n"
+            "License-Expression: GPL-3.0-only\n"
+        )
+        (dist_info / "direct_url.json").write_text(
+            json.dumps({"url": source.resolve().as_uri(), "dir_info": {}})
+        )
+        report = LicenseAuditor().run(target=venv)
+        assert {p.name for p in report.packages} == {"click", "vendored"}
+
+    def test_workspace_members_are_part_of_the_project(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "acme-app"\nversion = "0.1"\n'
+            'dependencies = ["acme-core", "click"]\n',
+        )
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        member = tmp_path / "packages" / "core"
+        member.mkdir(parents=True)
+        dist_info = next(venv.glob("lib/*/site-packages")) / "acme_core-0.1.dist-info"
+        dist_info.mkdir()
+        (dist_info / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: acme-core\nVersion: 0.1\n"
+            "Requires-Dist: click\n"
+        )
+        (dist_info / "direct_url.json").write_text(
+            json.dumps({"url": member.resolve().as_uri(), "dir_info": {}})
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        assert [p.name for p in report.packages] == ["click"]
+        assert report.missing_dependencies == []
+        assert report.policy_passed is True
+
     """The project is never audited as a dependency of itself."""
 
     def test_poetry_project_name(

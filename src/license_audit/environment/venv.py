@@ -1,8 +1,9 @@
-"""Locate the site-packages of the environment we audit."""
+"""Locate the site-packages of the audited environment."""
 
 from __future__ import annotations
 
 import re
+import site
 import sysconfig
 from pathlib import Path
 
@@ -13,8 +14,12 @@ _VERSION = re.compile(r"\d+\.\d+(?:\.\d+)?")
 
 def current_reader() -> MetadataReader:
     """Reader for the interpreter running license_audit itself."""
-    site_packages = Path(sysconfig.get_path("purelib"))
-    return MetadataReader.from_site_packages(site_packages)
+    purelib = Path(sysconfig.get_path("purelib"))
+    others = [Path(sysconfig.get_path("platlib"))]
+    if site.ENABLE_USER_SITE:
+        others.append(Path(site.getusersitepackages()))
+    extra = [p for p in dict.fromkeys(others) if p != purelib and p.is_dir()]
+    return MetadataReader.from_site_packages(purelib, *extra)
 
 
 def reader_for_venv(venv_path: Path) -> MetadataReader:
@@ -26,11 +31,13 @@ def reader_for_venv(venv_path: Path) -> MetadataReader:
     if sp is None:
         msg = f"No site-packages directory found in {venv_path}"
         raise FileNotFoundError(msg)
-    return MetadataReader.from_site_packages(sp, marker_environment(venv_path, sp))
+    return MetadataReader.from_site_packages(
+        sp, marker_environment=marker_environment(venv_path, sp)
+    )
 
 
 def marker_environment(venv_path: Path, site_packages: Path) -> dict[str, str]:
-    """Marker values for the virtualenv where they can differ from ours.
+    """Marker values where the virtualenv can differ from the running interpreter.
 
     Only the Python version is read, from pyvenv.cfg or else the
     `lib/pythonX.Y` directory name; platform markers are the host's, since a
@@ -77,10 +84,19 @@ def find_site_packages(venv_path: Path) -> Path | None:
     """Locate the site-packages dir inside a virtualenv, or None."""
     lib_dir = venv_path / "lib"
     if lib_dir.is_dir():
-        for child in lib_dir.iterdir():
-            sp = child / "site-packages"
-            if sp.is_dir():
+        candidates = sorted(
+            sp
+            for child in lib_dir.iterdir()
+            if (sp := child / "site-packages").is_dir()
+        )
+        version = _pyvenv_version(venv_path / "pyvenv.cfg")
+        major_minor = ".".join(version.split(".")[:2]) if version else None
+        for sp in candidates:
+            match = _VERSION.search(sp.parent.name)
+            if match and ".".join(match.group().split(".")[:2]) == major_minor:
                 return sp
+        if candidates:
+            return candidates[0]
 
     sp = venv_path / "Lib" / "site-packages"
     if sp.is_dir():

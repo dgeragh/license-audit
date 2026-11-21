@@ -23,8 +23,8 @@ jobs:
   license-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: uv run license-audit check
 ```
@@ -45,7 +45,7 @@ Upload the compliance report and notices as build artifacts:
         run: |
           uv run license-audit report --output COMPLIANCE.md
           uv run license-audit report --format notices --output THIRD_PARTY_NOTICES.md
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: license-report
@@ -98,7 +98,7 @@ ec=$?
 case $ec in
   0) ;;
   1) echo "::error::License check failed"; exit 1 ;;
-  2) echo "::warning::Unknown licenses - resolve in pyproject.toml"; exit 0 ;;
+  2) echo "::warning::Unknown licenses: resolve them in pyproject.toml"; exit 0 ;;
 esac
 ```
 

@@ -10,6 +10,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StrictBool,
     ValidationError,
     ValidationInfo,
     field_validator,
@@ -25,7 +26,7 @@ class LicenseAuditConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    fail_on_unknown: bool = True
+    fail_on_unknown: StrictBool = True
     policy: PolicyLevel = PolicyLevel.PERMISSIVE
     allowed_licenses: list[str] = Field(default_factory=list)
     denied_licenses: list[str] = Field(default_factory=list)
@@ -71,8 +72,8 @@ class LicenseAuditConfig(BaseModel):
                 "string to a category"
             )
             raise ValueError(msg)  # noqa: TRY004
-        # "unknown" is excluded: the whole point is to *resolve* an unknown,
-        # so re-asserting unknown would be a no-op that still fails policy.
+        # "unknown" is excluded: a classification exists to resolve an
+        # unknown, so re-asserting it would be a no-op that still fails policy.
         valid = sorted(
             c.value for c in LicenseCategory if c is not LicenseCategory.UNKNOWN
         )
@@ -163,40 +164,53 @@ def load_config(config_dir: Path | None = None) -> LicenseAuditConfig:
         msg = f"Could not parse {pyproject_path}: {exc}"
         raise ValueError(msg) from exc
 
-    tool_config = data.get("tool", {}).get("license-audit", {})
+    tool = data.get("tool", {})
+    if not isinstance(tool, dict):
+        msg = "[tool] must be a table"
+        raise ValueError(msg)  # noqa: TRY004
+    tool_config = tool.get("license-audit", {})
     if not isinstance(tool_config, dict):
         msg = "[tool.license-audit] must be a table"
         raise ValueError(msg)  # noqa: TRY004
     if not tool_config:
         return LicenseAuditConfig()
 
-    # pyproject convention is kebab-case; Pydantic fields are snake_case.
-    normalized: dict[str, object] = {}
-    for key, value in tool_config.items():
-        normalized[key.replace("-", "_")] = value
-
+    unknown = [key for key in tool_config if "_" in key]
+    fields = {
+        key.replace("-", "_"): value
+        for key, value in tool_config.items()
+        if key not in unknown
+    }
     try:
-        return LicenseAuditConfig.model_validate(normalized)
+        config = LicenseAuditConfig.model_validate(fields)
     except ValidationError as exc:
-        raise ValueError(_describe_errors(exc, pyproject_path)) from exc
+        raise ValueError(_describe_errors(pyproject_path, unknown, exc)) from exc
+    if unknown:
+        raise ValueError(_describe_errors(pyproject_path, unknown))
+    return config
 
 
-def _describe_errors(exc: ValidationError, path: Path) -> str:
+def _describe_errors(
+    path: Path, unknown: list[str], exc: ValidationError | None = None
+) -> str:
     """Summarize `exc` for the user, naming keys as pyproject.toml spells them."""
     lines = [f"Invalid [tool.license-audit] configuration in {path}:"]
-    for error in exc.errors():
+    lines += [_unknown_key(key) for key in unknown]
+    for error in exc.errors() if exc else []:
         location = _toml_location(error["loc"])
         if error["type"] == "extra_forbidden":
-            keys = sorted(f.replace("_", "-") for f in LicenseAuditConfig.model_fields)
-            lines.append(
-                f"  {location}: unknown key; expected one of {', '.join(keys)}"
-            )
+            lines.append(_unknown_key(location))
         elif error["type"] == "value_error" or not location:
             # Our own validators name the key and the offending value.
             lines.append(f"  {error['msg'].removeprefix('Value error, ')}")
         else:
             lines.append(f"  {location}: {error['msg']} (got {error['input']!r})")
     return "\n".join(lines)
+
+
+def _unknown_key(key: str) -> str:
+    keys = sorted(f.replace("_", "-") for f in LicenseAuditConfig.model_fields)
+    return f"  {key}: unknown key; expected one of {', '.join(keys)}"
 
 
 def _toml_location(loc: tuple[int | str, ...]) -> str:

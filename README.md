@@ -64,7 +64,7 @@ Recommended Outbound Licenses (most -> least permissive):
      BSD-2-Clause
      BSD-3-Clause
      ISC
-  ... and 111 more
+  ... and 110 more
 
 ──────────────────────────────── Summary ───────────────────────────────
   Total dependencies: 3
@@ -94,8 +94,8 @@ jobs:
   license-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: uv run license-audit check
 ```

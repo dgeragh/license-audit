@@ -25,8 +25,9 @@ def analyze_environment(
     Walks Requires-Dist from the root, then adds the requirements `declared`
     in pyproject.toml that the root's metadata doesn't carry (dependency
     groups, extras, or everything when the project isn't installed) as direct
-    dependencies. Any other installed package (dev tools, docs deps, etc.) is
-    appended as direct too, those nothing else among them requires first, so
+    dependencies. Any other installed package (development and documentation
+    tools, for example) is appended as direct too, those nothing else among
+    them requires first, so
     a tool's own dependencies are attributed to the tool rather than to
     whichever package sorts first.
     """

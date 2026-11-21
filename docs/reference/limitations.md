@@ -4,9 +4,13 @@
 
 license-audit reads what's declared in package metadata: PEP 639 fields, the legacy `License` field, trove classifiers. It does not scan the contents of `LICENSE` or `NOTICE` files to identify a license, and it can't detect bundled or vendored code whose license differs from the package's declaration. For file-level scanning, use [ScanCode](https://github.com/nexB/scancode-toolkit).
 
+## Packages built from the project are its own code
+
+A package installed from a directory inside the project (the directory holding its `pyproject.toml`), such as a uv workspace member or a path dependency under the project root, counts as part of the project and isn't audited; its own dependencies are. Third-party code installed that way is skipped like any vendored code, so install it from an index or a wheel to have it audited.
+
 ## OSADL coverage is finite
 
-The OSADL compatibility matrix covers about 120 well-known open-source licenses. A handful of common permissive licenses its data leaves out are classified built-in: CC0-1.0, CNRI-Python, ZPL-2.1, CC-BY-4.0, Python-2.0.1, MIT-Modern-Variant, and BSD-3-Clause-Clear. Any other valid SPDX license outside the data is detected but classifies as unknown; record your judgement in `[tool.license-audit.license-classifications]` to resolve it (an entry there also overrides a built-in category). Strings that aren't SPDX at all produce "Unknown" verdicts; use `[tool.license-audit.overrides]` to assign SPDX identifiers manually when detection fails.
+The OSADL compatibility matrix covers about 120 well-known open-source licenses. A handful of common permissive licenses its data leaves out are classified built-in: CC0-1.0, CNRI-Python, ZPL-2.1, CC-BY-4.0, Python-2.0.1, MIT-Modern-Variant, and BSD-3-Clause-Clear. Any other valid SPDX license outside the data is detected but classifies as unknown; record your judgement in `[tool.license-audit.license-classifications]` to resolve it (an entry there also overrides a built-in category). A license with a category but no matrix entry, a built-in one or one OSADL categorizes without rating its compatibility (OFL-1.1, CC-BY-SA-3.0, AGPL-1.0), raises no conflicts, and recommendations rest on its category as they do for a classified license: a weak-copyleft one limits them to permissive and weak-copyleft licenses, and a stronger one withholds them. Strings that aren't SPDX at all produce "Unknown" verdicts; use `[tool.license-audit.overrides]` to assign SPDX identifiers manually when detection fails.
 
 ## Compatibility reads OSADL for libraries
 
@@ -27,7 +31,7 @@ PyPI packages use inconsistent license strings. license-audit normalizes 60+ com
 
 ## You must provision the environment first
 
-license-audit reads an already-installed environment; it does not resolve or install dependencies. Run `uv sync`, `poetry install`, `pip install -e .`, or equivalent before auditing. Only what's installed is audited: a dependency the project requires that isn't installed fails the check rather than passing unread, but optional extras and dependency groups you didn't install are simply left out (see [required dependencies](../user-guide/configuration.md#required-dependencies)).
+license-audit reads an already-installed environment; it does not resolve or install dependencies. Run `uv sync`, `poetry install`, `pip install -e .`, or equivalent before auditing. Only what's installed is audited: a dependency the project requires that isn't installed fails the check rather than passing unread, but optional extras and dependency groups you didn't install are left out (see [required dependencies](../user-guide/configuration.md#required-dependencies)).
 
 ## Environment markers track the audited environment
 

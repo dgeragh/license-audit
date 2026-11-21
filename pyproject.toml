@@ -18,9 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Quality Assurance",
-    "Typing :: Typed",
 ]
 
 dependencies = [
@@ -60,7 +58,6 @@ packages = ["src/license_audit"]
 docs = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.0",
-    "mkdocstrings[python]>=0.27.0",
     "mkdocs-include-markdown-plugin>=7.0.0",
     "mike>=2.1.0",
 ]
@@ -80,7 +77,7 @@ source = ["src/license_audit"]
 omit = ["src/license_audit/_version.py"]
 
 [tool.coverage.report]
-fail_under = 75
+fail_under = 95
 show_missing = true
 
 [tool.mypy]

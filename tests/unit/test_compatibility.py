@@ -6,7 +6,7 @@ from itertools import combinations
 
 from license_audit._data import OSADLDataStore
 from license_audit.core.compatibility import CompatibilityMatrix, Inbound
-from license_audit.core.models import IncompatibleGroup, Verdict
+from license_audit.core.models import IncompatibleGroup
 
 
 def _inbound(*ids: str) -> list[Inbound]:
@@ -25,27 +25,36 @@ class TestInboundLabel:
         assert unit.label == "(MPL-2.0 AND Apache-2.0) OR MIT"
 
 
-class TestIsCompatible:
+class TestRawVerdict:
     def test_same_license(self) -> None:
-        result = CompatibilityMatrix().is_compatible("MIT", "MIT")
-        assert result.verdict == Verdict.SAME
+        assert CompatibilityMatrix().raw_verdict("MIT", "MIT") == "Same"
 
-    def test_mit_to_gpl(self) -> None:
-        result = CompatibilityMatrix().is_compatible("MIT", "GPL-3.0-only")
-        assert result.verdict == Verdict.COMPATIBLE
+    def test_mit_in_gpl_work(self) -> None:
+        assert CompatibilityMatrix().raw_verdict("GPL-3.0-only", "MIT") == "Yes"
 
-    def test_gpl_to_mit(self) -> None:
-        result = CompatibilityMatrix().is_compatible("GPL-3.0-only", "MIT")
-        assert result.verdict == Verdict.INCOMPATIBLE
+    def test_gpl_in_mit_work(self) -> None:
+        assert CompatibilityMatrix().raw_verdict("MIT", "GPL-3.0-only") == "No"
 
     def test_unknown_license(self) -> None:
-        result = CompatibilityMatrix().is_compatible("NONEXISTENT-LICENSE", "MIT")
-        assert result.verdict == Verdict.UNKNOWN
+        verdict = CompatibilityMatrix().raw_verdict("MIT", "NONEXISTENT-LICENSE")
+        assert verdict == "Unknown"
 
-    def test_result_fields(self) -> None:
-        result = CompatibilityMatrix().is_compatible("MIT", "Apache-2.0")
-        assert result.inbound == "MIT"
-        assert result.outbound == "Apache-2.0"
+
+class TestCovers:
+    def test_matrix_license(self) -> None:
+        assert CompatibilityMatrix().covers("MIT") is True
+
+    def test_license_the_matrix_leaves_out(self) -> None:
+        assert CompatibilityMatrix().covers("OFL-1.1") is False
+
+    def test_copyleft_with_form_checked_as_its_base(self) -> None:
+        assert (
+            CompatibilityMatrix().covers("GPL-2.0-or-later WITH Bootloader-exception")
+            is True
+        )
+
+    def test_permissive_with_form(self) -> None:
+        assert CompatibilityMatrix().covers("Apache-2.0 WITH LLVM-exception") is False
 
 
 class TestKnownLicenses:
@@ -255,17 +264,17 @@ class TestInstanceIsolation:
 class TestFindIncompatibleGroups:
     def test_three_licenses_no_pair_explains(self) -> None:
         # Each pair shares an outbound license; no license satisfies all three.
-        units = _inbound("EUPL-1.1", "Apache-2.0", "PSF-2.0")
+        units = _inbound("EUPL-1.1", "Apache-2.0", "MPL-1.1")
         matrix = CompatibilityMatrix()
         assert matrix.find_incompatible_pairs(units) == []
         assert matrix.find_incompatible_groups(units) == [
-            IncompatibleGroup(licenses=["EUPL-1.1", "Apache-2.0", "PSF-2.0"]),
+            IncompatibleGroup(licenses=["EUPL-1.1", "Apache-2.0", "MPL-1.1"]),
         ]
 
     def test_group_keeps_only_the_licenses_it_needs(self) -> None:
-        units = _inbound("MIT", "EUPL-1.1", "BSD-3-Clause", "Apache-2.0", "PSF-2.0")
+        units = _inbound("MIT", "EUPL-1.1", "BSD-3-Clause", "Apache-2.0", "MPL-1.1")
         assert CompatibilityMatrix().find_incompatible_groups(units) == [
-            IncompatibleGroup(licenses=["EUPL-1.1", "Apache-2.0", "PSF-2.0"]),
+            IncompatibleGroup(licenses=["EUPL-1.1", "Apache-2.0", "MPL-1.1"]),
         ]
 
     def test_none_when_a_pair_explains_the_conflict(self) -> None:

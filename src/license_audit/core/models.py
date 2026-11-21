@@ -66,16 +66,6 @@ class LicenseSource(StrEnum):
     UNKNOWN = "unknown"
 
 
-class Verdict(StrEnum):
-    """Compatibility verdict between two licenses."""
-
-    COMPATIBLE = "compatible"
-    INCOMPATIBLE = "incompatible"
-    UNKNOWN = "unknown"
-    CHECK_DEPENDENCY = "check-dependency"
-    SAME = "same"
-
-
 class PackageLicense(BaseModel):
     """License information for a single package."""
 
@@ -96,8 +86,8 @@ class PackageLicense(BaseModel):
         """License string to show users.
 
         Prefers the raw declared identifier when the license could not be
-        mapped to SPDX, so reports surface the actual string (e.g. "
-        Proprietary License") instead of a bare ``UNKNOWN``.
+        mapped to SPDX, so reports surface the actual string (e.g.
+        "Proprietary License") instead of a bare ``UNKNOWN``.
         """
         return self.declared_license or self.license_expression
 
@@ -144,14 +134,6 @@ class DependencyNode(BaseModel):
             dep._flatten_inner(seen, result, top_level)
 
 
-class CompatibilityResult(BaseModel):
-    """Result of checking compatibility between two licenses."""
-
-    inbound: str
-    outbound: str
-    verdict: Verdict
-
-
 class IncompatiblePair(BaseModel):
     """Two dependency licenses with no common outbound license.
 
@@ -174,12 +156,38 @@ class IncompatibleGroup(BaseModel):
     licenses: list[str]
 
 
+class ActionCode(StrEnum):
+    """What an action item is about."""
+
+    MISSING_DEPENDENCIES = "missing-dependencies"
+    UNKNOWN_LICENSE = "unknown-license"
+    INCOMPATIBLE_LICENSES = "incompatible-licenses"
+    INCOMPATIBLE_GROUP = "incompatible-group"
+    DENIED_LICENSE = "denied-license"
+    LICENSE_NOT_ALLOWED = "license-not-allowed"
+    POLICY_EXCEEDED = "policy-exceeded"
+    COPYLEFT_DEPENDENCY = "copyleft-dependency"
+    REVIEW_LICENSES = "review-licenses"
+    UNMATCHED_CLASSIFICATION = "unmatched-classification"
+    UNMAPPED_CLASSIFIER = "unmapped-classifier"
+    DROPPED_LICENSE_TERMS = "dropped-license-terms"
+    MIXED_CLASSIFIERS = "mixed-classifiers"
+
+
 class ActionItem(BaseModel):
     """An action the user should take."""
 
-    severity: str = "warning"
+    code: ActionCode
+    severity: Literal["warning", "error"] = "warning"
     package: str = ""
     message: str
+
+
+class OsadlData(BaseModel):
+    """The OSADL compatibility data an audit used."""
+
+    origin: Literal["bundled", "refreshed"]
+    timestamp: str
 
 
 class LicensePolicy(BaseModel):
@@ -198,6 +206,7 @@ class AnalysisReport(BaseModel):
     tool_version: str = Field(default_factory=lambda: __version__)
     project_name: str = ""
     source: str = ""
+    osadl_data: OsadlData | None = None
     packages: list[PackageLicense] = Field(default_factory=list)
     missing_dependencies: list[str] = Field(default_factory=list)
     incompatible_pairs: list[IncompatiblePair] = Field(default_factory=list)

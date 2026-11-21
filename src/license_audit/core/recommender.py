@@ -110,13 +110,6 @@ class LicenseRecommender:
             if self._classifier.classify(lic) == LicenseCategory.PERMISSIVE
         ]
 
-    def find_minimum(self, dependency_licenses: list[str]) -> str | None:
-        """The single most permissive compatible outbound license, or None."""
-        recommended = self.recommend(dependency_licenses)
-        if not recommended:
-            return None
-        return recommended[0]
-
     def resolve_inbound(
         self,
         expressions: list[str],
