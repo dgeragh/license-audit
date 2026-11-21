@@ -5,6 +5,7 @@ from license_audit.core.models import (
     IncompatibleGroup,
     LicenseCategory,
     LicenseSource,
+    OsadlData,
     PackageLicense,
 )
 from license_audit.reports.markdown import MarkdownRenderer
@@ -104,6 +105,16 @@ class TestMarkdownRenderer:
     def test_no_source_line_when_empty(self) -> None:
         result = MarkdownRenderer().render(AnalysisReport(project_name="p"))
         assert "Source:" not in result
+        assert "OSADL data:" not in result
+
+    def test_osadl_data_in_header(self) -> None:
+        report = AnalysisReport(
+            project_name="p",
+            osadl_data=OsadlData(
+                origin="refreshed", timestamp="2027-01-03T08:00:00+0000"
+            ),
+        )
+        assert "OSADL data: 2027-01-03 (refreshed)" in MarkdownRenderer().render(report)
 
     def test_pipe_in_ignore_reason_does_not_break_table(self) -> None:
         pkg = PackageLicense(

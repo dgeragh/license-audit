@@ -27,6 +27,7 @@ Version history:
 | `tool_version` | string | Version of license-audit that produced the report |
 | `project_name` | string | Name of the audited project from `pyproject.toml` (`[project]`, else `[tool.poetry]`) or the package installed from the project's directory, the literal string `unknown` when it can't be determined |
 | `source` | string | Human-readable description of the audit target, naming the environment by path |
+| `osadl_data` | [OsadlData](#osadldata) or null | The OSADL compatibility data the audit used. Always set by current versions; `null` is reserved |
 | `packages` | array of [PackageLicense](#packagelicense) | One entry per audited package |
 | `missing_dependencies` | array of string | Packages the project requires that aren't installed in the audited environment, so their licenses weren't checked (see [required dependencies](../user-guide/configuration.md#required-dependencies)). Any entry fails the policy and withholds recommendations |
 | `incompatible_pairs` | array of [IncompatiblePair](#incompatiblepair) | License pairs found incompatible |
@@ -35,6 +36,13 @@ Version history:
 | `review_licenses` | array of string | When no outbound license is a definite fit, the ones that satisfy every dependency once you confirm how they are combined (OSADL's "Check dependency" verdict), most permissive first; empty otherwise. Unless recommendations are withheld, exactly one of `recommended_licenses`, `review_licenses`, and the incompatible pairs and groups is non-empty |
 | `action_items` | array of [ActionItem](#actionitem) | Follow-ups the user should address |
 | `policy_passed` | boolean or null | Policy gate result, the same verdict `check` reaches: `false` on an incompatible pair or group, a missing required dependency, a policy violation, or an unknown license while `fail-on-unknown` is on. Always set by current versions; `null` is reserved |
+
+## OsadlData
+
+| Field | Type | Description |
+|---|---|---|
+| `origin` | string | `bundled` for the data shipped with license-audit, `refreshed` for the copy `license-audit refresh` saved; an audit uses whichever is newer |
+| `timestamp` | string | When OSADL published the data, as recorded in it (`2026-02-12T16:31:00+0000`) |
 
 ## PackageLicense
 

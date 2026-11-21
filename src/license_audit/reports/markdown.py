@@ -21,6 +21,7 @@ from license_audit.reports._format import (
     fenced_code_block,
     generated_metadata_block,
     markdown_license_cell,
+    osadl_label,
 )
 
 
@@ -47,9 +48,11 @@ class MarkdownRenderer:
         return "\n".join(s for s in sections if s)
 
     def _header(self, report: AnalysisReport) -> str:
+        data = osadl_label(report)
         return (
             f"# License Compliance Report: {report.project_name}\n\n"
             f"{generated_metadata_block(report)}"
+            + (f"OSADL data: {data}\n" if data is not None else "")
         )
 
     def _summary(self, report: AnalysisReport) -> str:

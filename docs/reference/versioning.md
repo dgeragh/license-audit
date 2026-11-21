@@ -10,5 +10,5 @@ license-audit follows [Semantic Versioning](https://semver.org). From 1.0 on, a 
 These can change in any release:
 
 - **Human-readable output**: terminal output and the Markdown and notices reports are written for people. Parse the JSON report instead.
-- **Results**: alias tables, built-in classifications, compatibility rules, and the OSADL data (which `license-audit refresh` also updates) improve over time, so a package's detected license or category, and therefore a `check` outcome, can change between releases. Pin license-audit where a CI run must be reproducible.
+- **Results**: alias tables, built-in classifications, compatibility rules, and the OSADL data (which `license-audit refresh` also updates) improve over time, so a package's detected license or category, and therefore a `check` outcome, can change between releases. Pin license-audit, and don't run `license-audit refresh`, where a CI run must be reproducible; every report names the OSADL data it used.
 - **The Python API**: the command line is the public interface. The modules behind it are internal and can change in any release.

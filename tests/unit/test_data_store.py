@@ -92,6 +92,17 @@ class TestOSADLDataStore:
         store.reload()
         assert store.matrix()["MIT"]["Apache-2.0"] == "Unknown"
 
+    def test_origin_is_bundled_without_cache(self, cache: Path) -> None:
+        store = OSADLDataStore()
+        assert store.origin() == "bundled"
+        assert store.timestamp() == _bundled(OSADLDataStore.MATRIX_FILE)["timestamp"]
+
+    def test_origin_is_refreshed_with_newer_cache(self, cache: Path) -> None:
+        _write_cache(cache, "2099-01-01T00:00:00+0000", "No")
+        store = OSADLDataStore()
+        assert store.origin() == "refreshed"
+        assert store.timestamp() == "2099-01-01T00:00:00+0000"
+
     def test_cache_dir_under_user_cache(self) -> None:
         store = OSADLDataStore()
         assert store.cache_dir().name == "osadl"

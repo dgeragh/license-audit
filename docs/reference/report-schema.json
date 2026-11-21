@@ -85,6 +85,29 @@
       "title": "LicenseSource",
       "type": "string"
     },
+    "OsadlData": {
+      "description": "The OSADL compatibility data an audit used.",
+      "properties": {
+        "origin": {
+          "enum": [
+            "bundled",
+            "refreshed"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "timestamp": {
+          "title": "Timestamp",
+          "type": "string"
+        }
+      },
+      "required": [
+        "origin",
+        "timestamp"
+      ],
+      "title": "OsadlData",
+      "type": "object"
+    },
     "PackageLicense": {
       "description": "License information for a single package.",
       "properties": {
@@ -183,6 +206,17 @@
       "default": "",
       "title": "Source",
       "type": "string"
+    },
+    "osadl_data": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OsadlData"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "packages": {
       "items": {

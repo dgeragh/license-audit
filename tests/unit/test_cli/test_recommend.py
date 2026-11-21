@@ -11,6 +11,7 @@ from license_audit.core.models import (
     AnalysisReport,
     LicenseCategory,
     LicenseSource,
+    OsadlData,
     PackageLicense,
 )
 
@@ -149,6 +150,15 @@ class TestRecommendSource:
         assert result.exit_code == 0
         assert "Source:" in result.output
         assert "/abs/.venv" in result.output
+
+    def test_osadl_data_displayed(self) -> None:
+        report = _make_report(packages=[_MIT_PKG], recommended_licenses=["MIT"])
+        report.osadl_data = OsadlData(
+            origin="refreshed", timestamp="2026-02-12T16:31:00+0000"
+        )
+        with patch("license_audit.cli.recommend.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert "OSADL data: 2026-02-12 (refreshed)" in result.output
 
 
 _UNKNOWN_PKG = PackageLicense(

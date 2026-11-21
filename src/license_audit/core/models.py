@@ -182,6 +182,13 @@ class ActionItem(BaseModel):
     message: str
 
 
+class OsadlData(BaseModel):
+    """The OSADL compatibility data an audit used."""
+
+    origin: Literal["bundled", "refreshed"]
+    timestamp: str
+
+
 class LicensePolicy(BaseModel):
     """User-defined license policy."""
 
@@ -198,6 +205,7 @@ class AnalysisReport(BaseModel):
     tool_version: str = Field(default_factory=lambda: __version__)
     project_name: str = ""
     source: str = ""
+    osadl_data: OsadlData | None = None
     packages: list[PackageLicense] = Field(default_factory=list)
     missing_dependencies: list[str] = Field(default_factory=list)
     incompatible_pairs: list[IncompatiblePair] = Field(default_factory=list)

@@ -8,7 +8,7 @@ from collections.abc import Callable
 from datetime import datetime
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import platformdirs
 
@@ -76,6 +76,7 @@ class OSADLDataStore:
         self._matrix: dict[str, dict[str, str]] | None = None
         self._copyleft: dict[str, str] | None = None
         self._files: dict[str, dict[str, Any]] | None = None
+        self._origin: Literal["bundled", "refreshed"] = "bundled"
 
     def cache_dir(self) -> Path:
         """Per-user cache dir where `refresh` writes data files."""
@@ -96,6 +97,13 @@ class OSADLDataStore:
     def known_licenses(self) -> list[str]:
         """All license identifiers present in the matrix."""
         return list(self.matrix().keys())
+
+    def origin(self) -> Literal["bundled", "refreshed"]:
+        self._file(self.MATRIX_FILE)
+        return self._origin
+
+    def timestamp(self) -> str:
+        return str(self._file(self.MATRIX_FILE)["timestamp"])
 
     def reload(self) -> None:
         """Drop in-memory caches so the next access re-reads from disk."""
@@ -124,7 +132,9 @@ class OSADLDataStore:
         if len(cached) == len(bundled) and parse_timestamp(
             cached[self.MATRIX_FILE]
         ) >= parse_timestamp(bundled[self.MATRIX_FILE]):
+            self._origin = "refreshed"
             return cached
+        self._origin = "bundled"
         return bundled
 
 

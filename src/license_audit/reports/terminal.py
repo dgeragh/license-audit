@@ -16,6 +16,7 @@ from license_audit.reports._format import (
     SummaryStats,
     category_label,
     explain_no_recommendation,
+    osadl_label,
 )
 
 
@@ -51,6 +52,8 @@ class TerminalRenderer:
         )
         if report.source:
             self._console.print(f"[dim]Source:[/dim] {escape(report.source)}")
+        if (data := osadl_label(report)) is not None:
+            self._console.print(f"[dim]OSADL data:[/dim] {data}")
         self._console.print()
 
     def _render_package_table(self, report: AnalysisReport) -> None:

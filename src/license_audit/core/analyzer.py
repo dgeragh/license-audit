@@ -255,6 +255,7 @@ class LicenseAuditor:
         return AnalysisReport(
             project_name=project_name,
             source=self._describe_source(info),
+            osadl_data=self._matrix.osadl_data(),
             packages=dep_packages,
             missing_dependencies=missing,
             incompatible_pairs=incompatible,

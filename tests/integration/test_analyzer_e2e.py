@@ -737,6 +737,22 @@ class TestConfigPropagation:
 
 
 class TestOSADLData:
+    def test_report_names_the_data_used(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "license_audit._data.store.platformdirs.user_cache_dir",
+            lambda *_: str(tmp_path / "cache"),
+        )
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        report = LicenseAuditor().run(target=venv)
+        assert report.osadl_data is not None
+        assert report.osadl_data.origin == "bundled"
+        assert report.osadl_data.timestamp.startswith("20")
+
     def test_malformed_cache_fails_instead_of_hiding_conflicts(
         self,
         tmp_path: Path,

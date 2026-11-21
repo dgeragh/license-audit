@@ -12,6 +12,7 @@ from license_audit.core.models import (
     IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
+    OsadlData,
     Verdict,
 )
 
@@ -102,6 +103,9 @@ class CompatibilityMatrix:
     def known_licenses(self) -> list[str]:
         """All licenses the matrix can answer for."""
         return self._store.known_licenses()
+
+    def osadl_data(self) -> OsadlData:
+        return OsadlData(origin=self._store.origin(), timestamp=self._store.timestamp())
 
     def raw_verdict(self, outbound: str, inbound: str) -> str:
         """Raw OSADL string (e.g. 'Yes', 'No', 'Same').

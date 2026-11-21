@@ -13,6 +13,7 @@ from license_audit.core.models import (
     IncompatiblePair,
     LicenseCategory,
     LicenseSource,
+    OsadlData,
     PackageLicense,
 )
 from license_audit.reports.terminal import TerminalRenderer
@@ -110,6 +111,18 @@ class TestTerminalRenderer:
         )
         assert "Source:" in buf.getvalue()
         assert "/abs/.venv" in buf.getvalue()
+
+    def test_osadl_data_in_header(self) -> None:
+        console, buf = _make_console()
+        TerminalRenderer(console=console).render(
+            AnalysisReport(
+                project_name="p",
+                osadl_data=OsadlData(
+                    origin="bundled", timestamp="2026-02-12T16:31:00+0000"
+                ),
+            ),
+        )
+        assert "OSADL data: 2026-02-12 (bundled)" in buf.getvalue()
 
 
 class TestCategoryColors:

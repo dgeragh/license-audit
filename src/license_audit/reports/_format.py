@@ -184,6 +184,13 @@ def explain_no_recommendation(
     )
 
 
+def osadl_label(report: AnalysisReport) -> str | None:
+    data = report.osadl_data
+    if data is None:
+        return None
+    return f"{data.timestamp[:10]} ({data.origin})"
+
+
 def markdown_license_cell(value: str) -> str:
     """`license_label` plus pipe-escaping for safe markdown-table inclusion."""
     return license_label(value).replace("|", "\\|")

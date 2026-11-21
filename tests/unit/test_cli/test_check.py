@@ -16,6 +16,7 @@ from license_audit.core.models import (
     IncompatiblePair,
     LicenseCategory,
     LicenseSource,
+    OsadlData,
     PackageLicense,
     PolicyLevel,
 )
@@ -403,6 +404,15 @@ class TestCheckSource:
         assert result.exit_code == 0
         assert "Source:" in result.stderr
         assert "/abs/.venv" in result.stderr
+
+    def test_osadl_data_displayed(self) -> None:
+        report = _make_report(packages=[_MIT_PKG])
+        report.osadl_data = OsadlData(
+            origin="bundled", timestamp="2026-02-12T16:31:00+0000"
+        )
+        with patch("license_audit.cli.check.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["check"])
+        assert "OSADL data: 2026-02-12 (bundled)" in result.stderr
 
 
 class TestCheckIgnoredPackages:
