@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
 from license_audit.core.models import (
+    ActionItem,
     DependencyNode,
     LicenseCategory,
     LicenseSource,
@@ -81,3 +85,14 @@ class TestDependencyNodeFlatten:
         tree = _node("root", _node("a"))
         root_pkg = next(p for p in tree.flatten() if p.name == "root")
         assert root_pkg.parent == ""
+
+
+class TestActionItem:
+    @pytest.mark.parametrize("severity", ["warning", "error"])
+    def test_accepts_warning_and_error(self, severity: str) -> None:
+        item = ActionItem.model_validate({"severity": severity, "message": "m"})
+        assert item.severity == severity
+
+    def test_rejects_other_severities(self) -> None:
+        with pytest.raises(ValidationError):
+            ActionItem.model_validate({"severity": "info", "message": "m"})

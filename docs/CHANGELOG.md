@@ -21,6 +21,7 @@
 
 - `[tool.license-audit]` keys must be spelled in kebab-case, as documented. `fail_on_unknown` was accepted too, and with both spellings present the later one silently won
 - `fail-on-unknown` takes a TOML boolean; `"no"`, `"false"`, and `0` read as `false` before
+- The JSON Schema lists the two values of an action item's `severity`, `warning` and `error`, instead of allowing any string
 
 ### Added
 

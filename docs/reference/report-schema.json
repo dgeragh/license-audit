@@ -5,6 +5,10 @@
       "properties": {
         "severity": {
           "default": "warning",
+          "enum": [
+            "warning",
+            "error"
+          ],
           "title": "Severity",
           "type": "string"
         },

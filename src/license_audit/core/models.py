@@ -177,7 +177,7 @@ class IncompatibleGroup(BaseModel):
 class ActionItem(BaseModel):
     """An action the user should take."""
 
-    severity: str = "warning"
+    severity: Literal["warning", "error"] = "warning"
     package: str = ""
     message: str
 
