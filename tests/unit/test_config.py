@@ -105,6 +105,16 @@ class TestLoadConfig:
         assert "  denied_licenses: unknown key" in str(caught.value)
         assert "  policy: Input should be" in str(caught.value)
 
+    @pytest.mark.parametrize("value", ['"no"', '"false"', "0"])
+    def test_non_boolean_fail_on_unknown_rejected(
+        self, tmp_path: Path, value: str
+    ) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            f"[tool.license-audit]\nfail-on-unknown = {value}\n"
+        )
+        with pytest.raises(ValueError, match="fail-on-unknown: Input should be a"):
+            load_config(tmp_path)
+
     def test_errors_read_as_pyproject_keys(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text(
             "[tool.license-audit]\n"

@@ -10,6 +10,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StrictBool,
     ValidationError,
     ValidationInfo,
     field_validator,
@@ -25,7 +26,7 @@ class LicenseAuditConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    fail_on_unknown: bool = True
+    fail_on_unknown: StrictBool = True
     policy: PolicyLevel = PolicyLevel.PERMISSIVE
     allowed_licenses: list[str] = Field(default_factory=list)
     denied_licenses: list[str] = Field(default_factory=list)

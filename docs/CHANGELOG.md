@@ -11,6 +11,7 @@
 ### Changed
 
 - `[tool.license-audit]` keys must be spelled in kebab-case, as documented. `fail_on_unknown` was accepted too, and with both spellings present the later one silently won
+- `fail-on-unknown` takes a TOML boolean; `"no"`, `"false"`, and `0` read as `false` before
 
 ### Added
 

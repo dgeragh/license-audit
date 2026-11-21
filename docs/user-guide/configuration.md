@@ -8,7 +8,7 @@ Configuration is loaded from the target's location: a project directory uses its
 
 ### `fail-on-unknown`
 
-Whether the `check` command fails when a dependency has an undetectable license. Default: `true`.
+Whether the `check` command fails when a dependency has an undetectable license, as a TOML boolean (`true` or `false`). Default: `true`.
 
 ### `policy`
 
