@@ -406,6 +406,7 @@ class TestExplainNoRecommendation:
         assert "1 dependency(ies) need" in explanation.detail
         assert "(gpl-pkg)" in explanation.detail
         assert "license-classifications" in explanation.detail
+        assert "OSADL compatibility matrix" in explanation.detail
 
     def test_unknown_wins_over_deemed(self) -> None:
         report = AnalysisReport(

@@ -468,6 +468,58 @@ class TestConfigPropagation:
         # AGPL-3.0-only alone would recommend AGPL-3.0-only.
         assert report.recommended_licenses == []
 
+    def test_weak_copyleft_license_the_matrix_leaves_out_limits_recommendations(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "weak-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"font": "OFL-1.1", "plain": "MIT"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.recommended_licenses[0] == "MIT"
+        assert "MPL-2.0" in report.recommended_licenses
+        assert not {"GPL-2.0-only", "GPL-3.0-only", "AGPL-3.0-only"} & set(
+            report.recommended_licenses
+        )
+
+    def test_network_copyleft_license_the_matrix_leaves_out_withholds(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "network-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"old_agpl": "AGPL-1.0-only"})
+        report = LicenseAuditor().run(target=tmp_path)
+        # Imposing nothing recommended MIT for network-copyleft code.
+        assert report.recommended_licenses == []
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.UNCHECKED_LICENSE
+        assert "(old-agpl)" in explanation.detail
+
+    def test_alternative_the_matrix_leaves_out_is_not_relied_on(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        make_venv(tmp_path / ".venv", {"dual": "AGPL-1.0-only OR MIT"})
+        report = LicenseAuditor().run(target=tmp_path)
+        # The MIT alternative is checked, so it alone decides recommendations.
+        assert report.recommended_licenses[0] == "MIT"
+        assert "GPL-3.0-only" in report.recommended_licenses
+
     def test_permissive_component_classification_keeps_recommendations(
         self,
         tmp_path: Path,

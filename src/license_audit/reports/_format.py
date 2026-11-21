@@ -188,11 +188,12 @@ def explain_no_recommendation(
             detail=(
                 f"{len(copyleft)} dependency(ies) need a strong- or "
                 f"network-copyleft outbound license ({', '.join(copyleft)}), but "
-                "a license classified in "
-                "[tool.license-audit.license-classifications] is excluded from "
-                "compatibility analysis, so it can't be checked against one. "
-                "Remove the classification, or assert a genuine SPDX license via "
-                "[tool.license-audit.overrides], if you need recommendations."
+                "a license the project depends on can't be checked against one: "
+                "it's classified in [tool.license-audit.license-classifications] "
+                "or missing from the OSADL compatibility matrix, so only its "
+                "category is known. Review its compatibility by hand, or assert "
+                "a genuine SPDX license via [tool.license-audit.overrides] if one "
+                "applies."
             ),
         )
 

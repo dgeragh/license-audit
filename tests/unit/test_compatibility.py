@@ -40,6 +40,23 @@ class TestRawVerdict:
         assert verdict == "Unknown"
 
 
+class TestCovers:
+    def test_matrix_license(self) -> None:
+        assert CompatibilityMatrix().covers("MIT") is True
+
+    def test_license_the_matrix_leaves_out(self) -> None:
+        assert CompatibilityMatrix().covers("OFL-1.1") is False
+
+    def test_copyleft_with_form_checked_as_its_base(self) -> None:
+        assert (
+            CompatibilityMatrix().covers("GPL-2.0-or-later WITH Bootloader-exception")
+            is True
+        )
+
+    def test_permissive_with_form(self) -> None:
+        assert CompatibilityMatrix().covers("Apache-2.0 WITH LLVM-exception") is False
+
+
 class TestKnownLicenses:
     def test_returns_list(self) -> None:
         licenses = CompatibilityMatrix().known_licenses()

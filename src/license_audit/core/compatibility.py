@@ -110,13 +110,18 @@ class CompatibilityMatrix:
             return "Unknown"
         return row.get(inbound, "Unknown")
 
+    def covers(self, lic: str) -> bool:
+        """True when the matrix can check `lic` (see `_entry`)."""
+        return self._entry(lic) is not None
+
     def outbound_for(self, inbound: Inbound, verdicts: frozenset[str]) -> set[str]:
         """Outbound licenses that admit every id of some alternative.
 
         See the class docstring for when an id is admitted. Ids absent from
-        the matrix impose nothing here; they surface as UNKNOWN elsewhere.
-        A copyleft `WITH` form the matrix lacks is the exception, see
-        `_entry`.
+        the matrix impose nothing here: one without a category surfaces as
+        UNKNOWN elsewhere, and recommendations rest on the category of one
+        with a category. A copyleft `WITH` form the matrix lacks is the
+        exception, see `_entry`.
         """
         matrix = self._store.matrix()
         result: set[str] = set()

@@ -222,24 +222,26 @@ class LicenseAuditor:
         has_unknown = any(
             p.category == LicenseCategory.UNKNOWN for p in active_packages
         )
-        # What a deemed category guarantees: a permissive license constrains
-        # no outbound license, and a weak-copyleft one no permissive or
-        # weak-copyleft one. Nothing vouches for an outbound license beside a
-        # stronger one.
-        classified = {p.category for p in active_packages if p.category_overridden}
-        classified.update(
+        # A license the compatibility data can't check, deemed or left out of
+        # the OSADL matrix, can only vouch for what its category guarantees: a
+        # permissive license constrains no outbound license, and a
+        # weak-copyleft one no permissive or weak-copyleft one. Nothing vouches
+        # for an outbound license beside a stronger one.
+        unchecked = self._unchecked(dep_licenses, deemed)
+        categories = {p.category for p in active_packages if p.category_overridden}
+        categories.update(
             category
             for expr in dep_licenses
-            for category in self._expression.classified_categories(expr, deemed)
+            for category in self._expression.classified_categories(expr, unchecked)
         )
-        has_deemed_constraint = bool(classified - CompatibilityMatrix.LIBRARY_SCOPED)
-        library_scoped = LicenseCategory.WEAK_COPYLEFT in classified
-        withheld = has_unknown or has_deemed_constraint or bool(missing)
+        has_unchecked_constraint = bool(categories - CompatibilityMatrix.LIBRARY_SCOPED)
+        library_scoped = LicenseCategory.WEAK_COPYLEFT in categories
+        withheld = has_unknown or has_unchecked_constraint or bool(missing)
         recommended = (
             []
             if withheld
             else self._limit(
-                self._recommender.recommend(dep_licenses, deemed), library_scoped
+                self._recommender.recommend(dep_licenses, unchecked), library_scoped
             )
         )
         # Only when nothing is a definite fit, so recommendations, review
@@ -249,7 +251,7 @@ class LicenseAuditor:
             []
             if withheld or recommended
             else self._limit(
-                self._recommender.review(dep_licenses, deemed), library_scoped
+                self._recommender.review(dep_licenses, unchecked), library_scoped
             )
         )
         incompatible = self._matrix.find_incompatible_pairs(inbound)
@@ -297,6 +299,25 @@ class LicenseAuditor:
         if name == "unknown" and config_dir is not None:
             return reader.installed_from(config_dir) or name
         return name
+
+    def _unchecked(
+        self, expressions: list[str], deemed: CategoryOverrides
+    ) -> CategoryOverrides:
+        """`deemed`, plus the licenses in `expressions` the OSADL matrix leaves out.
+
+        Their category stands in for a compatibility check, as a deemed one
+        does. A license with no category is left to read as unknown.
+        """
+        uncovered = {
+            normalize_license_key(lic): category
+            for expr in expressions
+            for alt in self._expression.alternatives(expr)
+            for lic in alt
+            if not self._matrix.covers(lic)
+            and (category := self._classifier.classify(lic))
+            is not LicenseCategory.UNKNOWN
+        }
+        return uncovered | deemed
 
     def _limit(self, licenses: list[str], library_scoped: bool) -> list[str]:
         """`licenses`, only the permissive and weak-copyleft ones if `library_scoped`."""
