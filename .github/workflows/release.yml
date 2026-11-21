@@ -17,30 +17,45 @@ jobs:
     permissions:
       contents: read
 
+  notes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Extract changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v heading="## $VERSION" '
+            $0 == heading || index($0, heading " ") == 1 { found = 1; print; next }
+            found && /^## / { exit }
+            found { print }
+          ' docs/CHANGELOG.md > notes.md
+          if [ "$(grep -c '[^[:space:]]' notes.md)" -lt 2 ]; then
+            echo "::error::docs/CHANGELOG.md has no notes for $VERSION"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: notes
+          path: notes.md
+
   release:
-    needs: ci
+    needs: [ci, notes]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
-          fetch-depth: 0
-
-      - name: Extract changelog
-        id: changelog
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          # Extract the section for this version from CHANGELOG.md
-          BODY=$(sed -n "/^## ${VERSION}/,/^## /p" docs/CHANGELOG.md | head -n -1)
-          echo "body<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$BODY" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          name: notes
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
         with:
-          body: ${{ steps.changelog.outputs.body }}
+          body_path: notes.md
           generate_release_notes: false
 
   publish:
