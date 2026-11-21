@@ -367,6 +367,20 @@ class TestMetadataReader:
         assert meta.get("Version") == "1.0.0"
 
 
+class TestSeveralSitePackages:
+    def test_earlier_directory_wins(self, tmp_path: Path) -> None:
+        first, second = tmp_path / "first", tmp_path / "second"
+        _make_dist_info(first, "pkg", "2.0")
+        _make_dist_info(second, "pkg", "1.0")
+        _make_dist_info(second, "other", "1.0")
+        reader = MetadataReader.from_site_packages(first, second)
+        meta = reader.read_metadata("pkg")
+        assert meta is not None
+        assert meta["Version"] == "2.0"
+        assert set(reader.iter_package_names()) == {"pkg", "other"}
+        assert reader.describe_source() == f"{first}, {second}"
+
+
 class TestInstalledFrom:
     @staticmethod
     def _direct_url(dist_info: Path, url: str, editable: bool = True) -> None:

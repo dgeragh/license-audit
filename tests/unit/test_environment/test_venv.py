@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import site
+import sysconfig
 from pathlib import Path
 
 import pytest
@@ -26,6 +28,29 @@ class TestCurrentReader:
         described = Path(reader.describe_source())
         assert described.exists()
         assert "site-packages" in str(described)
+
+    @pytest.mark.parametrize(
+        ("user_site", "expected"),
+        [(True, {"pure", "compiled", "mine"}), (False, {"pure", "compiled"})],
+    )
+    def test_reads_platlib_and_user_site(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        user_site: bool,
+        expected: set[str],
+    ) -> None:
+        dirs = {name: tmp_path / name for name in ("purelib", "platlib", "user")}
+        for directory, package in zip(
+            dirs.values(), ("pure", "compiled", "mine"), strict=True
+        ):
+            dist = directory / f"{package}-1.0.dist-info"
+            dist.mkdir(parents=True)
+            (dist / "METADATA").write_text(f"Name: {package}\nVersion: 1.0\n")
+        monkeypatch.setattr(sysconfig, "get_path", lambda name: str(dirs[name]))
+        monkeypatch.setattr(site, "ENABLE_USER_SITE", user_site)
+        monkeypatch.setattr(site, "getusersitepackages", lambda: str(dirs["user"]))
+        assert set(current_reader().iter_package_names()) == expected
 
 
 class TestReaderForVenv:

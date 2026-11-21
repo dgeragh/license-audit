@@ -107,10 +107,10 @@ class _Source(ABC):
 
 
 class _SitePackagesSource(_Source):
-    """Reads dist-infos out of an installed site-packages directory."""
+    """Reads dist-infos out of installed site-packages directories, earlier first."""
 
-    def __init__(self, path: Path) -> None:
-        self._path = path
+    def __init__(self, *paths: Path) -> None:
+        self._paths = paths
         self._entries: list[tuple[str, Path]] | None = None
         self._index: dict[str, Path] = {}
 
@@ -124,7 +124,7 @@ class _SitePackagesSource(_Source):
             yield name
 
     def describe(self) -> str:
-        return str(self._path)
+        return ", ".join(str(path) for path in self._paths)
 
     def _scan(self) -> list[tuple[str, Path]]:
         # Scanned once: re-globbing and re-sorting the directory on every
@@ -142,10 +142,11 @@ class _SitePackagesSource(_Source):
     def _metadata_dirs(self) -> Iterator[Path]:
         # glob() yields in directory order, which differs between filesystems;
         # sorting keeps report output identical across machines.
-        for pattern in ("*.dist-info", "*.egg-info"):
-            for path in sorted(self._path.glob(pattern)):
-                if path.is_dir():
-                    yield path
+        for directory in self._paths:
+            for pattern in ("*.dist-info", "*.egg-info"):
+                for path in sorted(directory.glob(pattern)):
+                    if path.is_dir():
+                        yield path
 
     @staticmethod
     def _dist_info_name(dir_name: str) -> str:
@@ -181,10 +182,10 @@ class MetadataReader:
 
     @classmethod
     def from_site_packages(
-        cls, path: Path, marker_environment: Mapping[str, str] | None = None
+        cls, *paths: Path, marker_environment: Mapping[str, str] | None = None
     ) -> Self:
-        """Reader over an installed site-packages directory."""
-        return cls(_SitePackagesSource(path), marker_environment)
+        """Reader over installed site-packages directories, earlier first."""
+        return cls(_SitePackagesSource(*paths), marker_environment)
 
     def read_metadata(self, package_name: str) -> Message | None:
         """Parsed METADATA for `package_name`, or None if absent."""

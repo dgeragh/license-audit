@@ -379,8 +379,12 @@ class TestMissingRequirements:
 
     def test_markers_evaluated_for_audited_environment(self, tmp_path: Path) -> None:
         required = ['backport; python_version < "3.13"']
-        old = MetadataReader.from_site_packages(tmp_path, {"python_version": "3.12"})
-        new = MetadataReader.from_site_packages(tmp_path, {"python_version": "3.13"})
+        old = MetadataReader.from_site_packages(
+            tmp_path, marker_environment={"python_version": "3.12"}
+        )
+        new = MetadataReader.from_site_packages(
+            tmp_path, marker_environment={"python_version": "3.13"}
+        )
         assert missing_requirements("app", old, required) == ["backport"]
         assert missing_requirements("app", new, required) == []
 
@@ -407,7 +411,7 @@ class TestMarkerEnvironmentWalk:
         _make_dist_info(tmp_path, "backport", "1.0", license_expression="MIT")
         for version, parent in (("3.12", "rootpkg"), ("3.13", "backport")):
             reader = MetadataReader.from_site_packages(
-                tmp_path, {"python_version": version}
+                tmp_path, marker_environment={"python_version": version}
             )
             tree = analyze_environment("app", reader, declared=["rootpkg"])
             parents = {p.name: p.parent for p in tree.flatten()}

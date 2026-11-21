@@ -15,6 +15,7 @@
 - The action item for a declared license that isn't SPDX points to `license-classifications` instead of `overrides`, which rejects a value that isn't SPDX
 - Rich markup in a package's name or version, such as `[/x]` in its `Version` metadata, prints as written instead of crashing `analyze`, `check`, and `recommend`
 - A virtualenv holding more than one `lib/pythonX.Y` directory is audited from the one for its Python version, read from `pyvenv.cfg`, instead of whichever the filesystem listed first; a stale directory left by an older Python was audited instead and reported the real dependencies missing
+- Auditing the environment running license-audit, when no virtualenv is found, reads its platform-specific site-packages and user site-packages too, not only the pure-Python one: compiled packages in a separate `lib64` (Fedora and RHEL system Pythons) and `pip install --user` packages went unaudited
 
 ### Changed
 

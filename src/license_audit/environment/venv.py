@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import site
 import sysconfig
 from pathlib import Path
 
@@ -13,8 +14,12 @@ _VERSION = re.compile(r"\d+\.\d+(?:\.\d+)?")
 
 def current_reader() -> MetadataReader:
     """Reader for the interpreter running license_audit itself."""
-    site_packages = Path(sysconfig.get_path("purelib"))
-    return MetadataReader.from_site_packages(site_packages)
+    purelib = Path(sysconfig.get_path("purelib"))
+    others = [Path(sysconfig.get_path("platlib"))]
+    if site.ENABLE_USER_SITE:
+        others.append(Path(site.getusersitepackages()))
+    extra = [p for p in dict.fromkeys(others) if p != purelib and p.is_dir()]
+    return MetadataReader.from_site_packages(purelib, *extra)
 
 
 def reader_for_venv(venv_path: Path) -> MetadataReader:
@@ -26,7 +31,9 @@ def reader_for_venv(venv_path: Path) -> MetadataReader:
     if sp is None:
         msg = f"No site-packages directory found in {venv_path}"
         raise FileNotFoundError(msg)
-    return MetadataReader.from_site_packages(sp, marker_environment(venv_path, sp))
+    return MetadataReader.from_site_packages(
+        sp, marker_environment=marker_environment(venv_path, sp)
+    )
 
 
 def marker_environment(venv_path: Path, site_packages: Path) -> dict[str, str]:
