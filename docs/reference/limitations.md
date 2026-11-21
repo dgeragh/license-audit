@@ -6,7 +6,7 @@ license-audit reads what's declared in package metadata: PEP 639 fields, the leg
 
 ## Packages built from the project are its own code
 
-A package installed from a directory inside the project, such as a uv workspace member or a path dependency under the project root, counts as part of the project and isn't audited; its own dependencies are. Third-party code installed that way is skipped like any vendored code, so install it from an index or a wheel to have it audited.
+A package installed from a directory inside the project (the directory holding its `pyproject.toml`), such as a uv workspace member or a path dependency under the project root, counts as part of the project and isn't audited; its own dependencies are. Third-party code installed that way is skipped like any vendored code, so install it from an index or a wheel to have it audited.
 
 ## OSADL coverage is finite
 

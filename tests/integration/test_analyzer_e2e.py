@@ -905,6 +905,26 @@ class TestRequiredDependencies:
 
 
 class TestProjectIdentity:
+    def test_local_installs_count_without_a_project(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        source = tmp_path / "src" / "vendored"
+        source.mkdir(parents=True)
+        dist_info = next(venv.glob("lib/*/site-packages")) / "vendored-1.0.dist-info"
+        dist_info.mkdir()
+        (dist_info / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: vendored\nVersion: 1.0\n"
+            "License-Expression: GPL-3.0-only\n"
+        )
+        (dist_info / "direct_url.json").write_text(
+            json.dumps({"url": source.resolve().as_uri(), "dir_info": {}})
+        )
+        report = LicenseAuditor().run(target=venv)
+        assert {p.name for p in report.packages} == {"click", "vendored"}
+
     def test_workspace_members_are_part_of_the_project(
         self,
         tmp_path: Path,

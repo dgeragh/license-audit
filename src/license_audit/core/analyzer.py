@@ -197,7 +197,7 @@ class LicenseAuditor:
         self._apply_ignores(packages, config.ignored_packages)
 
         own = {canonicalize(project_name)}
-        if effective_dir is not None:
+        if effective_dir is not None and (effective_dir / "pyproject.toml").is_file():
             own |= reader.installed_within(effective_dir)
         dep_packages = [p for p in packages if p.name not in own]
         active_packages = [p for p in dep_packages if not p.ignored]
