@@ -244,6 +244,7 @@ class LicenseAuditor:
         action_items.extend(self._review_warnings(review))
         action_items.extend(self._classification_warnings(unmatched_classifications))
         action_items.extend(self._unmapped_classifier_warnings(dep_packages, reader))
+        action_items.extend(self._mixed_classifier_warnings(dep_packages))
         # The same verdict `check` reaches: incompatible licenses and missing
         # dependencies fail it too.
         policy_passed = (
@@ -461,6 +462,34 @@ class LicenseAuditor:
                             f"from classifiers as '{pkg.license_expression}'. The "
                             f"declared text also {' and '.join(dropped)}; set an "
                             "override with the exact terms."
+                        ),
+                    )
+                )
+        return items
+
+    def _mixed_classifier_warnings(
+        self, packages: list[PackageLicense]
+    ) -> list[ActionItem]:
+        items: list[ActionItem] = []
+        for pkg in packages:
+            if pkg.ignored or pkg.license_source != LicenseSource.CLASSIFIER:
+                continue
+            ids = [
+                lic
+                for alt in self._expression.alternatives(pkg.license_expression)
+                for lic in alt
+            ]
+            if len({self._classifier.classify(lic) for lic in ids}) > 1:
+                items.append(
+                    ActionItem(
+                        severity="warning",
+                        package=pkg.name,
+                        message=(
+                            f"Package '{pkg.name}' lists license classifiers in "
+                            f"different categories ({', '.join(ids)}), read as a "
+                            f"choice between them: '{pkg.license_expression}'. If "
+                            "it requires them all, set an override with the exact "
+                            "terms."
                         ),
                     )
                 )

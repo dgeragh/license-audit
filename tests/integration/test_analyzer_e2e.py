@@ -564,6 +564,32 @@ class TestConfigPropagation:
         assert len(warnings) == 1
         assert "GNU General Public License (GPL)" in warnings[0].message
 
+    def test_classifiers_in_different_categories_warn(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n',
+        )
+        venv = make_venv(tmp_path / ".venv", {"click": "BSD-3-Clause"})
+        dist_info = next(venv.glob("lib/*/site-packages")) / "mixed-1.0.dist-info"
+        dist_info.mkdir()
+        (dist_info / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: mixed\nVersion: 1.0\n"
+            "Classifier: License :: OSI Approved :: MIT License\n"
+            "Classifier: License :: OSI Approved :: "
+            "GNU General Public License v3 (GPLv3)\n"
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        mixed = next(p for p in report.packages if p.name == "mixed")
+        assert mixed.license_expression == "GPL-3.0-only OR MIT"
+        assert mixed.category == LicenseCategory.PERMISSIVE
+        warnings = [i for i in report.action_items if i.package == "mixed"]
+        assert len(warnings) == 1
+        assert "read as a choice between them" in warnings[0].message
+
     def test_classifier_reading_narrower_than_license_field_warns(
         self,
         tmp_path: Path,

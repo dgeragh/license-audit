@@ -11,6 +11,7 @@ from license_audit.core.analyzer import LicenseAuditor, TargetInfo
 from license_audit.core.models import (
     UNKNOWN_LICENSE,
     LicenseCategory,
+    LicenseSource,
     PackageLicense,
 )
 
@@ -264,3 +265,30 @@ class TestApplyClassifications:
         assert items[0].severity == "warning"
         assert "Typo License" in items[0].message
         assert "matched no package" in items[0].message
+
+
+class TestMixedClassifierWarnings:
+    def _pkg(self, expr: str, source: LicenseSource) -> PackageLicense:
+        return PackageLicense(
+            name="x", version="1.0", license_expression=expr, license_source=source
+        )
+
+    def test_classifiers_in_different_categories_warn(self) -> None:
+        pkg = self._pkg("GPL-3.0-only OR MIT", LicenseSource.CLASSIFIER)
+        items = LicenseAuditor()._mixed_classifier_warnings([pkg])
+        assert len(items) == 1
+        assert items[0].package == "x"
+        assert "'GPL-3.0-only OR MIT'" in items[0].message
+
+    def test_classifiers_in_one_category_do_not_warn(self) -> None:
+        pkg = self._pkg("Apache-2.0 OR BSD-3-Clause", LicenseSource.CLASSIFIER)
+        assert LicenseAuditor()._mixed_classifier_warnings([pkg]) == []
+
+    def test_declared_dual_license_does_not_warn(self) -> None:
+        pkg = self._pkg("GPL-3.0-only OR MIT", LicenseSource.PEP639)
+        assert LicenseAuditor()._mixed_classifier_warnings([pkg]) == []
+
+    def test_ignored_package_does_not_warn(self) -> None:
+        pkg = self._pkg("GPL-3.0-only OR MIT", LicenseSource.CLASSIFIER)
+        pkg.ignored = True
+        assert LicenseAuditor()._mixed_classifier_warnings([pkg]) == []
