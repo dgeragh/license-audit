@@ -489,6 +489,21 @@ class TestBuildActionItems:
         assert "not a recognized SPDX identifier" in msg
         assert "Review its license text" in msg
 
+    def test_declared_license_warning_points_to_classifications(self) -> None:
+        pkg = PackageLicense(
+            name="psycopg2-binary",
+            version="2.9",
+            license_expression="UNKNOWN",
+            declared_license="LGPL with exceptions",
+            license_source=LicenseSource.METADATA,
+            category=LicenseCategory.UNKNOWN,
+        )
+        msg = PolicyEngine().unknown_message(pkg)
+        assert (
+            "record a category in [tool.license-audit.license-classifications]" in msg
+        )
+        assert "Add an override" not in msg
+
     def test_and_expression_names_unclassifiable_component(self) -> None:
         """Pkg with a parseable expression where only one AND component is
         UNKNOWN should call out that component by name, not the whole expr."""

@@ -303,7 +303,9 @@ class PolicyEngine:
                 f"Package '{pkg.name}' declares license "
                 f"'{license_label(pkg.declared_license)}', which is not a "
                 f"recognized SPDX identifier. Review its license text in the "
-                f"report to determine the correct classification. {suffix}"
+                f"report, then record a category in "
+                f"[tool.license-audit.license-classifications], or set its SPDX "
+                f"license in [tool.license-audit.overrides] if it has one."
             )
 
         if pkg.license_expression == UNKNOWN_LICENSE:
