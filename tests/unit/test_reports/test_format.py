@@ -17,6 +17,7 @@ from license_audit.reports._format import (
     NoRecommendationReason,
     SummaryStats,
     category_label,
+    deemed_constraint_packages,
     explain_no_recommendation,
     fenced_code_block,
     markdown_license_cell,
@@ -299,7 +300,23 @@ class TestExplainNoRecommendation:
         assert explanation.reason is NoRecommendationReason.DEEMED_CONSTRAINT
         assert explanation.headline == "Cannot recommend a license"
         assert "outbound compatibility can't be computed" in explanation.detail
+        assert "strong copyleft, network copyleft, or proprietary" in (
+            explanation.detail
+        )
         assert "vendor-sdk" in explanation.detail
+
+    def test_classified_weak_copyleft_is_no_deemed_constraint(self) -> None:
+        weak, proprietary = (
+            PackageLicense(
+                name=name, version="1.0", category=category, category_overridden=True
+            )
+            for name, category in (
+                ("weak", LicenseCategory.WEAK_COPYLEFT),
+                ("vendor", LicenseCategory.PROPRIETARY),
+            )
+        )
+        report = AnalysisReport(packages=[weak, proprietary])
+        assert deemed_constraint_packages(report) == [proprietary]
 
     def test_review_branch(self) -> None:
         report = AnalysisReport(review_licenses=["GPL-2.0-only"])

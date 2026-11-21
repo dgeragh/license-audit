@@ -379,6 +379,23 @@ class TestConfigPropagation:
         )
         assert report.recommended_licenses == []
 
+    def test_weak_copyleft_classification_keeps_recommendations(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "weak-copyleft"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"CC-BY-SA-4.0" = "weak-copyleft"\n',
+        )
+        make_venv(tmp_path / ".venv", {"foo": "CC-BY-SA-4.0", "bar": "MIT"})
+        report = LicenseAuditor().run(target=tmp_path)
+        assert report.recommended_licenses[0] == "MIT"
+        assert report.policy_passed is True
+
     def test_permissive_component_classification_keeps_recommendations(
         self,
         tmp_path: Path,

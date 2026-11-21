@@ -8,6 +8,7 @@ from enum import StrEnum
 
 from rich.markup import escape
 
+from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import (
     ActionItem,
     AnalysisReport,
@@ -77,13 +78,13 @@ def category_label(pkg: PackageLicense) -> str:
 
 
 def deemed_constraint_packages(report: AnalysisReport) -> list[PackageLicense]:
-    """Active packages the user classified as a non-permissive category."""
+    """Active packages classified strong copyleft, network copyleft, or proprietary."""
     return [
         p
         for p in report.packages
         if not p.ignored
         and p.category_overridden
-        and p.category != LicenseCategory.PERMISSIVE
+        and p.category not in CompatibilityMatrix.LIBRARY_SCOPED
     ]
 
 
@@ -151,8 +152,9 @@ def explain_no_recommendation(
             reason=NoRecommendationReason.DEEMED_CONSTRAINT,
             headline="Cannot recommend a license",
             detail=(
-                f"{len(deemed)} dependency(ies) are classified as non-permissive "
-                f"({names}) and excluded from compatibility analysis, so outbound "
+                f"{len(deemed)} dependency(ies) are classified as strong copyleft, "
+                f"network copyleft, or proprietary ({names}) and excluded from "
+                "compatibility analysis, so outbound "
                 "compatibility can't be computed. Remove the classification, or "
                 "assert a genuine SPDX license via [tool.license-audit.overrides], "
                 "if you need recommendations."

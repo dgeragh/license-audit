@@ -219,7 +219,8 @@ class LicenseAuditor:
             p.category == LicenseCategory.UNKNOWN for p in active_packages
         )
         has_deemed_constraint = any(
-            p.category_overridden and p.category != LicenseCategory.PERMISSIVE
+            p.category_overridden
+            and p.category not in CompatibilityMatrix.LIBRARY_SCOPED
             for p in active_packages
         )
         withheld = has_unknown or has_deemed_constraint or bool(missing)
