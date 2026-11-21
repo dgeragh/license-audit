@@ -63,7 +63,7 @@ Re-downloads the OSADL compatibility matrix and copyleft data into the user cach
 license-audit refresh
 ```
 
-The command writes to a platform-appropriate cache directory (resolved via `platformdirs`).
+The command writes to a platform-appropriate cache directory (resolved via `platformdirs`), and only once both files download and check out as OSADL data. Audits use the newer of that copy and the data bundled with license-audit, so upgrading still brings newer data.
 
 ## Global flags
 

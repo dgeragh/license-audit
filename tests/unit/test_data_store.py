@@ -20,6 +20,17 @@ def _bundled(filename: str) -> dict[str, Any]:
     return data
 
 
+def _write_cache(cache: Path, timestamp: str, mit_apache: str) -> Path:
+    matrix = _bundled(OSADLDataStore.MATRIX_FILE)
+    matrix["timestamp"] = timestamp
+    matrix["MIT"]["Apache-2.0"] = mit_apache
+    (cache / OSADLDataStore.MATRIX_FILE).write_text(json.dumps(matrix))
+    copyleft = _bundled(OSADLDataStore.COPYLEFT_FILE)
+    copyleft["timestamp"] = timestamp
+    (cache / OSADLDataStore.COPYLEFT_FILE).write_text(json.dumps(copyleft))
+    return cache / OSADLDataStore.MATRIX_FILE
+
+
 @pytest.fixture
 def cache(tmp_path: Path) -> Iterator[Path]:
     with patch(
@@ -48,12 +59,18 @@ class TestOSADLDataStore:
         store = OSADLDataStore()
         assert set(store.known_licenses()) == set(store.matrix().keys())
 
-    def test_cached_matrix_overrides_bundled(self, cache: Path) -> None:
-        data = _bundled(OSADLDataStore.MATRIX_FILE)
-        data["MIT"]["Apache-2.0"] = "No"
-        (cache / OSADLDataStore.MATRIX_FILE).write_text(json.dumps(data))
-
+    def test_newer_cache_overrides_bundled(self, cache: Path) -> None:
+        _write_cache(cache, "2099-01-01T00:00:00+0000", "No")
         assert OSADLDataStore().matrix()["MIT"]["Apache-2.0"] == "No"
+
+    def test_bundled_overrides_older_cache(self, cache: Path) -> None:
+        _write_cache(cache, "2019-01-01T00:00:00+0000", "No")
+        assert OSADLDataStore().matrix()["MIT"]["Apache-2.0"] == "Yes"
+
+    def test_cache_missing_a_file_is_ignored(self, cache: Path) -> None:
+        _write_cache(cache, "2099-01-01T00:00:00+0000", "No")
+        (cache / OSADLDataStore.COPYLEFT_FILE).unlink()
+        assert OSADLDataStore().matrix()["MIT"]["Apache-2.0"] == "Yes"
 
     def test_falls_back_to_bundled_when_no_cache(self, tmp_path: Path) -> None:
         with patch(
@@ -66,16 +83,11 @@ class TestOSADLDataStore:
         assert len(matrix) > 0
 
     def test_reload_invalidates_cache(self, cache: Path) -> None:
-        cache_file = cache / OSADLDataStore.MATRIX_FILE
-        data = _bundled(OSADLDataStore.MATRIX_FILE)
-        data["MIT"]["Apache-2.0"] = "No"
-        cache_file.write_text(json.dumps(data))
-
+        _write_cache(cache, "2099-01-01T00:00:00+0000", "No")
         store = OSADLDataStore()
         assert store.matrix()["MIT"]["Apache-2.0"] == "No"
 
-        data["MIT"]["Apache-2.0"] = "Unknown"
-        cache_file.write_text(json.dumps(data))
+        _write_cache(cache, "2099-01-01T00:00:00+0000", "Unknown")
         assert store.matrix()["MIT"]["Apache-2.0"] == "No"
         store.reload()
         assert store.matrix()["MIT"]["Apache-2.0"] == "Unknown"
