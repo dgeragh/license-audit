@@ -164,7 +164,11 @@ def load_config(config_dir: Path | None = None) -> LicenseAuditConfig:
         msg = f"Could not parse {pyproject_path}: {exc}"
         raise ValueError(msg) from exc
 
-    tool_config = data.get("tool", {}).get("license-audit", {})
+    tool = data.get("tool", {})
+    if not isinstance(tool, dict):
+        msg = "[tool] must be a table"
+        raise ValueError(msg)  # noqa: TRY004
+    tool_config = tool.get("license-audit", {})
     if not isinstance(tool_config, dict):
         msg = "[tool.license-audit] must be a table"
         raise ValueError(msg)  # noqa: TRY004

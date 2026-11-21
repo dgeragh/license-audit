@@ -136,6 +136,11 @@ class TestLoadConfig:
         assert "pydantic" not in message
         assert "LicenseAuditConfig" not in message
 
+    def test_non_table_tool_rejected(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text('tool = "oops"\n')
+        with pytest.raises(ValueError, match=r"^\[tool\] must be a table$"):
+            load_config(tmp_path)
+
     def test_non_table_section_rejected(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text('[tool]\n"license-audit" = "oops"\n')
         with pytest.raises(ValueError, match="must be a table"):
