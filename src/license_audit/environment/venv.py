@@ -77,10 +77,19 @@ def find_site_packages(venv_path: Path) -> Path | None:
     """Locate the site-packages dir inside a virtualenv, or None."""
     lib_dir = venv_path / "lib"
     if lib_dir.is_dir():
-        for child in lib_dir.iterdir():
-            sp = child / "site-packages"
-            if sp.is_dir():
+        candidates = sorted(
+            sp
+            for child in lib_dir.iterdir()
+            if (sp := child / "site-packages").is_dir()
+        )
+        version = _pyvenv_version(venv_path / "pyvenv.cfg")
+        major_minor = ".".join(version.split(".")[:2]) if version else None
+        for sp in candidates:
+            match = _VERSION.search(sp.parent.name)
+            if match and ".".join(match.group().split(".")[:2]) == major_minor:
                 return sp
+        if candidates:
+            return candidates[0]
 
     sp = venv_path / "Lib" / "site-packages"
     if sp.is_dir():

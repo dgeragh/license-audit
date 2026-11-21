@@ -70,6 +70,27 @@ class TestFindSitePackages:
     def test_missing_returns_none(self, tmp_path: Path) -> None:
         assert find_site_packages(tmp_path) is None
 
+    def test_prefers_the_pyvenv_python_version(self, tmp_path: Path) -> None:
+        for version in ("3.10", "3.12", "3.13"):
+            (tmp_path / "lib" / f"python{version}" / "site-packages").mkdir(
+                parents=True
+            )
+        (tmp_path / "pyvenv.cfg").write_text("version_info = 3.12.1.final.0\n")
+        assert find_site_packages(tmp_path) == (
+            tmp_path / "lib" / "python3.12" / "site-packages"
+        )
+
+    def test_without_a_known_version_picks_the_first_in_order(
+        self, tmp_path: Path
+    ) -> None:
+        for version in ("3.12", "3.10"):
+            (tmp_path / "lib" / f"python{version}" / "site-packages").mkdir(
+                parents=True
+            )
+        assert find_site_packages(tmp_path) == (
+            tmp_path / "lib" / "python3.10" / "site-packages"
+        )
+
 
 class TestMarkerEnvironment:
     @pytest.mark.parametrize(
