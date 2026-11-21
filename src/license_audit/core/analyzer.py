@@ -395,7 +395,9 @@ class LicenseAuditor:
             pkg.category = self._expression.classify(
                 pkg.license_expression, overrides=deemed
             )
-            pkg.category_overridden = True
+            pkg.category_overridden = any(
+                deemed[key] == pkg.category for key in present
+            )
         return present
 
     @staticmethod

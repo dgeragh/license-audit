@@ -379,6 +379,28 @@ class TestConfigPropagation:
         )
         assert report.recommended_licenses == []
 
+    def test_permissive_component_classification_keeps_recommendations(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n'
+            "[tool.license-audit.license-classifications]\n"
+            '"MPL-2.0" = "permissive"\n',
+        )
+        make_venv(
+            tmp_path / ".venv",
+            {"foo": "MPL-2.0 AND GPL-3.0-or-later", "bar": "GPL-3.0-or-later"},
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        foo = next(p for p in report.packages if p.name == "foo")
+        assert foo.category == LicenseCategory.STRONG_COPYLEFT
+        assert foo.category_overridden is False
+        assert report.recommended_licenses[:2] == ["GPL-3.0-only", "GPL-3.0-or-later"]
+
     def test_classification_matching_nothing_warns(
         self,
         tmp_path: Path,

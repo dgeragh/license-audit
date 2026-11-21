@@ -215,6 +215,17 @@ class TestApplyClassifications:
         self._apply([pkg], {"MPL-2.0": "permissive"})
         assert pkg.category == LicenseCategory.STRONG_COPYLEFT
 
+    def test_component_that_does_not_decide_category_is_not_classified(
+        self,
+    ) -> None:
+        pkg = self._compound(
+            "MPL-2.0 AND GPL-3.0-or-later", LicenseCategory.STRONG_COPYLEFT
+        )
+        unmatched = self._apply([pkg], {"MPL-2.0": "permissive"})
+        assert pkg.category == LicenseCategory.STRONG_COPYLEFT
+        assert pkg.category_overridden is False
+        assert unmatched == []
+
     def test_or_reevaluates_not_drops(self) -> None:
         # "drop" would wrongly leave LGPL; substitution makes the OR permissive
         # because the deemed-permissive branch becomes selectable.

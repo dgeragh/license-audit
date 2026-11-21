@@ -8,6 +8,7 @@
 - `refresh` checks both OSADL downloads before writing either, so a failed or malformed download leaves the existing data in place instead of pairing a new matrix with an old copyleft table
 - The bundled OSADL data is used when it's newer than the copy `refresh` saved, instead of the saved copy whatever its age, so upgrading license-audit updates the data a run uses
 - A `pyproject.toml` whose `tool` key isn't a table reports a config error instead of a traceback
+- A classification for one component of a compound license marks the package as classified only when it decides the category, and no longer withholds recommendations otherwise. Deeming `MPL-2.0` permissive withheld them for an `MPL-2.0 AND GPL-3.0-or-later` dependency, calling it classified as non-permissive
 
 ### Changed
 
