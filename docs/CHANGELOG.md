@@ -13,6 +13,7 @@
 - License classifiers in different categories, read as a choice between them, are reported in a warning. A package listing the MIT and GPLv3 classifiers read as `GPL-3.0-only OR MIT` and passed a permissive policy without a word
 - Packages installed from a directory inside the project, such as uv workspace members, count as part of the project rather than as dependencies. A workspace whose members declare no license made `check` exit 2
 - The action item for a declared license that isn't SPDX points to `license-classifications` instead of `overrides`, which rejects a value that isn't SPDX
+- Rich markup in a package's name or version, such as `[/x]` in its `Version` metadata, prints as written instead of crashing `analyze`, `check`, and `recommend`
 
 ### Changed
 

@@ -395,6 +395,16 @@ class TestCheckFailOnUnknownFlag:
         assert result.exit_code == 2
 
 
+class TestCheckMarkupSafety:
+    def test_unknown_package_name_with_markup_preserved(self) -> None:
+        pkg = _UNKNOWN_PKG.model_copy(update={"name": "[/x]"})
+        report = _make_report(packages=[pkg])
+        with patch("license_audit.cli.check.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["check"])
+        assert result.exit_code == 2
+        assert "[/x]" in result.stderr
+
+
 class TestCheckSource:
     def test_source_displayed(self) -> None:
         report = _make_report(packages=[_MIT_PKG])

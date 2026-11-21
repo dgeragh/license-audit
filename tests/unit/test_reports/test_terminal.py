@@ -202,6 +202,20 @@ class TestTerminalRendererMarkupSafety:
         TerminalRenderer(console=console).render(report)
         assert "/home/[user]/.venv" in buf.getvalue()
 
+    def test_package_name_version_and_parent_with_markup_preserved(self) -> None:
+        console, buf = _make_console()
+        report = AnalysisReport(
+            project_name="p",
+            packages=[
+                PackageLicense(name="[b]n", version="[/x]", parent="[/p]"),
+                PackageLicense(name="[i]gone", version="1.0", ignored=True),
+            ],
+        )
+        TerminalRenderer(console=console).render(report)
+        output = buf.getvalue()
+        for text in ("[b]n", "[/x]", "[/p]", "[i]gone"):
+            assert text in output
+
     def test_project_name_with_markup_preserved(self) -> None:
         # An unmatched closing tag raised MarkupError before it was escaped.
         console, buf = _make_console()

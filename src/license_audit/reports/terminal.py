@@ -79,12 +79,12 @@ class TerminalRenderer:
             parent = pkg.parent if pkg.parent != pkg.name else "(direct)"
             row_style = "dim" if pkg.ignored else ""
             table.add_row(
-                pkg.name,
-                pkg.version,
+                Text(pkg.name),
+                Text(pkg.version),
                 Text(license_label(pkg.display_license)),
                 category_text,
                 pkg.license_source.value,
-                parent,
+                Text(parent),
                 style=row_style,
             )
 
@@ -98,7 +98,7 @@ class TerminalRenderer:
         self._console.print("[bold]Ignored Packages:[/bold]")
         for pkg in sorted(ignored, key=lambda p: p.name):
             reason = pkg.ignore_reason or "(no reason given)"
-            self._console.print(f"  [dim]- {pkg.name}[/dim]: {escape(reason)}")
+            self._console.print(f"  [dim]- {escape(pkg.name)}[/dim]: {escape(reason)}")
         self._console.print()
 
     def _render_compatibility(self, report: AnalysisReport) -> None:

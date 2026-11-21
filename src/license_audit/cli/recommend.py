@@ -152,7 +152,7 @@ def _render_constraint(
     if pkg and category != LicenseCategory.PERMISSIVE:
         console.print(
             f"[bold yellow]Most restrictive dependency:[/bold yellow] "
-            f"{pkg.name} ({escape(pkg.display_license)})"
+            f"{escape(pkg.name)} ({escape(pkg.display_license)})"
         )
         desc = CategoryDescriptions.describe(category)
         if desc:

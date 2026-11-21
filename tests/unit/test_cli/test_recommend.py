@@ -141,6 +141,21 @@ class TestRecommendPolicyFlag:
         assert config.policy == "network-copyleft"
 
 
+class TestRecommendMarkupSafety:
+    def test_most_restrictive_package_name_with_markup_preserved(self) -> None:
+        pkg = PackageLicense(
+            name="[/x]",
+            version="1.0",
+            license_expression="GPL-3.0-only",
+            category=LicenseCategory.STRONG_COPYLEFT,
+        )
+        report = _make_report(packages=[pkg], recommended_licenses=["GPL-3.0-only"])
+        with patch("license_audit.cli.recommend.run_audit", return_value=report):
+            result = CliRunner().invoke(cli, ["recommend"])
+        assert result.exit_code == 0
+        assert "[/x] (GPL-3.0-only)" in result.output
+
+
 class TestRecommendSource:
     def test_source_displayed(self) -> None:
         report = _make_report(packages=[_MIT_PKG], recommended_licenses=["MIT"])

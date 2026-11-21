@@ -60,7 +60,7 @@ def _print_result(
         names = [p.name for p in unknown_pkgs]
         console.print(
             f"[bold yellow]UNKNOWN:[/bold yellow] {len(names)} package(s) "
-            f"with unclassified licenses: {', '.join(names)}"
+            f"with unclassified licenses: {escape(', '.join(names))}"
         )
 
     # Warnings print regardless of pass/fail.
