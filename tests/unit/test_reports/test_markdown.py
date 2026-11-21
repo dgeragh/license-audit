@@ -1,6 +1,7 @@
 """Tests for markdown renderer."""
 
 from license_audit.core.models import (
+    ActionCode,
     AnalysisReport,
     IncompatibleGroup,
     LicenseCategory,
@@ -75,10 +76,16 @@ class TestMarkdownRenderer:
             project_name="action-project",
             action_items=[
                 ActionItem(
-                    severity="error", package="bad-pkg", message="Denied license."
+                    code=ActionCode.DENIED_LICENSE,
+                    severity="error",
+                    package="bad-pkg",
+                    message="Denied license.",
                 ),
                 ActionItem(
-                    severity="warning", package="warn-pkg", message="Unknown license."
+                    code=ActionCode.UNKNOWN_LICENSE,
+                    severity="warning",
+                    package="warn-pkg",
+                    message="Unknown license.",
                 ),
             ],
         )

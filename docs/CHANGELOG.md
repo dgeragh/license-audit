@@ -26,6 +26,7 @@
 ### Added
 
 - Reports name the OSADL data they used, by date and as bundled or refreshed: `osadl_data` in the JSON report, and a line under the source in `analyze`, `check`, `recommend`, and Markdown reports
+- `code` on each action item in the JSON report, a stable name for what it's about (`denied-license`, `incompatible-licenses`, and so on), so tools needn't parse its message
 
 ## 0.15.1 (2026-11-16)
 

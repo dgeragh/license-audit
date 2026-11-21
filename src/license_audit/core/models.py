@@ -174,9 +174,28 @@ class IncompatibleGroup(BaseModel):
     licenses: list[str]
 
 
+class ActionCode(StrEnum):
+    """What an action item is about."""
+
+    MISSING_DEPENDENCIES = "missing-dependencies"
+    UNKNOWN_LICENSE = "unknown-license"
+    INCOMPATIBLE_LICENSES = "incompatible-licenses"
+    INCOMPATIBLE_GROUP = "incompatible-group"
+    DENIED_LICENSE = "denied-license"
+    LICENSE_NOT_ALLOWED = "license-not-allowed"
+    POLICY_EXCEEDED = "policy-exceeded"
+    COPYLEFT_DEPENDENCY = "copyleft-dependency"
+    REVIEW_LICENSES = "review-licenses"
+    UNMATCHED_CLASSIFICATION = "unmatched-classification"
+    UNMAPPED_CLASSIFIER = "unmapped-classifier"
+    DROPPED_LICENSE_TERMS = "dropped-license-terms"
+    MIXED_CLASSIFIERS = "mixed-classifiers"
+
+
 class ActionItem(BaseModel):
     """An action the user should take."""
 
+    code: ActionCode
     severity: Literal["warning", "error"] = "warning"
     package: str = ""
     message: str

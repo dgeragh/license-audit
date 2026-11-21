@@ -10,6 +10,7 @@ import pytest
 from license_audit.core.analyzer import LicenseAuditor, TargetInfo
 from license_audit.core.models import (
     UNKNOWN_LICENSE,
+    ActionCode,
     LicenseCategory,
     LicenseSource,
     PackageLicense,
@@ -278,6 +279,7 @@ class TestMixedClassifierWarnings:
         items = LicenseAuditor()._mixed_classifier_warnings([pkg])
         assert len(items) == 1
         assert items[0].package == "x"
+        assert items[0].code == ActionCode.MIXED_CLASSIFIERS
         assert "'GPL-3.0-only OR MIT'" in items[0].message
 
     def test_classifiers_in_one_category_do_not_warn(self) -> None:
@@ -292,3 +294,17 @@ class TestMixedClassifierWarnings:
         pkg = self._pkg("GPL-3.0-only OR MIT", LicenseSource.CLASSIFIER)
         pkg.ignored = True
         assert LicenseAuditor()._mixed_classifier_warnings([pkg]) == []
+
+
+class TestAnalyzerActionCodes:
+    def test_missing_dependencies(self) -> None:
+        items = LicenseAuditor._missing_dependency_errors(["ghost"])
+        assert [i.code for i in items] == [ActionCode.MISSING_DEPENDENCIES]
+
+    def test_review_licenses(self) -> None:
+        items = LicenseAuditor._review_warnings(["GPL-2.0-only"])
+        assert [i.code for i in items] == [ActionCode.REVIEW_LICENSES]
+
+    def test_unmatched_classification(self) -> None:
+        items = LicenseAuditor._classification_warnings(["Typo License"])
+        assert [i.code for i in items] == [ActionCode.UNMATCHED_CLASSIFICATION]

@@ -19,6 +19,7 @@ from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.compatibility import CompatibilityMatrix
 from license_audit.core.models import (
     UNKNOWN_LICENSE,
+    ActionCode,
     ActionItem,
     AnalysisReport,
     LicenseCategory,
@@ -294,6 +295,7 @@ class LicenseAuditor:
             shown += f", and {len(missing) - 10} more"
         return [
             ActionItem(
+                code=ActionCode.MISSING_DEPENDENCIES,
                 severity="error",
                 message=(
                     "Dependencies the project requires aren't installed in the "
@@ -312,6 +314,7 @@ class LicenseAuditor:
             return []
         return [
             ActionItem(
+                code=ActionCode.REVIEW_LICENSES,
                 severity="warning",
                 message=(
                     "No outbound license is a definite fit for every dependency "
@@ -410,6 +413,7 @@ class LicenseAuditor:
         """Warn about classification entries that matched no package."""
         return [
             ActionItem(
+                code=ActionCode.UNMATCHED_CLASSIFICATION,
                 severity="warning",
                 message=(
                     f"License classification '{name}' matched no package. "
@@ -441,6 +445,7 @@ class LicenseAuditor:
                 names = ", ".join(f"'{c}'" for c in unmapped)
                 items.append(
                     ActionItem(
+                        code=ActionCode.UNMAPPED_CLASSIFIER,
                         severity="warning",
                         package=pkg.name,
                         message=(
@@ -456,6 +461,7 @@ class LicenseAuditor:
             if dropped and meta is not None:
                 items.append(
                     ActionItem(
+                        code=ActionCode.DROPPED_LICENSE_TERMS,
                         severity="warning",
                         package=pkg.name,
                         message=(
@@ -485,6 +491,7 @@ class LicenseAuditor:
             if len({self._classifier.classify(lic) for lic in ids}) > 1:
                 items.append(
                     ActionItem(
+                        code=ActionCode.MIXED_CLASSIFIERS,
                         severity="warning",
                         package=pkg.name,
                         message=(

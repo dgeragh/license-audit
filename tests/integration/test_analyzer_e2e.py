@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from license_audit.core.analyzer import LicenseAuditor
-from license_audit.core.models import LicenseCategory
+from license_audit.core.models import ActionCode, LicenseCategory
 
 VenvBuilder = Callable[[Path, dict[str, str]], Path]
 
@@ -562,6 +562,7 @@ class TestConfigPropagation:
         assert docutils.license_expression == "BSD-3-Clause OR Unlicense"
         warnings = [i for i in report.action_items if i.package == "docutils"]
         assert len(warnings) == 1
+        assert warnings[0].code == ActionCode.UNMAPPED_CLASSIFIER
         assert "GNU General Public License (GPL)" in warnings[0].message
 
     def test_classifiers_in_different_categories_warn(
@@ -618,6 +619,7 @@ class TestConfigPropagation:
         warnings = [i for i in report.action_items if i.package == "pyinstaller"]
         assert any(
             "also allows later versions and adds an exception" in w.message
+            and w.code == ActionCode.DROPPED_LICENSE_TERMS
             for w in warnings
         )
 

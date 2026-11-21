@@ -83,6 +83,7 @@ A group of one is a dual-licensed dependency none of whose alternatives any outb
 
 | Field | Type | Description |
 |---|---|---|
+| `code` | string | What the item is about, see [ActionCode](#actioncode). Stable across releases, unlike `message` |
 | `severity` | string | `warning` or `error` |
 | `package` | string | Package the item concerns, empty for project-wide items |
 | `message` | string | What to do |
@@ -92,6 +93,24 @@ A group of one is a dual-licensed dependency none of whose alternatives any outb
 ### LicenseCategory
 
 `permissive`, `weak-copyleft`, `strong-copyleft`, `network-copyleft`, `proprietary`, `unknown`
+
+### ActionCode
+
+| Value | Severity | Raised when |
+|---|---|---|
+| `missing-dependencies` | `error` | Dependencies the project requires aren't installed in the audited environment |
+| `unknown-license` | `warning` | A package's license can't be detected or classified |
+| `incompatible-licenses` | `error` | Two dependency licenses share no outbound license |
+| `incompatible-group` | `error` | Licenses no outbound license satisfies together, though every pair can |
+| `denied-license` | `error` | A package uses a license in `denied-licenses` |
+| `license-not-allowed` | `error` | A package's license isn't in `allowed-licenses` |
+| `policy-exceeded` | `error` | A package's category is above the `policy` level |
+| `copyleft-dependency` | `warning` | A strong- or network-copyleft dependency the policy allows |
+| `review-licenses` | `warning` | Only outbound licenses OSADL marks "Check dependency" fit every dependency |
+| `unmatched-classification` | `warning` | A `license-classifications` entry matches no package |
+| `unmapped-classifier` | `warning` | A license classifier can't be mapped, beside ones that can |
+| `dropped-license-terms` | `warning` | A license read from classifiers drops terms its License field states |
+| `mixed-classifiers` | `warning` | License classifiers in different categories are read as a choice between them |
 
 ### LicenseSource
 

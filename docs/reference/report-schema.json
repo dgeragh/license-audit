@@ -1,8 +1,31 @@
 {
   "$defs": {
+    "ActionCode": {
+      "description": "What an action item is about.",
+      "enum": [
+        "missing-dependencies",
+        "unknown-license",
+        "incompatible-licenses",
+        "incompatible-group",
+        "denied-license",
+        "license-not-allowed",
+        "policy-exceeded",
+        "copyleft-dependency",
+        "review-licenses",
+        "unmatched-classification",
+        "unmapped-classifier",
+        "dropped-license-terms",
+        "mixed-classifiers"
+      ],
+      "title": "ActionCode",
+      "type": "string"
+    },
     "ActionItem": {
       "description": "An action the user should take.",
       "properties": {
+        "code": {
+          "$ref": "#/$defs/ActionCode"
+        },
         "severity": {
           "default": "warning",
           "enum": [
@@ -23,6 +46,7 @@
         }
       },
       "required": [
+        "code",
         "message"
       ],
       "title": "ActionItem",

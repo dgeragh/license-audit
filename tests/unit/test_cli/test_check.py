@@ -10,6 +10,7 @@ from license_audit.cli.check import _determine_exit_code
 from license_audit.cli.main import cli
 from license_audit.config import LicenseAuditConfig
 from license_audit.core.models import (
+    ActionCode,
     ActionItem,
     AnalysisReport,
     IncompatibleGroup,
@@ -112,6 +113,7 @@ class TestCheckFailsPolicyViolation:
             incompatible_pairs=[pair],
             action_items=[
                 ActionItem(
+                    code=ActionCode.INCOMPATIBLE_LICENSES,
                     severity="error",
                     message="Licenses 'GPL-3.0-only' and 'Apache-2.0' are incompatible.",
                 )
@@ -137,10 +139,12 @@ class TestCheckFailsPolicyViolation:
             incompatible_pairs=[pair],
             action_items=[
                 ActionItem(
+                    code=ActionCode.INCOMPATIBLE_LICENSES,
                     severity="error",
                     message="Licenses 'GPL-2.0-only' and 'Apache-2.0' are incompatible.",
                 ),
                 ActionItem(
+                    code=ActionCode.DENIED_LICENSE,
                     severity="error",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' uses denied license 'GPL-3.0-only'.",
@@ -159,6 +163,7 @@ class TestCheckFailsPolicyViolation:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.MISSING_DEPENDENCIES,
                     severity="error",
                     message="Dependencies the project requires aren't installed: ghost.",
                 )
@@ -177,6 +182,7 @@ class TestCheckFailsPolicyViolation:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.POLICY_EXCEEDED,
                     severity="error",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' uses strong-copyleft license 'GPL-3.0-only', which violates the 'permissive' policy.",
@@ -196,11 +202,13 @@ class TestCheckFailsPolicyViolation:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.COPYLEFT_DEPENDENCY,
                     severity="warning",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' uses strong-copyleft license; review carefully.",
                 ),
                 ActionItem(
+                    code=ActionCode.POLICY_EXCEEDED,
                     severity="error",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' uses strong-copyleft license 'GPL-3.0-only', which violates the 'permissive' policy.",
@@ -224,6 +232,7 @@ class TestExitCodePrecedence:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.POLICY_EXCEEDED,
                     severity="error",
                     package="gpl-pkg",
                     message="Package 'gpl-pkg' violates the 'permissive' policy.",
@@ -325,6 +334,7 @@ class TestCheckPolicyFlag:
             policy_passed=False,
             action_items=[
                 ActionItem(
+                    code=ActionCode.POLICY_EXCEEDED,
                     severity="error",
                     package="gpl-pkg",
                     message="Policy violation.",

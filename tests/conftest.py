@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from license_audit.core.models import (
+    ActionCode,
     ActionItem,
     AnalysisReport,
     LicenseCategory,
@@ -45,6 +46,7 @@ def sample_report(
         recommended_licenses=["GPL-3.0-only", "GPL-3.0-or-later", "AGPL-3.0-only"],
         action_items=[
             ActionItem(
+                code=ActionCode.COPYLEFT_DEPENDENCY,
                 severity="warning",
                 package="gpl-pkg",
                 message="Package 'gpl-pkg' uses strong-copyleft license 'GPL-3.0-only'.",

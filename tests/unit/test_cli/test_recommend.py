@@ -8,6 +8,7 @@ from click.testing import CliRunner
 
 from license_audit.cli.main import cli
 from license_audit.core.models import (
+    ActionCode,
     AnalysisReport,
     LicenseCategory,
     LicenseSource,
@@ -94,6 +95,7 @@ class TestRecommendActionItems:
         )
         report.action_items = [
             ActionItem(
+                code=ActionCode.COPYLEFT_DEPENDENCY,
                 severity="warning",
                 package="gpl-pkg",
                 message="Copyleft license detected.",

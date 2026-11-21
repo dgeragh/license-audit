@@ -90,9 +90,17 @@ class TestDependencyNodeFlatten:
 class TestActionItem:
     @pytest.mark.parametrize("severity", ["warning", "error"])
     def test_accepts_warning_and_error(self, severity: str) -> None:
-        item = ActionItem.model_validate({"severity": severity, "message": "m"})
+        item = ActionItem.model_validate(
+            {"code": "unknown-license", "severity": severity, "message": "m"}
+        )
         assert item.severity == severity
+
+    def test_rejects_unknown_codes(self) -> None:
+        with pytest.raises(ValidationError):
+            ActionItem.model_validate({"code": "other", "message": "m"})
 
     def test_rejects_other_severities(self) -> None:
         with pytest.raises(ValidationError):
-            ActionItem.model_validate({"severity": "info", "message": "m"})
+            ActionItem.model_validate(
+                {"code": "unknown-license", "severity": "info", "message": "m"}
+            )
