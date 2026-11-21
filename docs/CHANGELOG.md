@@ -23,6 +23,10 @@
 - `fail-on-unknown` takes a TOML boolean; `"no"`, `"false"`, and `0` read as `false` before
 - The JSON Schema lists the two values of an action item's `severity`, `warning` and `error`, instead of allowing any string
 
+### Removed
+
+- The `py.typed` marker and the `Typing :: Typed` and `Topic :: Software Development :: Libraries` classifiers. The command line is license-audit's interface; its Python modules are internal, as the versioning page says
+
 ### Added
 
 - Reports name the OSADL data they used, by date and as bundled or refreshed: `osadl_data` in the JSON report, and a line under the source in `analyze`, `check`, `recommend`, and Markdown reports
