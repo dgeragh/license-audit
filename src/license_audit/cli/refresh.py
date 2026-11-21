@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from http.client import HTTPException
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen
 
 import click
 from rich.console import Console
 
 from license_audit._data import OSADLDataStore
+from license_audit._data.store import copyleft_table, matrix_rows
 
 
 class OSADLRefresher:
@@ -30,26 +33,28 @@ class OSADLRefresher:
         data_path.mkdir(parents=True, exist_ok=True)
 
         console.print("Downloading OSADL compatibility matrix...")
-        self.download(self.MATRIX_URL, data_path / self._store.MATRIX_FILE)
-        console.print(f"[green]\\[/][/green] {self._store.MATRIX_FILE} updated")
-
+        matrix = self.fetch(self.MATRIX_URL, matrix_rows)
         console.print("Downloading OSADL copyleft data...")
-        self.download(self.COPYLEFT_URL, data_path / self._store.COPYLEFT_FILE)
-        console.print(f"[green]\\[/][/green] {self._store.COPYLEFT_FILE} updated")
+        copyleft = self.fetch(self.COPYLEFT_URL, copyleft_table)
+
+        for filename, data in (
+            (self._store.MATRIX_FILE, matrix),
+            (self._store.COPYLEFT_FILE, copyleft),
+        ):
+            self._write(data_path / filename, data)
+            console.print(f"[green]\\[/][/green] {filename} updated")
 
         self._store.reload()
 
         console.print(f"\nData saved to {data_path}")
         console.print("[bold green]OSADL data refreshed successfully.[/bold green]")
 
-    def download(self, url: str, dest: Path) -> None:
-        """Download `url` to `dest`, rejecting oversized or invalid payloads."""
+    def fetch(self, url: str, parse: Callable[[dict[str, Any]], object]) -> bytes:
         with urlopen(url, timeout=self.TIMEOUT_SECONDS) as resp:  # noqa: S310
-            data = resp.read(self.MAX_RESPONSE_BYTES + 1)
+            data: bytes = resp.read(self.MAX_RESPONSE_BYTES + 1)
         if len(data) > self.MAX_RESPONSE_BYTES:
             msg = f"Response from {url} exceeds {self.MAX_RESPONSE_BYTES} bytes"
             raise RuntimeError(msg)
-        # Parse before writing so malformed data never lands in the cache.
         try:
             payload = json.loads(data)
         except json.JSONDecodeError as exc:
@@ -58,6 +63,15 @@ class OSADLRefresher:
         if not isinstance(payload, dict):
             msg = f"Invalid data received from {url}: expected a JSON object"
             raise ValueError(msg)  # noqa: TRY004
+        try:
+            parse(payload)
+        except ValueError as exc:
+            msg = f"Invalid data received from {url}: {exc}"
+            raise ValueError(msg) from exc
+        return data
+
+    @staticmethod
+    def _write(dest: Path, data: bytes) -> None:
         tmp = dest.with_name(dest.name + ".tmp")
         tmp.write_bytes(data)
         tmp.replace(dest)
