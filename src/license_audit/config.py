@@ -170,33 +170,42 @@ def load_config(config_dir: Path | None = None) -> LicenseAuditConfig:
     if not tool_config:
         return LicenseAuditConfig()
 
-    # pyproject convention is kebab-case; Pydantic fields are snake_case.
-    normalized: dict[str, object] = {}
-    for key, value in tool_config.items():
-        normalized[key.replace("-", "_")] = value
-
+    unknown = [key for key in tool_config if "_" in key]
+    fields = {
+        key.replace("-", "_"): value
+        for key, value in tool_config.items()
+        if key not in unknown
+    }
     try:
-        return LicenseAuditConfig.model_validate(normalized)
+        config = LicenseAuditConfig.model_validate(fields)
     except ValidationError as exc:
-        raise ValueError(_describe_errors(exc, pyproject_path)) from exc
+        raise ValueError(_describe_errors(pyproject_path, unknown, exc)) from exc
+    if unknown:
+        raise ValueError(_describe_errors(pyproject_path, unknown))
+    return config
 
 
-def _describe_errors(exc: ValidationError, path: Path) -> str:
+def _describe_errors(
+    path: Path, unknown: list[str], exc: ValidationError | None = None
+) -> str:
     """Summarize `exc` for the user, naming keys as pyproject.toml spells them."""
     lines = [f"Invalid [tool.license-audit] configuration in {path}:"]
-    for error in exc.errors():
+    lines += [_unknown_key(key) for key in unknown]
+    for error in exc.errors() if exc else []:
         location = _toml_location(error["loc"])
         if error["type"] == "extra_forbidden":
-            keys = sorted(f.replace("_", "-") for f in LicenseAuditConfig.model_fields)
-            lines.append(
-                f"  {location}: unknown key; expected one of {', '.join(keys)}"
-            )
+            lines.append(_unknown_key(location))
         elif error["type"] == "value_error" or not location:
             # Our own validators name the key and the offending value.
             lines.append(f"  {error['msg'].removeprefix('Value error, ')}")
         else:
             lines.append(f"  {location}: {error['msg']} (got {error['input']!r})")
     return "\n".join(lines)
+
+
+def _unknown_key(key: str) -> str:
+    keys = sorted(f.replace("_", "-") for f in LicenseAuditConfig.model_fields)
+    return f"  {key}: unknown key; expected one of {', '.join(keys)}"
 
 
 def _toml_location(loc: tuple[int | str, ...]) -> str:

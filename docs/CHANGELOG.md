@@ -8,6 +8,10 @@
 - `refresh` checks both OSADL downloads before writing either, so a failed or malformed download leaves the existing data in place instead of pairing a new matrix with an old copyleft table
 - The bundled OSADL data is used when it's newer than the copy `refresh` saved, instead of the saved copy whatever its age, so upgrading license-audit updates the data a run uses
 
+### Changed
+
+- `[tool.license-audit]` keys must be spelled in kebab-case, as documented. `fail_on_unknown` was accepted too, and with both spellings present the later one silently won
+
 ### Added
 
 - Reports name the OSADL data they used, by date and as bundled or refreshed: `osadl_data` in the JSON report, and a line under the source in `analyze`, `check`, `recommend`, and Markdown reports

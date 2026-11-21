@@ -1,6 +1,6 @@
 # Configuration
 
-license-audit is configured via `[tool.license-audit]` in your `pyproject.toml`.
+license-audit is configured via `[tool.license-audit]` in your `pyproject.toml`. Keys are spelled in kebab-case as shown below; any other key, `fail_on_unknown` included, is an error.
 
 Configuration is loaded from the target's location: a project directory uses its own `pyproject.toml`, and a virtualenv uses the `pyproject.toml` beside it. With no target, it comes from the project you run license-audit in, found from a subdirectory too (see [target resolution](#target-resolution)). Use `--config` to read config from elsewhere, which is handy when the virtualenv lives outside your project. If no config is found, defaults apply.
 

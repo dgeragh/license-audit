@@ -89,6 +89,22 @@ class TestLoadConfig:
         with pytest.raises(ValueError, match="fail-on-unkown: unknown key"):
             load_config(tmp_path)
 
+    def test_snake_case_key_rejected(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.license-audit]\nfail-on-unknown = true\nfail_on_unknown = false\n"
+        )
+        with pytest.raises(ValueError, match="fail_on_unknown: unknown key"):
+            load_config(tmp_path)
+
+    def test_snake_case_key_reported_with_other_errors(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.license-audit]\npolicy = "lenient"\ndenied_licenses = ["MIT"]\n'
+        )
+        with pytest.raises(ValueError) as caught:
+            load_config(tmp_path)
+        assert "  denied_licenses: unknown key" in str(caught.value)
+        assert "  policy: Input should be" in str(caught.value)
+
     def test_errors_read_as_pyproject_keys(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text(
             "[tool.license-audit]\n"
