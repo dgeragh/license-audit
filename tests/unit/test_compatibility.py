@@ -6,7 +6,7 @@ from itertools import combinations
 
 from license_audit._data import OSADLDataStore
 from license_audit.core.compatibility import CompatibilityMatrix, Inbound
-from license_audit.core.models import IncompatibleGroup, Verdict
+from license_audit.core.models import IncompatibleGroup
 
 
 def _inbound(*ids: str) -> list[Inbound]:
@@ -25,27 +25,19 @@ class TestInboundLabel:
         assert unit.label == "(MPL-2.0 AND Apache-2.0) OR MIT"
 
 
-class TestIsCompatible:
+class TestRawVerdict:
     def test_same_license(self) -> None:
-        result = CompatibilityMatrix().is_compatible("MIT", "MIT")
-        assert result.verdict == Verdict.SAME
+        assert CompatibilityMatrix().raw_verdict("MIT", "MIT") == "Same"
 
-    def test_mit_to_gpl(self) -> None:
-        result = CompatibilityMatrix().is_compatible("MIT", "GPL-3.0-only")
-        assert result.verdict == Verdict.COMPATIBLE
+    def test_mit_in_gpl_work(self) -> None:
+        assert CompatibilityMatrix().raw_verdict("GPL-3.0-only", "MIT") == "Yes"
 
-    def test_gpl_to_mit(self) -> None:
-        result = CompatibilityMatrix().is_compatible("GPL-3.0-only", "MIT")
-        assert result.verdict == Verdict.INCOMPATIBLE
+    def test_gpl_in_mit_work(self) -> None:
+        assert CompatibilityMatrix().raw_verdict("MIT", "GPL-3.0-only") == "No"
 
     def test_unknown_license(self) -> None:
-        result = CompatibilityMatrix().is_compatible("NONEXISTENT-LICENSE", "MIT")
-        assert result.verdict == Verdict.UNKNOWN
-
-    def test_result_fields(self) -> None:
-        result = CompatibilityMatrix().is_compatible("MIT", "Apache-2.0")
-        assert result.inbound == "MIT"
-        assert result.outbound == "Apache-2.0"
+        verdict = CompatibilityMatrix().raw_verdict("MIT", "NONEXISTENT-LICENSE")
+        assert verdict == "Unknown"
 
 
 class TestKnownLicenses:

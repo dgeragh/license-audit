@@ -179,7 +179,7 @@ class TestRecommendSource:
 
 
 _UNKNOWN_PKG = PackageLicense(
-    name="weird-license-pkg",
+    name="unclassified-pkg",
     version="1.0.0",
     license_expression="BSD-3-Clause AND CC0-1.0",
     license_source=LicenseSource.PEP639,
@@ -197,7 +197,7 @@ class TestRecommendUnknownPackages:
             result = CliRunner().invoke(cli, ["recommend"])
         assert result.exit_code == 0
         assert "Cannot recommend a license" in result.output
-        assert "weird-license-pkg" in result.output
+        assert "unclassified-pkg" in result.output
         assert "No compatible" not in result.output
 
     def test_ignored_unknown_doesnt_block(self) -> None:

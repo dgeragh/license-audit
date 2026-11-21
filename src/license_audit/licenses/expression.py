@@ -147,8 +147,8 @@ class ExpressionEvaluator:
 
         `overrides` lets a caller force the category of individual component
         licenses (a user classification). An AND keeps the most restrictive
-        component, so a deemed-restrictive component dominates; a deemed-
-        permissive one stops binding. An OR keeps the most permissive
+        component, so a deemed-restrictive component dominates and a
+        deemed-permissive one stops binding. An OR keeps the most permissive
         alternative, so re-evaluation handles both correctly.
         """
         non_empty = [alt for alt in self.alternatives(expr) if alt]

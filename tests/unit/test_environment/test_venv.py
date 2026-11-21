@@ -23,11 +23,8 @@ def _make_venv(path: Path) -> Path:
 
 
 class TestCurrentReader:
-    def test_points_at_site_packages(self) -> None:
-        reader = current_reader()
-        described = Path(reader.describe_source())
-        assert described.exists()
-        assert "site-packages" in str(described)
+    def test_reads_the_running_environment(self) -> None:
+        assert "pytest" in set(current_reader().iter_package_names())
 
     @pytest.mark.parametrize(
         ("user_site", "expected"),
@@ -58,10 +55,7 @@ class TestReaderForVenv:
         venv_path = Path(__file__).parents[3] / ".venv"
         if not venv_path.exists():
             pytest.skip(".venv not found")
-        reader = reader_for_venv(venv_path)
-        described = Path(reader.describe_source())
-        assert described.exists()
-        assert any(described.glob("*.dist-info"))
+        assert "pytest" in set(reader_for_venv(venv_path).iter_package_names())
 
     def test_missing_venv(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):

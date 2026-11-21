@@ -101,10 +101,6 @@ class _Source(ABC):
     @abstractmethod
     def iter_package_names(self) -> Iterator[str]: ...
 
-    @abstractmethod
-    def describe(self) -> str:
-        """Human-readable label for error messages and logs."""
-
 
 class _SitePackagesSource(_Source):
     """Reads dist-infos out of installed site-packages directories, earlier first."""
@@ -122,9 +118,6 @@ class _SitePackagesSource(_Source):
     def iter_package_names(self) -> Iterator[str]:
         for name, _ in self._scan():
             yield name
-
-    def describe(self) -> str:
-        return ", ".join(str(path) for path in self._paths)
 
     def _scan(self) -> list[tuple[str, Path]]:
         # Scanned once: re-globbing and re-sorting the directory on every
@@ -221,10 +214,6 @@ class MetadataReader:
     def iter_package_names(self) -> Iterable[str]:
         """Canonical names of every package in the source."""
         return self._source.iter_package_names()
-
-    def describe_source(self) -> str:
-        """Path or label for the underlying source."""
-        return self._source.describe()
 
     def installed_from(self, directory: Path) -> str | None:
         """Name of the package installed from `directory`, if one is.

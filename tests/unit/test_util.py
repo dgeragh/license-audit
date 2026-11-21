@@ -1,4 +1,4 @@
-"""Tests for util module - license text extraction from site-packages."""
+"""Tests for package name handling and metadata reading."""
 
 from __future__ import annotations
 
@@ -48,14 +48,14 @@ def _make_dist_info(
 
 class TestCanonicalize:
     def test_lowercases_and_replaces_separators(self) -> None:
-        assert canonicalize("My-Cool.Pkg") == "my-cool-pkg"
+        assert canonicalize("My-Project.Name") == "my-project-name"
 
     def test_collapses_separator_runs(self) -> None:
         """PEP 503: runs of hyphens, underscores, and dots collapse to one
         hyphen, so all spellings of a name compare equal."""
-        assert canonicalize("foo--bar") == "foo-bar"
-        assert canonicalize("foo_bar") == "foo-bar"
-        assert canonicalize("foo.-_bar") == "foo-bar"
+        assert canonicalize("typing--extensions") == "typing-extensions"
+        assert canonicalize("typing_extensions") == "typing-extensions"
+        assert canonicalize("typing.-_extensions") == "typing-extensions"
 
 
 class TestGetLicenseText:
@@ -232,7 +232,7 @@ class TestGetLicenseText:
         dist_info = tmp_path / "nometadata-1.0.0.dist-info"
         dist_info.mkdir()
         (dist_info / "LICENSE").write_text("License without metadata")
-        # No METADATA file - PEP 639 path returns empty, fallback finds it
+        # Without METADATA, the PEP 639 lookup finds nothing and the fallback reads the file.
         result = get_license_text("nometadata", tmp_path)
         assert result is not None
         assert "License without metadata" in result
@@ -251,7 +251,9 @@ class TestMetadataReader:
         assert meta.get("Version") == "1.2.3"
 
     def test_read_metadata_missing_package(self, tmp_path: Path) -> None:
-        assert MetadataReader.from_site_packages(tmp_path).read_metadata("nope") is None
+        assert (
+            MetadataReader.from_site_packages(tmp_path).read_metadata("absent") is None
+        )
 
     def test_read_metadata_canonicalizes_name(self, tmp_path: Path) -> None:
         _make_dist_info(tmp_path, "my_cool_pkg", "1.0.0")
@@ -284,10 +286,6 @@ class TestMetadataReader:
         reader = MetadataReader.from_site_packages(tmp_path)
         assert list(reader.iter_package_names()) == ["alpha", "mid", "zeta"]
 
-    def test_describe_source_returns_path(self, tmp_path: Path) -> None:
-        reader = MetadataReader.from_site_packages(tmp_path)
-        assert reader.describe_source() == str(tmp_path)
-
     def test_hyphenated_dist_info_name_resolved(self, tmp_path: Path) -> None:
         # Some installers leave hyphens in the dist-info name; it must resolve to
         # the full canonical name, not get truncated at the first hyphen.
@@ -299,10 +297,10 @@ class TestMetadataReader:
     def test_separator_run_spellings_resolve(self, tmp_path: Path) -> None:
         """Any PEP 503 spelling of a name finds the installed dist-info,
         including separator runs that collapse to a single hyphen."""
-        _make_dist_info(tmp_path, "foo_bar", "1.0.0")
+        _make_dist_info(tmp_path, "typing_extensions", "1.0.0")
         reader = MetadataReader.from_site_packages(tmp_path)
-        assert reader.is_installed("foo--bar")
-        assert reader.is_installed("Foo.Bar")
+        assert reader.is_installed("typing--extensions")
+        assert reader.is_installed("Typing.Extensions")
 
     def test_egg_info_package_discovered(self, tmp_path: Path) -> None:
         egg = tmp_path / "legacy_pkg-1.0-py3.12.egg-info"
@@ -378,7 +376,6 @@ class TestSeveralSitePackages:
         assert meta is not None
         assert meta["Version"] == "2.0"
         assert set(reader.iter_package_names()) == {"pkg", "other"}
-        assert reader.describe_source() == f"{first}, {second}"
 
 
 class TestInstalledFrom:
@@ -430,8 +427,8 @@ class TestInstalledFrom:
         (broken / "direct_url.json").write_text("{not json")
         elsewhere = _make_dist_info(sp, "elsewhere", "1.0")
         self._direct_url(elsewhere, (tmp_path / "other").resolve().as_uri())
-        listy = _make_dist_info(sp, "listy", "1.0")
-        (listy / "direct_url.json").write_text("[1, 2]")
+        list_json = _make_dist_info(sp, "list-json", "1.0")
+        (list_json / "direct_url.json").write_text("[1, 2]")
         no_url = _make_dist_info(sp, "no-url", "1.0")
         (no_url / "direct_url.json").write_text('{"dir_info": {}}')
         # A NUL that survives control-character stripping percent-encoded.

@@ -50,7 +50,7 @@ def unmapped_license_classifiers(meta: Message | None) -> list[str]:
     """License classifiers that name a license with no SPDX mapping.
 
     Detection ORs together the classifiers it can map and skips these, so a
-    caller can warn that the detected license may not be the whole story.
+    caller can warn that the detected license may be incomplete.
     """
     if meta is None:
         return []

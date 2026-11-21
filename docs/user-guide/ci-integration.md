@@ -98,7 +98,7 @@ ec=$?
 case $ec in
   0) ;;
   1) echo "::error::License check failed"; exit 1 ;;
-  2) echo "::warning::Unknown licenses - resolve in pyproject.toml"; exit 0 ;;
+  2) echo "::warning::Unknown licenses: resolve them in pyproject.toml"; exit 0 ;;
 esac
 ```
 

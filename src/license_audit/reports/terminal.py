@@ -59,7 +59,7 @@ class TerminalRenderer:
     def _render_package_table(self, report: AnalysisReport) -> None:
         table = Table(title="Dependency Licenses", show_lines=False)
         # Fold long values onto further lines rather than cutting them off: at
-        # 80 columns, the usual width of CI logs, "opentelemetry-…" names that
+        # 80 columns, the usual width of CI logs, "opentelemetry-..." names that
         # share a prefix were otherwise indistinguishable.
         for header, style in (
             ("Package", "cyan"),

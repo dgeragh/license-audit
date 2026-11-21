@@ -66,16 +66,6 @@ class LicenseSource(StrEnum):
     UNKNOWN = "unknown"
 
 
-class Verdict(StrEnum):
-    """Compatibility verdict between two licenses."""
-
-    COMPATIBLE = "compatible"
-    INCOMPATIBLE = "incompatible"
-    UNKNOWN = "unknown"
-    CHECK_DEPENDENCY = "check-dependency"
-    SAME = "same"
-
-
 class PackageLicense(BaseModel):
     """License information for a single package."""
 
@@ -96,8 +86,8 @@ class PackageLicense(BaseModel):
         """License string to show users.
 
         Prefers the raw declared identifier when the license could not be
-        mapped to SPDX, so reports surface the actual string (e.g. "
-        Proprietary License") instead of a bare ``UNKNOWN``.
+        mapped to SPDX, so reports surface the actual string (e.g.
+        "Proprietary License") instead of a bare ``UNKNOWN``.
         """
         return self.declared_license or self.license_expression
 
@@ -142,14 +132,6 @@ class DependencyNode(BaseModel):
             result.append(self.package)
         for dep in self.dependencies:
             dep._flatten_inner(seen, result, top_level)
-
-
-class CompatibilityResult(BaseModel):
-    """Result of checking compatibility between two licenses."""
-
-    inbound: str
-    outbound: str
-    verdict: Verdict
 
 
 class IncompatiblePair(BaseModel):

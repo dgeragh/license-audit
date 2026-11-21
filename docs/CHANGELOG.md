@@ -49,7 +49,7 @@
 - `policy_passed` in the JSON report, and the policy line in `analyze` and Markdown reports, fail on incompatible license pairs as `check` does; they reported a pass while `check` exited 1
 - JSON, Markdown, and notices reports on stdout are UTF-8 whatever the console encoding; redirecting one on Windows crashed when a license text held a character outside the code page (pygments, a dependency of license-audit itself, has one)
 - Terminal output replaces characters the console can't encode instead of crashing
-- Long package names, versions, and licenses wrap in a narrow terminal instead of being cut off; at 80 columns, the usual width of CI logs, packages sharing a prefix (`opentelemetry-…`) were indistinguishable
+- Long package names, versions, and licenses wrap in a narrow terminal instead of being cut off; at 80 columns, the usual width of CI logs, packages sharing a prefix (`opentelemetry-...`) were indistinguishable
 - protobuf's `3-Clause BSD License` and similar spelled-out BSD and Expat license strings are recognized
 - A license classifier that can't be mapped, listed beside ones that can (docutils' unversioned GPL classifier), is reported in a warning instead of dropped silently
 - A GPL-family license read from classifiers warns when the package's License field allows later versions or adds an exception the classifier leaves out. PyInstaller's `GPLv2-or-later with a special exception` read silently as `GPL-2.0-only`, which conflicted with GPL-3.0
@@ -293,7 +293,7 @@
 ### Changed
 
 - Improved terminal rendering for `recommend`, `check`, and `report` commands with clearer formatting and shared layout helpers
-- Streamlined README and user guide, including an expanded CI integration guide
+- Simplified README and user guide, including an expanded CI integration guide
 - Internal refactor of the analyzer, policy engine, classifier, data store, SPDX normalizer, recommender, sources, and environment provisioning into class-based implementations (no change to CLI behavior or output contracts)
 
 ## 0.1.1 (2026-04-13)

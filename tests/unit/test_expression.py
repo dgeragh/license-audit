@@ -96,8 +96,8 @@ class TestRequiredIds:
         ]
 
     def test_nested_picks_best_branch(self) -> None:
-        # Both alternatives tie at weak-copyleft (MPL is in each), so we
-        # only assert that MPL-2.0 plus one of Apache/MIT survives.
+        # Both alternatives tie at weak-copyleft (MPL is in each), so the test
+        # only asserts that MPL-2.0 plus one of Apache/MIT survives.
         ids = ExpressionEvaluator().required_ids("MPL-2.0 AND (Apache-2.0 OR MIT)")
         assert "MPL-2.0" in ids
         assert any(lic in ids for lic in ("Apache-2.0", "MIT"))
@@ -109,7 +109,7 @@ class TestRequiredIds:
         assert ids == ["MIT"]
 
     def test_unparseable_returns_empty(self) -> None:
-        assert ExpressionEvaluator().required_ids("garbage!!!") == []
+        assert ExpressionEvaluator().required_ids("not a valid expression!!!") == []
 
     def test_deprecated_id(self) -> None:
         assert ExpressionEvaluator().required_ids("GPL-2.0") == ["GPL-2.0-only"]
@@ -136,7 +136,9 @@ class TestBestAlternatives:
         ) == [["MIT"], ["Apache-2.0"]]
 
     def test_unparseable_returns_empty(self) -> None:
-        assert ExpressionEvaluator().best_alternatives("garbage!!!") == []
+        assert (
+            ExpressionEvaluator().best_alternatives("not a valid expression!!!") == []
+        )
 
     def test_overrides_change_ranking(self) -> None:
         overrides = {"mit": LicenseCategory.PROPRIETARY}
@@ -186,7 +188,7 @@ class TestInbound:
         assert ExpressionEvaluator().inbound(UNKNOWN_LICENSE) == []
 
     def test_unparseable_contributes_nothing(self) -> None:
-        assert ExpressionEvaluator().inbound("garbage!!!") == []
+        assert ExpressionEvaluator().inbound("not a valid expression!!!") == []
 
     def test_deprecated_id_promoted(self) -> None:
         assert ExpressionEvaluator().inbound("GPL-2.0")[0].label == "GPL-2.0-only"
@@ -222,8 +224,10 @@ class TestInbound:
         ]
 
     def test_override_emptying_a_branch_lifts_the_constraint(self) -> None:
-        overrides = {"foo-1.0": LicenseCategory.PERMISSIVE}
-        assert ExpressionEvaluator().inbound("GPL-3.0-only OR Foo-1.0", overrides) == []
+        overrides = {"custom-1.0": LicenseCategory.PERMISSIVE}
+        assert (
+            ExpressionEvaluator().inbound("GPL-3.0-only OR Custom-1.0", overrides) == []
+        )
 
 
 class TestClassify:
@@ -266,7 +270,10 @@ class TestClassify:
         )
 
     def test_unparseable_falls_back_to_classifier(self) -> None:
-        assert ExpressionEvaluator().classify("garbage!!!") == LicenseCategory.UNKNOWN
+        assert (
+            ExpressionEvaluator().classify("not a valid expression!!!")
+            == LicenseCategory.UNKNOWN
+        )
 
     def test_real_world_orjson(self) -> None:
         assert (
@@ -403,7 +410,7 @@ class TestPassesDeniedAllowed:
     def test_unparseable_blocked(self) -> None:
         assert (
             ExpressionEvaluator().passes_denied_allowed(
-                "garbage!!!",
+                "not a valid expression!!!",
                 set(),
                 {"mit"},
             )

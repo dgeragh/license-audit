@@ -44,7 +44,7 @@ class TestDisplayLicense:
         assert pkg.display_license == "Proprietary License"
 
     def test_undetected_license_falls_back_to_unknown(self) -> None:
-        pkg = PackageLicense(name="mystery", version="1.0.0")
+        pkg = PackageLicense(name="unknown-pkg", version="1.0.0")
         assert pkg.declared_license is None
         assert pkg.display_license == "UNKNOWN"
 

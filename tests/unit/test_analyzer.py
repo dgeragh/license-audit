@@ -178,7 +178,7 @@ class TestApplyClassifications:
 
     def test_not_detected_package_is_not_blanket_reclassified(self) -> None:
         pkg = PackageLicense(
-            name="mystery",
+            name="unknown-pkg",
             version="1.0",
             license_expression=UNKNOWN_LICENSE,
             category=LicenseCategory.UNKNOWN,
@@ -298,7 +298,7 @@ class TestMixedClassifierWarnings:
 
 class TestAnalyzerActionCodes:
     def test_missing_dependencies(self) -> None:
-        items = LicenseAuditor._missing_dependency_errors(["ghost"])
+        items = LicenseAuditor._missing_dependency_errors(["absent-pkg"])
         assert [i.code for i in items] == [ActionCode.MISSING_DEPENDENCIES]
 
     def test_review_licenses(self) -> None:

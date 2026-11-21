@@ -179,7 +179,10 @@ class TestFencedCodeBlock:
 class TestMarkdownLicenseCell:
     def test_escapes_pipes_to_protect_table(self) -> None:
         # A pipe in a declared license would otherwise add phantom columns.
-        assert markdown_license_cell("Foo | Bar License") == "Foo \\| Bar License"
+        assert (
+            markdown_license_cell("Custom | Internal License")
+            == "Custom \\| Internal License"
+        )
 
     def test_clean_expression_passes_through(self) -> None:
         assert markdown_license_cell("Apache-2.0 OR MIT") == "Apache-2.0 OR MIT"
@@ -188,19 +191,23 @@ class TestMarkdownLicenseCell:
 class TestActionItemFormatterRich:
     def test_warning_uses_yellow(self) -> None:
         item = ActionItem(
-            code=ActionCode.COPYLEFT_DEPENDENCY, severity="warning", message="watch out"
+            code=ActionCode.COPYLEFT_DEPENDENCY,
+            severity="warning",
+            message="Review the copyleft dependency.",
         )
         result = ActionItemFormatter.rich(item)
         assert "[yellow]" in result
-        assert "watch out" in result
+        assert "Review the copyleft dependency." in result
 
     def test_error_uses_red(self) -> None:
         item = ActionItem(
-            code=ActionCode.POLICY_EXCEEDED, severity="error", message="nope"
+            code=ActionCode.POLICY_EXCEEDED,
+            severity="error",
+            message="Policy violated.",
         )
         result = ActionItemFormatter.rich(item)
         assert "[red]" in result
-        assert "nope" in result
+        assert "Policy violated." in result
 
     def test_message_is_escaped(self) -> None:
         """Rich markup characters in the message are escaped to avoid
@@ -218,15 +225,19 @@ class TestActionItemFormatterRich:
 class TestActionItemFormatterMarkdown:
     def test_warning_label(self) -> None:
         item = ActionItem(
-            code=ActionCode.COPYLEFT_DEPENDENCY, severity="warning", message="heads up"
+            code=ActionCode.COPYLEFT_DEPENDENCY,
+            severity="warning",
+            message="Review the license.",
         )
         result = ActionItemFormatter.markdown(item)
         assert result.startswith("- [Warning]")
-        assert "heads up" in result
+        assert "Review the license." in result
 
     def test_error_label(self) -> None:
         item = ActionItem(
-            code=ActionCode.POLICY_EXCEEDED, severity="error", message="broken"
+            code=ActionCode.POLICY_EXCEEDED,
+            severity="error",
+            message="Policy violated.",
         )
         result = ActionItemFormatter.markdown(item)
         assert result.startswith("- [Error]")
@@ -235,10 +246,12 @@ class TestActionItemFormatterMarkdown:
         item = ActionItem(
             code=ActionCode.POLICY_EXCEEDED,
             severity="error",
-            package="foo",
-            message="x",
+            package="requests",
+            message="Review the license.",
         )
-        assert "**foo**: x" in ActionItemFormatter.markdown(item)
+        assert "**requests**: Review the license." in (
+            ActionItemFormatter.markdown(item)
+        )
 
     def test_no_prefix_when_package_empty(self) -> None:
         item = ActionItem(
@@ -272,10 +285,10 @@ class TestExplainNoRecommendation:
 
     def test_missing_dependencies_branch_wins(self) -> None:
         report = AnalysisReport(
-            missing_dependencies=["ghost", "phantom"],
+            missing_dependencies=["absent-a", "absent-b"],
             packages=[
                 PackageLicense(
-                    name="mystery",
+                    name="unknown-pkg",
                     version="1.0",
                     category=LicenseCategory.UNKNOWN,
                 )
@@ -286,13 +299,13 @@ class TestExplainNoRecommendation:
         assert explanation.reason is NoRecommendationReason.MISSING_DEPENDENCIES
         assert explanation.headline == "Cannot recommend a license"
         assert "2 required dependency(ies)" in explanation.detail
-        assert "ghost, phantom" in explanation.detail
+        assert "absent-a, absent-b" in explanation.detail
 
     def test_unknown_branch(self) -> None:
         report = AnalysisReport(
             packages=[
                 PackageLicense(
-                    name="mystery",
+                    name="unknown-pkg",
                     version="1.0",
                     category=LicenseCategory.UNKNOWN,
                 )
@@ -302,7 +315,7 @@ class TestExplainNoRecommendation:
         assert explanation is not None
         assert explanation.reason is NoRecommendationReason.UNKNOWN_LICENSES
         assert explanation.headline == "Cannot recommend a license"
-        assert "mystery" in explanation.detail
+        assert "unknown-pkg" in explanation.detail
 
     def test_deemed_branch(self) -> None:
         report = AnalysisReport(
@@ -368,7 +381,7 @@ class TestExplainNoRecommendation:
         report = AnalysisReport(
             packages=[
                 PackageLicense(
-                    name="mystery",
+                    name="unknown-pkg",
                     version="1.0",
                     category=LicenseCategory.UNKNOWN,
                 ),

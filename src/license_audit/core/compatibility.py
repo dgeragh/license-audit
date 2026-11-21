@@ -8,12 +8,10 @@ from dataclasses import dataclass
 from license_audit._data import OSADLDataStore
 from license_audit.core.classifier import LicenseClassifier
 from license_audit.core.models import (
-    CompatibilityResult,
     IncompatibleGroup,
     IncompatiblePair,
     LicenseCategory,
     OsadlData,
-    Verdict,
 )
 
 
@@ -45,14 +43,6 @@ class CompatibilityMatrix:
     verdict for that license. Ids without a category keep the plain verdict.
     """
 
-    VERDICT_MAP: dict[str, Verdict] = {
-        "Yes": Verdict.COMPATIBLE,
-        "No": Verdict.INCOMPATIBLE,
-        "Unknown": Verdict.UNKNOWN,
-        "Check dependency": Verdict.CHECK_DEPENDENCY,
-        "Same": Verdict.SAME,
-    }
-
     # "Check dependency" counts as compatible for incompatibility detection
     # (lenient: a reviewable pairing is not a definite conflict) but not for
     # recommendations, which shouldn't suggest an outbound license OSADL
@@ -70,7 +60,7 @@ class CompatibilityMatrix:
     )
 
     # OSADL marks PSF-2.0 code unusable in GPL-family works, but the FSF lists
-    # the PSF License as GPL-compatible, and it is everywhere in Python
+    # the PSF License as GPL-compatible, and it is common in Python packages
     # (typing-extensions), so its verdict there is read as "Yes".
     GPL_COMPATIBLE: frozenset[str] = frozenset({"PSF-2.0"})
     GPL_FAMILY: frozenset[str] = frozenset(
@@ -119,12 +109,6 @@ class CompatibilityMatrix:
         if row is None:
             return "Unknown"
         return row.get(inbound, "Unknown")
-
-    def is_compatible(self, inbound: str, outbound: str) -> CompatibilityResult:
-        """Check whether a project licensed `outbound` can use a dep licensed `inbound`."""
-        raw = self.raw_verdict(outbound, inbound)
-        verdict = self.VERDICT_MAP.get(raw, Verdict.UNKNOWN)
-        return CompatibilityResult(inbound=inbound, outbound=outbound, verdict=verdict)
 
     def outbound_for(self, inbound: Inbound, verdicts: frozenset[str]) -> set[str]:
         """Outbound licenses that admit every id of some alternative.

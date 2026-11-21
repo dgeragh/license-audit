@@ -125,7 +125,7 @@ class TargetResolver:
 class LicenseAuditor:
     """Runs the full audit pipeline and returns an AnalysisReport.
 
-    Each collaborator is injectable so tests can swap pieces, but a plain
+    Each collaborator can be injected for testing, and a plain
     `LicenseAuditor().run(target=Path('.'))` works without any setup.
     """
 
@@ -276,9 +276,9 @@ class LicenseAuditor:
     def _project_name(config_dir: Path | None, reader: MetadataReader) -> str:
         """The project's name from pyproject.toml, else from an installed copy.
 
-        A project without one there (setup.py-based, say) is still found by
-        the package installed from its directory, so it isn't audited as a
-        dependency of itself.
+        A project without one there, such as a setup.py project, is still
+        found by the package installed from its directory, so it isn't audited
+        as a dependency of itself.
         """
         name = get_project_name(config_dir)
         if name == "unknown" and config_dir is not None:
@@ -428,8 +428,8 @@ class LicenseAuditor:
     def _unmapped_classifier_warnings(
         packages: list[PackageLicense], reader: MetadataReader
     ) -> list[ActionItem]:
-        """Warn when a license read from classifiers may not be the whole story:
-        it skipped some of them, or the License field states terms they drop.
+        """Warn when a license read from classifiers may be incomplete: it
+        skipped some of them, or the License field states terms they drop.
         """
         items: list[ActionItem] = []
         for pkg in packages:

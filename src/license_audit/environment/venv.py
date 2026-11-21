@@ -1,4 +1,4 @@
-"""Locate the site-packages of the environment we audit."""
+"""Locate the site-packages of the audited environment."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def reader_for_venv(venv_path: Path) -> MetadataReader:
 
 
 def marker_environment(venv_path: Path, site_packages: Path) -> dict[str, str]:
-    """Marker values for the virtualenv where they can differ from ours.
+    """Marker values where the virtualenv can differ from the running interpreter.
 
     Only the Python version is read, from pyvenv.cfg or else the
     `lib/pythonX.Y` directory name; platform markers are the host's, since a

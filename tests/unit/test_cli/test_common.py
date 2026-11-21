@@ -41,7 +41,7 @@ class TestResolveConfig:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        (tmp_path / "pyproject.toml").write_text('tool = "oops"\n')
+        (tmp_path / "pyproject.toml").write_text('tool = "not a table"\n')
         monkeypatch.chdir(tmp_path)
         with pytest.raises(click.ClickException, match=r"\[tool\] must be a table"):
             resolve_config(_ctx())  # type: ignore[arg-type]

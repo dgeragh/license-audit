@@ -27,18 +27,6 @@ theme:
 plugins:
   - search
   - include-markdown
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [src]
-          options:
-            docstring_style: google
-            show_source: true
-            show_root_heading: true
-            members_order: source
-            merge_init_into_class: true
-            show_signature_annotations: true
-            separate_signature: true
 
 extra:
   version:

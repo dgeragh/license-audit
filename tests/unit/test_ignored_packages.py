@@ -108,7 +108,7 @@ class TestPolicyEngineSkipsIgnored:
 
     def test_check_skips_unknown_on_ignored_package(self) -> None:
         unknown = _pkg(
-            "mystery",
+            "unknown-pkg",
             category=LicenseCategory.UNKNOWN,
             license_expression="UNKNOWN",
             ignored=True,
@@ -156,12 +156,12 @@ class TestAuditorAppliesIgnores:
 
     def test_empty_ignore_map_noop(self) -> None:
         auditor = LicenseAuditor()
-        packages = [_pkg("foo")]
+        packages = [_pkg("requests")]
         auditor._apply_ignores(packages, {})
         assert packages[0].ignored is False
 
     def test_non_matching_name_unchanged(self) -> None:
         auditor = LicenseAuditor()
-        packages = [_pkg("foo")]
-        auditor._apply_ignores(packages, {"bar": "wrong pkg"})
+        packages = [_pkg("requests")]
+        auditor._apply_ignores(packages, {"flask": "Different package"})
         assert packages[0].ignored is False

@@ -21,7 +21,7 @@ class TestUsageErrorsExitOne:
         assert "does not exist" in result.output
 
     def test_unknown_option(self) -> None:
-        result = CliRunner().invoke(cli, ["check", "--bogus"])
+        result = CliRunner().invoke(cli, ["check", "--not-an-option"])
         assert result.exit_code == 1
         assert "No such option" in result.output
 

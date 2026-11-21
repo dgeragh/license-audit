@@ -391,7 +391,7 @@ class TestConfigPropagation:
             "[tool.license-audit.license-classifications]\n"
             '"CC-BY-SA-4.0" = "weak-copyleft"\n',
         )
-        make_venv(tmp_path / ".venv", {"foo": "CC-BY-SA-4.0", "bar": "MIT"})
+        make_venv(tmp_path / ".venv", {"sharealike": "CC-BY-SA-4.0", "plain": "MIT"})
         report = LicenseAuditor().run(target=tmp_path)
         assert report.recommended_licenses[0] == "MIT"
         assert report.policy_passed is True
@@ -410,12 +410,12 @@ class TestConfigPropagation:
         )
         make_venv(
             tmp_path / ".venv",
-            {"foo": "MPL-2.0 AND GPL-3.0-or-later", "bar": "GPL-3.0-or-later"},
+            {"mixed": "MPL-2.0 AND GPL-3.0-or-later", "gpl": "GPL-3.0-or-later"},
         )
         report = LicenseAuditor().run(target=tmp_path)
-        foo = next(p for p in report.packages if p.name == "foo")
-        assert foo.category == LicenseCategory.STRONG_COPYLEFT
-        assert foo.category_overridden is False
+        mixed = next(p for p in report.packages if p.name == "mixed")
+        assert mixed.category == LicenseCategory.STRONG_COPYLEFT
+        assert mixed.category_overridden is False
         assert report.recommended_licenses[:2] == ["GPL-3.0-only", "GPL-3.0-or-later"]
 
     def test_classification_matching_nothing_warns(

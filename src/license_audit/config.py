@@ -72,8 +72,8 @@ class LicenseAuditConfig(BaseModel):
                 "string to a category"
             )
             raise ValueError(msg)  # noqa: TRY004
-        # "unknown" is excluded: the whole point is to *resolve* an unknown,
-        # so re-asserting unknown would be a no-op that still fails policy.
+        # "unknown" is excluded: a classification exists to resolve an
+        # unknown, so re-asserting it would be a no-op that still fails policy.
         valid = sorted(
             c.value for c in LicenseCategory if c is not LicenseCategory.UNKNOWN
         )

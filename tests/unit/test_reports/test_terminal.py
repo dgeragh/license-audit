@@ -251,7 +251,7 @@ class TestNarrowTerminal:
         console = Console(file=buf, width=80, legacy_windows=legacy_windows)
         TerminalRenderer(console=console).render(report)
         output = buf.getvalue()
-        assert "…" not in output
+        assert "\u2026" not in output
         # Reassemble each row's folded cells; a row starts with a new name,
         # and anything before the first one is the header.
         rows: list[list[str]] = []

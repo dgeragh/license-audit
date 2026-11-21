@@ -195,7 +195,7 @@ class TestLicensesRequiringReview:
         assert "UNKNOWN" not in row
 
     def test_multiline_declared_license_collapses_to_one_table_row(self) -> None:
-        # Some packages stuff a whole body into the License field; the table
+        # Some packages put a whole license text in the License field; the table
         # cell must stay single-line or it would break the markdown table.
         report = AnalysisReport(
             project_name="p",
@@ -247,12 +247,12 @@ class TestLicensesRequiringReview:
                 _unrecognized_pkg(
                     declared_license=None,
                     license_text="Some bundled LICENSE file contents",
-                    name="mystery",
+                    name="unknown-pkg",
                 )
             ],
         )
         result = MarkdownRenderer().render(report)
-        assert "### mystery 12.0.0" in result
+        assert "### unknown-pkg 12.0.0" in result
         assert "**License:** not detected" in result
         assert "Some bundled LICENSE file contents" in result
 
@@ -311,7 +311,7 @@ class TestLicensesRequiringReview:
             project_name="p",
             packages=[
                 _unrecognized_pkg(
-                    declared_license="Custom | Weird License", license_text=None
+                    declared_license="Custom | Internal License", license_text=None
                 )
             ],
         )
@@ -323,7 +323,7 @@ class TestLicensesRequiringReview:
         )
         # The pipe is escaped, so it no longer acts as a column delimiter:
         # stripping the escaped form leaves exactly the 6-column structure.
-        assert "Custom \\| Weird License" in table_row
+        assert "Custom \\| Internal License" in table_row
         assert table_row.replace("\\|", "").count("|") == 7  # 6 columns
 
     def test_embedded_fence_in_license_text_does_not_break_block(self) -> None:
@@ -331,7 +331,7 @@ class TestLicensesRequiringReview:
             project_name="p",
             packages=[
                 _unrecognized_pkg(
-                    declared_license="Evil EULA",
+                    declared_license="Vendor EULA",
                     license_text="TERMS\n```\nembedded fence\n```\nmore terms",
                 )
             ],

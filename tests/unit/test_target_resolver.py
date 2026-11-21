@@ -66,7 +66,7 @@ class TestTargetResolver:
 
 
 class TestDefaultTarget:
-    """With no target: the project's .venv, then $VIRTUAL_ENV, then ours."""
+    """With no target: the project's .venv, then $VIRTUAL_ENV, then the running interpreter."""
 
     @pytest.fixture(autouse=True)
     def _no_active_venv(self, monkeypatch: pytest.MonkeyPatch) -> None:

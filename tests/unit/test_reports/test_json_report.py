@@ -59,7 +59,7 @@ class TestJsonRenderer:
     def test_not_detected_package_has_null_declared_license(self) -> None:
         report = AnalysisReport(
             project_name="p",
-            packages=[PackageLicense(name="mystery", version="1.0")],
+            packages=[PackageLicense(name="unknown-pkg", version="1.0")],
         )
         data = json.loads(JsonRenderer().render(report))
         assert data["packages"][0]["declared_license"] is None

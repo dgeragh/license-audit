@@ -55,7 +55,7 @@ _GPL_PKG = PackageLicense(
 )
 
 _UNKNOWN_PKG = PackageLicense(
-    name="mystery-pkg",
+    name="unknown-pkg",
     version="0.1.0",
     license_expression="UNKNOWN",
     license_source=LicenseSource.UNKNOWN,
@@ -165,15 +165,15 @@ class TestCheckFailsPolicyViolation:
                 ActionItem(
                     code=ActionCode.MISSING_DEPENDENCIES,
                     severity="error",
-                    message="Dependencies the project requires aren't installed: ghost.",
+                    message="Dependencies the project requires aren't installed: absent-pkg.",
                 )
             ],
         )
-        report.missing_dependencies = ["ghost"]
+        report.missing_dependencies = ["absent-pkg"]
         with patch("license_audit.cli.check.run_audit", return_value=report):
             result = CliRunner().invoke(cli, ["check", "--no-fail-on-unknown"])
         assert result.exit_code == 1
-        assert "aren't installed: ghost" in result.output
+        assert "aren't installed: absent-pkg" in result.output
         assert _determine_exit_code(report, [], LicenseAuditConfig()) == 1
 
     def test_exit_code_1_on_policy_failed(self) -> None:
@@ -283,7 +283,7 @@ class TestCheckFailsUnknown:
             result = CliRunner().invoke(cli, ["check"])
         assert result.exit_code == 2
         assert "UNKNOWN" in result.output
-        assert "mystery-pkg" in result.output
+        assert "unknown-pkg" in result.output
 
     def test_no_fail_on_unknown_skips_exit_2(self) -> None:
         report = _make_report(packages=[_MIT_PKG, _UNKNOWN_PKG])
@@ -380,7 +380,7 @@ class TestCheckPolicyFlag:
         assert "Invalid value" in result.output
 
     def test_policy_flag_overrides_config(self) -> None:
-        """--policy flag should override whatever is in pyproject.toml."""
+        """--policy overrides the policy set in pyproject.toml."""
         report = _make_report(packages=[_MIT_PKG])
         with patch("license_audit.cli.check.run_audit", return_value=report) as mock:
             result = CliRunner().invoke(cli, ["--policy", "network-copyleft", "check"])
@@ -440,7 +440,7 @@ class TestCheckIgnoredPackages:
 
     def test_ignored_unknown_does_not_trigger_exit_2(self) -> None:
         ignored_unknown = PackageLicense(
-            name="mystery-pkg",
+            name="unknown-pkg",
             version="0.1.0",
             license_expression="UNKNOWN",
             license_source=LicenseSource.UNKNOWN,

@@ -151,30 +151,6 @@ class TestParseExpression:
         assert SpdxNormalizer().parse_expression("MIT OR ( AND BSD") is None
 
 
-class TestGetSimpleLicenses:
-    def test_single(self) -> None:
-        assert SpdxNormalizer().get_simple_licenses("MIT") == ["MIT"]
-
-    def test_or_expression(self) -> None:
-        result = SpdxNormalizer().get_simple_licenses("MIT OR Apache-2.0")
-        assert "MIT" in result
-        assert "Apache-2.0" in result
-
-    def test_unparseable(self) -> None:
-        assert SpdxNormalizer().get_simple_licenses("garbage!!!") == ["garbage!!!"]
-
-    def test_with_clause_kept_intact(self) -> None:
-        result = SpdxNormalizer().get_simple_licenses(
-            "MIT AND Apache-2.0 WITH LLVM-exception",
-        )
-        assert "MIT" in result
-        assert "Apache-2.0 WITH LLVM-exception" in result
-
-    def test_deprecated_id_promoted(self) -> None:
-        result = SpdxNormalizer().get_simple_licenses("GPL-2.0 AND MIT")
-        assert set(result) == {"GPL-2.0-only", "MIT"}
-
-
 class TestKnownSpdxIds:
     def test_contains_matrix_and_aliases(self) -> None:
         ids = SpdxNormalizer().known_spdx_ids()
