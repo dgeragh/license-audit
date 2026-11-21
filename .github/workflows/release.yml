@@ -43,7 +43,7 @@ jobs:
           path: notes.md
 
   release:
-    needs: [ci, notes]
+    needs: publish
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -52,14 +52,20 @@ jobs:
         with:
           name: notes
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
         with:
           body_path: notes.md
+          files: dist/*
           generate_release_notes: false
 
   publish:
-    needs: release
+    needs: [ci, notes]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
