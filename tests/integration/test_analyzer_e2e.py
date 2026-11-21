@@ -287,7 +287,7 @@ class TestConfigPropagation:
         tmp_path: Path,
         make_venv: VenvBuilder,
     ) -> None:
-        """EUPL-1.1, Apache-2.0, and PSF-2.0 pair up fine, but no outbound
+        """EUPL-1.1, Apache-2.0, and MPL-1.1 pair up fine, but no outbound
         license satisfies all three, so the check fails on the group."""
         _write_pyproject(
             tmp_path / "pyproject.toml",
@@ -296,12 +296,12 @@ class TestConfigPropagation:
         )
         make_venv(
             tmp_path / ".venv",
-            {"eupl": "EUPL-1.1", "requests": "Apache-2.0", "typing-ext": "PSF-2.0"},
+            {"eupl": "EUPL-1.1", "requests": "Apache-2.0", "xmpl": "MPL-1.1"},
         )
         report = LicenseAuditor().run(target=tmp_path)
         assert report.incompatible_pairs == []
         assert [g.licenses for g in report.incompatible_groups] == [
-            ["EUPL-1.1", "Apache-2.0", "PSF-2.0"],
+            ["EUPL-1.1", "Apache-2.0", "MPL-1.1"],
         ]
         assert report.recommended_licenses == []
         assert report.review_licenses == []
@@ -485,6 +485,28 @@ class TestConfigPropagation:
         assert not {"GPL-2.0-only", "GPL-3.0-only", "AGPL-3.0-only"} & set(
             report.recommended_licenses
         )
+
+    def test_cc_by_sa_3_beside_copyleft_withholds(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+    ) -> None:
+        """OSADL categorizes CC-BY-SA-3.0 as weak copyleft without rating its
+        compatibility, so nothing checks it against the GPL outbound license."""
+        _write_pyproject(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "x"\nversion = "0.0.1"\n'
+            '[tool.license-audit]\npolicy = "strong-copyleft"\n',
+        )
+        make_venv(
+            tmp_path / ".venv", {"sharealike": "CC-BY-SA-3.0", "gpl": "GPL-3.0-only"}
+        )
+        report = LicenseAuditor().run(target=tmp_path)
+        sharealike = next(p for p in report.packages if p.name == "sharealike")
+        assert sharealike.category == LicenseCategory.WEAK_COPYLEFT
+        assert report.policy_passed is True
+        assert report.recommended_licenses == []
+        assert report.review_licenses == []
 
     def test_network_copyleft_license_the_matrix_leaves_out_withholds(
         self,

@@ -64,7 +64,7 @@ Recommended Outbound Licenses (most -> least permissive):
      BSD-2-Clause
      BSD-3-Clause
      ISC
-  ... and 111 more
+  ... and 110 more
 
 ──────────────────────────────── Summary ───────────────────────────────
   Total dependencies: 3

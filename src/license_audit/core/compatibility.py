@@ -202,7 +202,7 @@ class CompatibilityMatrix:
         """A conflict no incompatible pair accounts for.
 
         Every pair of dependencies can share an outbound license, yet none
-        satisfies them all (EUPL-1.1, Apache-2.0, and PSF-2.0), or a
+        satisfies them all (EUPL-1.1, Apache-2.0, and MPL-1.1), or a
         dual-licensed dependency can't be satisfied under any alternative.
         Returns one group whose every member is needed for the conflict, or
         nothing when an outbound license satisfies every dependency or a pair

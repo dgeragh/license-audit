@@ -42,7 +42,7 @@ Version history:
 | Field | Type | Description |
 |---|---|---|
 | `origin` | string | `bundled` for the data shipped with license-audit, `refreshed` for the copy `license-audit refresh` saved; an audit uses whichever is newer |
-| `timestamp` | string | When OSADL published the data, as recorded in it (`2026-02-12T16:31:00+0000`) |
+| `timestamp` | string | When OSADL published the data, as recorded in it (`2026-10-22T15:26:00+0000`) |
 
 ## PackageLicense
 

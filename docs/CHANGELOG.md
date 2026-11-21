@@ -23,6 +23,7 @@
 - `[tool.license-audit]` keys must be spelled in kebab-case, as documented. `fail_on_unknown` was accepted too, and with both spellings present the later one silently won
 - `fail-on-unknown` takes a TOML boolean; `"no"`, `"false"`, and `0` read as `false` before
 - The JSON Schema lists the two values of an action item's `severity`, `warning` and `error`, instead of allowing any string
+- The bundled OSADL data is the 2026-10-22 release. Apache-2.0 code in a GPL-1.0-or-later or GPL-2.0-or-later work is "Check dependency" instead of "No", so dependencies that only fit together under GPL-2.0-or-later, such as EUPL-1.1, Apache-2.0, and PSF-2.0, pass `check` with GPL-2.0-or-later listed for review instead of failing. CC-BY-SA-3.0 is weak-copyleft instead of unknown, CDLA-Permissive-2.0 and OLFL-1.3 are permissive, and CC-BY-2.5 and CC-BY-3.0 stay permissive but leave the compatibility matrix
 
 ### Removed
 
