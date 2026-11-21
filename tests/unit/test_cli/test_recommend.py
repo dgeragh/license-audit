@@ -10,6 +10,7 @@ from license_audit.cli.main import cli
 from license_audit.core.models import (
     ActionCode,
     AnalysisReport,
+    IncompatiblePair,
     LicenseCategory,
     LicenseSource,
     OsadlData,
@@ -68,6 +69,9 @@ class TestRecommendCli:
             packages=[_GPL_PKG],
             recommended_licenses=[],
         )
+        report.incompatible_pairs = [
+            IncompatiblePair(license_a="GPL-3.0-only", license_b="CDDL-1.0")
+        ]
         with patch("license_audit.cli.recommend.run_audit", return_value=report) as _m:
             result = CliRunner().invoke(cli, ["recommend"])
         assert result.exit_code == 0

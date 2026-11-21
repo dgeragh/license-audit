@@ -230,6 +230,37 @@ class TestInbound:
         )
 
 
+class TestClassifiedCategories:
+    def test_whole_expression(self) -> None:
+        overrides = {"cc-by-sa-4.0": LicenseCategory.WEAK_COPYLEFT}
+        assert ExpressionEvaluator().classified_categories(
+            "CC-BY-SA-4.0", overrides
+        ) == {LicenseCategory.WEAK_COPYLEFT}
+
+    def test_component_relied_on(self) -> None:
+        overrides = {"cc-by-sa-4.0": LicenseCategory.WEAK_COPYLEFT}
+        assert ExpressionEvaluator().classified_categories(
+            "CC-BY-SA-4.0 AND GPL-2.0-only", overrides
+        ) == {LicenseCategory.WEAK_COPYLEFT}
+
+    def test_component_of_an_alternative_not_relied_on(self) -> None:
+        # inbound uses the MIT alternative while one without a deemed
+        # non-permissive component remains.
+        overrides = {"cc-by-sa-4.0": LicenseCategory.WEAK_COPYLEFT}
+        assert (
+            ExpressionEvaluator().classified_categories(
+                "CC-BY-SA-4.0 OR MIT", overrides
+            )
+            == set()
+        )
+
+    def test_unknown_license(self) -> None:
+        assert ExpressionEvaluator().classified_categories(UNKNOWN_LICENSE) == set()
+
+    def test_nothing_classified(self) -> None:
+        assert ExpressionEvaluator().classified_categories("MIT") == set()
+
+
 class TestClassify:
     def test_single_permissive(self) -> None:
         assert ExpressionEvaluator().classify("MIT") == LicenseCategory.PERMISSIVE

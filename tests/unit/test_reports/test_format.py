@@ -366,9 +366,12 @@ class TestExplainNoRecommendation:
                 PackageLicense(
                     name="gpl-pkg",
                     version="1.0",
-                    license_expression="GPL-3.0-only",
+                    license_expression="GPL-2.0-only",
                     category=LicenseCategory.STRONG_COPYLEFT,
                 )
+            ],
+            incompatible_pairs=[
+                IncompatiblePair(license_a="GPL-2.0-only", license_b="Apache-2.0")
             ],
         )
         explanation = explain_no_recommendation(report)
@@ -376,6 +379,33 @@ class TestExplainNoRecommendation:
         assert explanation.reason is NoRecommendationReason.NO_COMMON_LICENSE
         assert explanation.headline == "No compatible outbound license found"
         assert "override" in explanation.detail
+
+    def test_unchecked_license_branch(self) -> None:
+        # No conflict, yet nothing to recommend: a license the data can't
+        # check rules out the copyleft outbound license gpl-pkg needs.
+        report = AnalysisReport(
+            packages=[
+                PackageLicense(
+                    name="gpl-pkg",
+                    version="1.0",
+                    license_expression="GPL-3.0-only",
+                    category=LicenseCategory.STRONG_COPYLEFT,
+                ),
+                PackageLicense(
+                    name="mit-pkg",
+                    version="1.0",
+                    license_expression="MIT",
+                    category=LicenseCategory.PERMISSIVE,
+                ),
+            ],
+        )
+        explanation = explain_no_recommendation(report)
+        assert explanation is not None
+        assert explanation.reason is NoRecommendationReason.UNCHECKED_LICENSE
+        assert explanation.headline == "Cannot recommend a license"
+        assert "1 dependency(ies) need" in explanation.detail
+        assert "(gpl-pkg)" in explanation.detail
+        assert "license-classifications" in explanation.detail
 
     def test_unknown_wins_over_deemed(self) -> None:
         report = AnalysisReport(

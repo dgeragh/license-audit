@@ -95,6 +95,7 @@ class NoRecommendationReason(StrEnum):
     UNKNOWN_LICENSES = "unknown-licenses"
     DEEMED_CONSTRAINT = "deemed-constraint"
     NEEDS_REVIEW = "needs-review"
+    UNCHECKED_LICENSE = "unchecked-license"
     NO_COMMON_LICENSE = "no-common-license"
 
 
@@ -173,7 +174,29 @@ def explain_no_recommendation(
             ),
         )
 
-    # Reached only with an incompatible pair or group: whatever the check
+    copyleft = [
+        p.name
+        for p in report.packages
+        if not p.ignored and p.category in CompatibilityMatrix.WORK_SCOPED
+    ]
+    if copyleft and not report.incompatible_pairs and not report.incompatible_groups:
+        # With no conflict, nothing is left only when a license the data can't
+        # check rules out the copyleft outbound licenses these need.
+        return NoRecommendationExplanation(
+            reason=NoRecommendationReason.UNCHECKED_LICENSE,
+            headline="Cannot recommend a license",
+            detail=(
+                f"{len(copyleft)} dependency(ies) need a strong- or "
+                f"network-copyleft outbound license ({', '.join(copyleft)}), but "
+                "a license classified in "
+                "[tool.license-audit.license-classifications] is excluded from "
+                "compatibility analysis, so it can't be checked against one. "
+                "Remove the classification, or assert a genuine SPDX license via "
+                "[tool.license-audit.overrides], if you need recommendations."
+            ),
+        )
+
+    # Reached only with an incompatible pair or group: whatever else the check
     # allows is listed above, as recommended or review licenses.
     return NoRecommendationExplanation(
         reason=NoRecommendationReason.NO_COMMON_LICENSE,

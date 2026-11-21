@@ -211,8 +211,8 @@ class LicenseAuditor:
         ]
         dep_licenses = [p.license_expression for p in active_packages]
         # Deemed ids (keyed by a whole expression or a component) raise no
-        # conflicts and impose no outbound constraint; a deemed-restrictive
-        # one is handled by the `has_deemed_constraint` gate below.
+        # conflicts and impose no outbound constraint; recommendations rest on
+        # their category instead, below.
         inbound = [
             unit
             for expr in dep_licenses
@@ -222,14 +222,25 @@ class LicenseAuditor:
         has_unknown = any(
             p.category == LicenseCategory.UNKNOWN for p in active_packages
         )
-        has_deemed_constraint = any(
-            p.category_overridden
-            and p.category not in CompatibilityMatrix.LIBRARY_SCOPED
-            for p in active_packages
+        # What a deemed category guarantees: a permissive license constrains
+        # no outbound license, and a weak-copyleft one no permissive or
+        # weak-copyleft one. Nothing vouches for an outbound license beside a
+        # stronger one.
+        classified = {p.category for p in active_packages if p.category_overridden}
+        classified.update(
+            category
+            for expr in dep_licenses
+            for category in self._expression.classified_categories(expr, deemed)
         )
+        has_deemed_constraint = bool(classified - CompatibilityMatrix.LIBRARY_SCOPED)
+        library_scoped = LicenseCategory.WEAK_COPYLEFT in classified
         withheld = has_unknown or has_deemed_constraint or bool(missing)
         recommended = (
-            [] if withheld else self._recommender.recommend(dep_licenses, deemed)
+            []
+            if withheld
+            else self._limit(
+                self._recommender.recommend(dep_licenses, deemed), library_scoped
+            )
         )
         # Only when nothing is a definite fit, so recommendations, review
         # licenses, and conflicts never contradict each other: exactly one
@@ -237,7 +248,9 @@ class LicenseAuditor:
         review = (
             []
             if withheld or recommended
-            else self._recommender.review(dep_licenses, deemed)
+            else self._limit(
+                self._recommender.review(dep_licenses, deemed), library_scoped
+            )
         )
         incompatible = self._matrix.find_incompatible_pairs(inbound)
         groups = self._matrix.find_incompatible_groups(inbound)
@@ -284,6 +297,16 @@ class LicenseAuditor:
         if name == "unknown" and config_dir is not None:
             return reader.installed_from(config_dir) or name
         return name
+
+    def _limit(self, licenses: list[str], library_scoped: bool) -> list[str]:
+        """`licenses`, only the permissive and weak-copyleft ones if `library_scoped`."""
+        if not library_scoped:
+            return licenses
+        return [
+            lic
+            for lic in licenses
+            if self._classifier.classify(lic) in CompatibilityMatrix.LIBRARY_SCOPED
+        ]
 
     @staticmethod
     def _missing_dependency_errors(missing: list[str]) -> list[ActionItem]:

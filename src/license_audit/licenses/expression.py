@@ -104,16 +104,9 @@ class ExpressionEvaluator:
         overrides = overrides or {}
         if expr == UNKNOWN_LICENSE or normalize_license_key(expr) in overrides:
             return []
-        candidates = [
-            list(dict.fromkeys(alt)) for alt in self.alternatives(expr) if alt
-        ]
-        usable = [
-            alt for alt in candidates if not self._deems_restrictive(alt, overrides)
-        ] or candidates
-        known = [alt for alt in usable if not self._has_unknown(alt, overrides)]
         alternatives = [
             [lic for lic in alt if normalize_license_key(lic) not in overrides]
-            for alt in known or usable
+            for alt in self._relied_alternatives(expr, overrides)
         ]
         if not alternatives or not all(alternatives):
             return []
@@ -127,6 +120,28 @@ class ExpressionEvaluator:
         if all(remainder):
             units.append(Inbound(tuple(remainder)))
         return units
+
+    def classified_categories(
+        self, expr: str, overrides: CategoryOverrides | None = None
+    ) -> set[LicenseCategory]:
+        """Categories of the overridden components `inbound` drops from `expr`.
+
+        A classification of the whole expression counts too. The compatibility
+        check doesn't check these, so an outbound license can rest only on what
+        their category guarantees.
+        """
+        overrides = overrides or {}
+        if expr == UNKNOWN_LICENSE:
+            return set()
+        whole = overrides.get(normalize_license_key(expr))
+        if whole is not None:
+            return {whole}
+        return {
+            overrides[key]
+            for alt in self._relied_alternatives(expr, overrides)
+            for lic in alt
+            if (key := normalize_license_key(lic)) in overrides
+        }
 
     def unknown_components(self, expr: str) -> list[str]:
         """Ids in the chosen alternative that classify as UNKNOWN."""
@@ -192,6 +207,19 @@ class ExpressionEvaluator:
                 continue
             return True
         return False
+
+    def _relied_alternatives(
+        self, expr: str, overrides: CategoryOverrides
+    ) -> list[list[str]]:
+        """The alternatives `inbound` relies on, overridden components included."""
+        candidates = [
+            list(dict.fromkeys(alt)) for alt in self.alternatives(expr) if alt
+        ]
+        usable = [
+            alt for alt in candidates if not self._deems_restrictive(alt, overrides)
+        ] or candidates
+        known = [alt for alt in usable if not self._has_unknown(alt, overrides)]
+        return known or usable
 
     @staticmethod
     def _deems_restrictive(alt: list[str], overrides: CategoryOverrides) -> bool:
