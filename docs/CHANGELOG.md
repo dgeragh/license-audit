@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- OSADL data that isn't shaped like the compatibility matrix or copyleft table, such as a refreshed copy in another format, is rejected with an error instead of being read as no data. A cached matrix in another shape made `check` pass a GPL-2.0-only and Apache-2.0 conflict
+
 ## 0.15.1 (2026-11-16)
 
 ### Changed

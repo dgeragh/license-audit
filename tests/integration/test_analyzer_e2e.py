@@ -736,6 +736,34 @@ class TestConfigPropagation:
         assert report.policy_passed is False
 
 
+class TestOSADLData:
+    def test_malformed_cache_fails_instead_of_hiding_conflicts(
+        self,
+        tmp_path: Path,
+        make_venv: VenvBuilder,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        cache = tmp_path / "cache" / "osadl"
+        cache.mkdir(parents=True)
+        (cache / "osadl_matrix.json").write_text(
+            json.dumps(
+                {
+                    "timestamp": "2027-01-01T00:00:00+0000",
+                    "licenses": {"MIT": {"MIT": "Same"}},
+                }
+            )
+        )
+        monkeypatch.setattr(
+            "license_audit._data.store.platformdirs.user_cache_dir",
+            lambda *_: str(cache.parent),
+        )
+        venv = make_venv(
+            tmp_path / ".venv", {"gpl2": "GPL-2.0-only", "apache": "Apache-2.0"}
+        )
+        with pytest.raises(ValueError, match="not valid OSADL data"):
+            LicenseAuditor().run(target=venv)
+
+
 class TestRequiredDependencies:
     """A dependency the project requires but the environment lacks fails the
     audit: it usually means the wrong environment was audited."""
