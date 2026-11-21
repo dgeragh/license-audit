@@ -60,3 +60,25 @@ jobs:
           python-version: "3.13"
       - run: uv sync --locked --all-groups
       - run: uv run mkdocs build --strict
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+      - run: uv build
+      - run: |
+          uv venv "$RUNNER_TEMP/wheel"
+          uv pip install --python "$RUNNER_TEMP/wheel" dist/*.whl
+          "$RUNNER_TEMP/wheel/bin/license-audit" --version
+      - run: uv sync --locked --all-groups
+      - run: '"$RUNNER_TEMP/wheel/bin/license-audit" check'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
